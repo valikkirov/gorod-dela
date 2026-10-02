@@ -26,6 +26,7 @@ const REASON_SHORT: Record<RejectReason, string> = {
   queue: 'очередь',
   'no-time': 'не дождался',
   mood: 'не сегодня',
+  'out-of-stock': 'кончилось',
 };
 
 const FONT = 'Inter, system-ui, sans-serif';

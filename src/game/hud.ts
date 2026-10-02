@@ -18,6 +18,7 @@ import {
   WEEKDAY_SHORT,
   weekday,
 } from '../sim/clock';
+import { INGREDIENTS, orderPrice, RECIPES, type IngredientId } from '../sim/stock';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
 import { ECONOMY, formatMoney } from '../sim/economy';
@@ -33,6 +34,7 @@ const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
 
 type View = 'cafe' | 'resident' | 'report';
+type CafeTab = 'overview' | 'menu' | 'stock' | 'staff';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -66,6 +68,7 @@ const REASON_HINT: Record<RejectReason, string> = {
   'no-item': `Не${NB}нашли нужного в${NB}меню`,
   queue: `Не${NB}стали стоять в${NB}очереди — нужен бариста`,
   'no-time': `Не${NB}дождались заказа и${NB}ушли`,
+  'out-of-stock': `Позиция закончилась на${NB}складе. Гость ушёл недовольным — закажи больше или подними автозаказ`,
   mood: `Цена и${NB}дорога устраивали, но${NB}не${NB}каждый день хочется в${NB}кафе. Постоянные гости заходят чаще`,
 };
 
@@ -86,6 +89,7 @@ export class Hud {
   private readonly cash = $('#cash');
   private readonly panel = $('#panel');
   private catalogOpen = false;
+  private tab: CafeTab = 'overview';
 
   constructor(
     private readonly sim: Simulation,
@@ -177,6 +181,25 @@ export class Hud {
       case 'toggle-catalog':
         this.catalogOpen = !this.catalogOpen;
         break;
+      case 'tab':
+        this.tab = item as CafeTab;
+        this.panel.scrollTop = 0;
+        break;
+      case 'order':
+        sim.orderIngredient(item as IngredientId, Number(btn.dataset.qty));
+        break;
+      case 'cancel-order':
+        sim.cancelOrder(item as IngredientId);
+        break;
+      case 'keep-up':
+      case 'keep-down': {
+        const weekend = btn.dataset.weekend === 'true';
+        const st = sim.cafe.stock;
+        const cur = (weekend ? st.keepWeekend : st.keep)[item as IngredientId];
+        const step = Number(btn.dataset.step) * (action === 'keep-up' ? 1 : -1);
+        sim.setKeep(item as IngredientId, cur + step, weekend);
+        break;
+      }
       case 'hire-shift':
         sim.hireBarista('shift');
         break;
@@ -277,10 +300,11 @@ export class Hud {
     const items = cafe.menu
       .map((m) => {
         this.live[`sold-${m.id}`] = String(today.sold[m.id] ?? 0);
+        this.live[`oos-${m.id}`] = cafe.stock.canMake(m.id) ? '' : ` · нет в${NB}наличии`;
         return `
         <li>
           <div class="grow"><b>${m.name}</b>
-            <small>себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span></small></div>
+            <small>себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span><span class="oos" data-live="oos-${m.id}"></span></small></div>
           <div class="stepper">
             <button data-action="price-down" data-item="${m.id}" aria-label="Дешевле">−</button>
             <span>${money(m.price)}</span>
@@ -353,24 +377,43 @@ export class Hud {
       .join('');
     const last = this.sim.reports.at(-1);
 
-    return `
-      <div class="row head"><b>Твоё кафе</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
+    const tabs: [CafeTab, string][] = [
+      ['overview', 'Обзор'],
+      ['menu', 'Меню'],
+      ['stock', 'Склад'],
+      ['staff', 'Персонал'],
+    ];
+    const tabBar = `<nav class="tabs">${tabs
+      .map(([id, label]) => `<button data-action="tab" data-item="${id}" class="${this.tab === id ? 'active' : ''}">${label}</button>`)
+      .join('')}</nav>`;
+
+    let body = '';
+    if (this.tab === 'overview') {
+      this.live['stock-warn'] = this.stockWarning();
+      body = `
       <div class="kpis">
         <div><small>Гостей сегодня</small><b data-live="guests"></b></div>
         <div><small>Выручка</small><b data-live="revenue"></b></div>
         <div><small>В${NB}кафе сейчас</small><b data-live="queue"></b></div>
       </div>
-      <h4>Меню и${NB}цены · ${cafe.menu.length}${NB}из${NB}${MAX_MENU}</h4>
-      <ul class="menu">${items}</ul>
-      <button class="secondary" data-action="toggle-catalog">${this.catalogOpen ? 'Скрыть каталог' : `Изменить меню${full ? ` — мест нет, сначала убери позицию` : ''}`}</button>
-      <div class="catalog-wrap">${catalog}</div>
+      <p class="hint-line" data-live="stock-warn"></p>
       <h4>Часы работы</h4>
       <div class="row hours">
         <select data-action="open-at" aria-label="Открытие">${opt(OPEN_OPTIONS, cafe.openAt)}</select>
         <span>—</span>
         <select data-action="close-at" aria-label="Закрытие">${closeOpt}</select>
       </div>
-      <h4>За${NB}стойкой</h4>
+      ${last ? `<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}`;
+    } else if (this.tab === 'menu') {
+      body = `
+      <h4>Меню и${NB}цены · ${cafe.menu.length}${NB}из${NB}${MAX_MENU}</h4>
+      <ul class="menu">${items}</ul>
+      <button class="secondary" data-action="toggle-catalog">${this.catalogOpen ? 'Скрыть каталог' : `Изменить меню${full ? ` — мест нет, сначала убери позицию` : ''}`}</button>
+      <div class="catalog-wrap">${catalog}</div>`;
+    } else if (this.tab === 'stock') {
+      body = this.stockTab();
+    } else {
+      body = `
       <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}4${NB}мин на${NB}гостя. С${NB}бариста — 2${NB}мин, и${NB}обслуживают параллельно.</small>
       <ul class="menu staff">${staffRows}</ul>
       ${
@@ -382,8 +425,69 @@ export class Hud {
       <small>Смена — до${NB}${ECONOMY.shiftHours}${NB}часов с${NB}открытия, платишь всю сумму. Почасового вызываешь и${NB}отпускаешь сам.</small>`
           : ''
       }
-      <p class="wages">Сегодня на${NB}зарплату: <b data-live="wages"></b> <small>ночью (22:00–6:00) +20${NB}%</small></p>
-      ${last ? `<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}`;
+      <p class="wages">Сегодня на${NB}зарплату: <b data-live="wages"></b> <small>ночью (22:00–6:00) +20${NB}%</small></p>`;
+    }
+
+    return `
+      <div class="row head"><b>Твоё кафе</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
+      ${tabBar}
+      ${body}`;
+  }
+
+  /** Что кончается или испортится — подсказка на обзоре */
+  private stockWarning(): string {
+    const { stock, menu } = this.sim.cafe;
+    const cant = menu.filter((m) => !stock.canMake(m.id)).map((m) => m.name);
+    if (cant.length) return `⚠ Нет в${NB}наличии: ${cant.join(', ')}. Закажи на${NB}складе`;
+    return 'Склад в порядке';
+  }
+
+  private stockTab(): string {
+    const { stock } = this.sim.cafe;
+    const day = dayNumber(this.sim.time);
+    const used = new Set<IngredientId>();
+    for (const m of this.sim.cafe.menu) for (const id of Object.keys(RECIPES[m.id] ?? {}) as IngredientId[]) used.add(id);
+    const rows = INGREDIENTS.map((ing) => {
+      const q = stock.qty(ing.id);
+      const exp = ing.shelfDays === null ? 0 : stock.expiringToday(ing.id, day);
+      const pend = stock.pending[ing.id] ?? 0;
+      this.live[`st-${ing.id}`] = `${Math.floor(q)}`;
+      this.live[`stx-${ing.id}`] =
+        [exp > 0 ? `испортится сегодня: ${Math.round(exp)}` : '', pend > 0 ? `едет к${NB}6:00: ${pend}` : '']
+          .filter(Boolean)
+          .join(' · ') || ' ';
+      const step = ing.id === 'bakery' ? 2 : 5;
+      const keep = (weekend: boolean) => {
+        const v = weekend ? stock.keepWeekend[ing.id] : stock.keep[ing.id];
+        return `<div class="stepper mini">
+          <button data-action="keep-down" data-item="${ing.id}" data-weekend="${weekend}" data-step="${step}" aria-label="Меньше">−</button>
+          <span>${v}</span>
+          <button data-action="keep-up" data-item="${ing.id}" data-weekend="${weekend}" data-step="${step}" aria-label="Больше">+</button>
+        </div>`;
+      };
+      const life = ing.shelfDays === null ? `не${NB}портится` : `хранится ${ing.shelfDays}${NB}дн.`;
+      return `<li class="${used.has(ing.id) ? '' : 'unused'}">
+        <div class="row"><div class="grow"><b>${ing.name}</b>
+          <small>${life} · ${money(ing.unitCost)} за${NB}порцию${used.has(ing.id) ? '' : ` · не${NB}нужно для${NB}меню`}</small></div>
+          <div class="qty"><b data-live="st-${ing.id}"></b><small>порц.</small></div></div>
+        <small class="exp" data-live="stx-${ing.id}"></small>
+        <div class="row keep"><small>Держать: будни</small>${keep(false)}<small>вых.</small>${keep(true)}</div>
+        <div class="row orders">
+          ${[20, 100, 300]
+            .map(
+              (n) =>
+                `<button class="small" data-action="order" data-item="${ing.id}" data-qty="${n}">+${n} · ${money(orderPrice(ing.id, n))}</button>`,
+            )
+            .join('')}
+          <button class="icon" data-action="cancel-order" data-item="${ing.id}" aria-label="Отменить заказ">✕</button>
+        </div>
+      </li>`;
+    }).join('');
+    return `
+      <small>Поставщик привозит заказ в${NB}6:00. Опт: от${NB}100${NB}порций −10${NB}%, от${NB}300 — −20${NB}%.
+        Скоропорт в${NB}конце срока списывается. Автозаказ каждую ночь добирает склад до${NB}уровня «держать» —
+        отдельно на${NB}будни и${NB}выходные.</small>
+      <ul class="menu stock">${rows}</ul>`;
   }
 
   private reportView(r: DayReport): string {
@@ -402,6 +506,9 @@ export class Hud {
       .filter((m) => r.sold[m.id])
       .map((m) => `<li><span>${m.name}</span><b>${r.sold[m.id]}</b></li>`)
       .join('');
+    const spoiled = (Object.entries(r.writtenOffItems) as [IngredientId, number][])
+      .map(([id, q]) => `${INGREDIENTS.find((i) => i.id === id)!.name.toLowerCase()} ${q}`)
+      .join(', ');
     const next = r.day + 1;
     const forecast = r.forecast
       ? `<div class="forecast"><small>Завтра · ${WEEKDAY_FULL[weekday(next)]}</small>
@@ -426,14 +533,17 @@ export class Hud {
         r.opened
           ? `<table class="pnl">
         ${row('Выручка', r.revenue)}
-        ${row('Продукты', -r.cogs)}
+        ${row('Закупка продуктов', -r.purchases)}
         ${row('Аренда', -r.rent)}
         ${row('Коммуналка', -r.utilities)}
         ${r.wages ? row('Зарплата', -r.wages) : ''}
         ${row(`Налог 6${NB}%`, -r.tax)}
         ${row('Итог дня', r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
         ${row('В кассе', r.cashAfter, 'cash')}
-      </table>`
+      </table>
+      <small>Себестоимость проданного: ${money(r.cogs)}${
+        r.writtenOff ? ` · списано (испортилось): ${money(r.writtenOff)} — ${spoiled}` : ''
+      }</small>`
           : ''
       }
       ${missed ? `<h4>Не${NB}зашли — почему</h4><ul class="reasons">${missed}</ul>` : ''}

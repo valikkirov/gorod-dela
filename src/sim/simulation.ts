@@ -4,6 +4,7 @@ import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY } from './economy';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
 import { Rng } from './rng';
+import { INGREDIENTS, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
 import { rollWeather, type Weather } from './weather';
 import {
   clampSidewalkY,
@@ -16,6 +17,8 @@ import {
 
 /** Шаг симуляции в игровых минутах. Мелкий — чтобы движение было плавным. */
 const STEP = 0.2;
+/** Когда поставщик привозит заказ */
+const DELIVERY_AT = hm(6);
 /** Дольше этого житель не ждёт заказ и уходит по делам */
 const PATIENCE = 30;
 
@@ -23,6 +26,7 @@ export type SimEvent =
   | { type: 'sale'; residentId: number; price: number; itemId: string }
   | { type: 'reject'; residentId: number; reason: RejectReason }
   | { type: 'day'; report: DayReport }
+  | { type: 'delivery'; cost: number }
   | { type: 'bankrupt' };
 
 /** Ядро симуляции. Не знает ничего об отрисовке — этот же код
@@ -71,6 +75,13 @@ export class Simulation {
     if (this.cafe.opened || this.bankrupt || this.cash < ECONOMY.cafeOpeningCost) return false;
     this.cash -= ECONOMY.cafeOpeningCost;
     this.cafe.opened = true;
+    // Стартовая закупка входит в стоимость открытия; автозаказ включён на тех же уровнях
+    for (const ing of INGREDIENTS) {
+      const qty = STARTER_KEEP[ing.id];
+      this.cafe.stock.keep[ing.id] = qty;
+      this.cafe.stock.keepWeekend[ing.id] = STARTER_KEEP_WEEKEND[ing.id];
+      if (qty > 0) this.cafe.stock.addNow(ing.id, qty, this.day, ing.unitCost);
+    }
     return true;
   }
 
@@ -139,12 +150,16 @@ export class Simulation {
 
   private step(dt: number): void {
     const wasOpen = this.cafe.isOpenAt(this.minute);
+    const before = this.minute;
     this.time += dt;
     const minute = this.minute;
 
     const today = dayNumber(this.time);
     if (today !== this.day) this.closeDay(today);
     if (this.bankrupt) return;
+
+    // Поставщик привозит заказы в 6:00
+    if (before < DELIVERY_AT && minute >= DELIVERY_AT) this.receiveDelivery();
 
     if (wasOpen && !this.cafe.isOpenAt(minute)) {
       // Закрылись — недообслуженные уходят
@@ -160,7 +175,9 @@ export class Simulation {
       if (r.walking) this.walk(r, dt);
     }
 
-    for (const sale of this.cafe.tick(dt, minute)) this.onSale(sale.residentId, sale.price, sale.itemId);
+    const { sales, failed } = this.cafe.tick(dt, minute);
+    for (const sale of sales) this.onSale(sale.residentId, sale.price, sale.itemId);
+    for (const id of failed) this.runOut(this.residents[id]);
   }
 
   // ——— Жители и кафе ———
@@ -171,7 +188,7 @@ export class Simulation {
     r.activity = entry.activity;
     if (r.visit) this.dropVisit(r, 'no-time');
 
-    const want = rollWant(this.rng, r, entry, prev, this.weather.kind);
+    const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day));
     if (want && this.decide(r, want, entry)) {
       this.goTo(r, 'cafe');
       return;
@@ -222,6 +239,14 @@ export class Simulation {
     const v = r.visit;
     if (r.placeId !== 'cafe' || v?.stage !== 'going') return;
     if (!this.cafe.isOpenAt(this.minute)) return this.dropVisit(r, 'closed');
+    // Пришёл, а нужного нет: берёт замену, если есть, иначе уходит недовольным
+    if (!this.cafe.stock.canMake(v.itemId)) {
+      const available = this.cafe.menu.filter((m) => this.cafe.stock.canMake(m.id));
+      const alt = evaluate(r, v.want, available, r.pos, r.pos, r.pos, this.weather.kind).item;
+      if (!alt) return this.runOut(r);
+      v.itemId = alt.id;
+      if (r.decision) r.decision = { ...r.decision, itemId: alt.id, price: alt.price };
+    }
     if (this.cafe.busy >= MAX_QUEUE || !this.cafe.join(r.id, v.itemId)) {
       r.loyalty = Math.max(0, r.loyalty - 0.1);
       return this.dropVisit(r, 'queue');
@@ -231,8 +256,7 @@ export class Simulation {
 
   private onSale(residentId: number, price: number, itemId: string): void {
     const r = this.residents[residentId];
-    const cost = this.cafe.item(itemId).cost;
-    this.cash += price - cost; // выручка минус закупка продуктов
+    this.cash += price; // продукты уже оплачены при закупке
     r.loyalty = Math.min(0.4, r.loyalty + 0.1);
     if (r.visit) {
       r.visit.stage = 'dining';
@@ -262,6 +286,36 @@ export class Simulation {
     if (r.placeId === 'cafe' || r.walking) this.goTo(r, r.entry.placeId);
   }
 
+  /** Кончились продукты — гость уходит, доверие падает */
+  private runOut(r: Resident): void {
+    r.loyalty = Math.max(0, r.loyalty - 0.1);
+    this.dropVisit(r, 'out-of-stock');
+  }
+
+  private receiveDelivery(): void {
+    if (!this.cafe.opened) return;
+    const d = this.cafe.stock.deliver(this.day);
+    if (d.cost === 0) return;
+    this.cash -= d.cost;
+    this.cafe.today.purchases += d.cost;
+    this.events.push({ type: 'delivery', cost: d.cost });
+  }
+
+  // ——— Склад: команды игрока ———
+
+  orderIngredient(id: IngredientId, qty: number): void {
+    this.cafe.stock.order(id, qty);
+  }
+
+  cancelOrder(id: IngredientId): void {
+    this.cafe.stock.cancel(id);
+  }
+
+  setKeep(id: IngredientId, qty: number, weekend = false): void {
+    const levels = weekend ? this.cafe.stock.keepWeekend : this.cafe.stock.keep;
+    levels[id] = Math.max(0, Math.round(qty));
+  }
+
   private miss(r: Resident, reason: RejectReason): void {
     const m = this.cafe.today.missed;
     m[reason] = (m[reason] ?? 0) + 1;
@@ -273,6 +327,11 @@ export class Simulation {
   private closeDay(nextDay: number): void {
     // Если кафе работает через полночь, гости остаются — день меняется только в отчёте
     if (!this.cafe.isOpenAt(0)) for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
+    // Конец дня: скоропорт — в списание, автозаказ — на утро
+    const spoiled = this.cafe.stock.expire(this.day);
+    this.cafe.today.writtenOff = spoiled.value;
+    this.cafe.today.writtenOffItems = spoiled.items;
+    if (this.cafe.opened) this.cafe.stock.autoOrder(isWeekend(nextDay));
     const report = this.cafe.closeDay(nextDay);
     report.weekday = weekday(report.day);
     report.weather = this.weather;

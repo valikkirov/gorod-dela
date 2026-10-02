@@ -1,5 +1,6 @@
 import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, type Currency } from './economy';
+import { recipeCost, Stock, type IngredientId } from './stock';
 import type { Weather } from './weather';
 
 export type ItemKind = 'coffee' | 'snack' | 'lunch' | 'tea' | 'bar';
@@ -28,7 +29,8 @@ export type RejectReason =
   | 'no-item'
   | 'queue'
   | 'no-time'
-  | 'mood';
+  | 'mood'
+  | 'out-of-stock';
 
 export const REJECT_LABEL: Record<RejectReason, string> = {
   'not-open': 'Кафе ещё не открыто',
@@ -39,6 +41,7 @@ export const REJECT_LABEL: Record<RejectReason, string> = {
   queue: 'Очередь',
   'no-time': 'Не дождался',
   mood: 'Не сегодня',
+  'out-of-stock': 'Нет в наличии',
 };
 
 export interface DayReport {
@@ -46,7 +49,13 @@ export interface DayReport {
   opened: boolean;
   guests: number;
   revenue: number;
+  /** Себестоимость проданного — для справки */
   cogs: number;
+  /** Сколько заплатили поставщику за привезённое сегодня */
+  purchases: number;
+  /** Испортилось и выброшено, ₽ (уже оплачено при закупке) */
+  writtenOff: number;
+  writtenOffItems: Partial<Record<IngredientId, number>>;
   rent: number;
   utilities: number;
   wages: number;
@@ -91,7 +100,7 @@ export const MAX_QUEUE = 6;
 const catalogItem = (id: string): MenuItem => {
   const it = CATALOG.find((m) => m.id === id);
   if (!it) throw new Error(`Нет позиции ${id} в каталоге`);
-  return { ...it };
+  return { ...it, cost: recipeCost(id) };
 };
 
 /** Ночные часы для надбавки +20 % */
@@ -123,6 +132,12 @@ export interface Sale {
   price: number;
 }
 
+export interface TickResult {
+  sales: Sale[];
+  /** Заказ не из чего приготовить — гость уходит */
+  failed: number[];
+}
+
 /** Состояние кафе игрока */
 export class Cafe {
   opened = false;
@@ -131,6 +146,7 @@ export class Cafe {
   /** Может быть больше 24:00 — работа через полночь. openAt + 1440 = круглосуточно. */
   closeAt = hm(20);
   staff: Barista[] = [];
+  readonly stock = new Stock();
   private nextStaffId = 1;
   readonly queue: { residentId: number; itemId: string }[] = [];
   private slots: Slot[] = [];
@@ -149,6 +165,9 @@ export class Cafe {
       guests: 0,
       revenue: 0,
       cogs: 0,
+      purchases: 0,
+      writtenOff: 0,
+      writtenOffItems: {},
       rent: 0,
       utilities: 0,
       wages: 0,
@@ -265,12 +284,12 @@ export class Cafe {
     return false;
   }
 
-  /** Обслуживание и зарплата за dt минут. Возвращает продажи. */
-  tick(dt: number, minute: number): Sale[] {
-    if (!this.isOpenAt(minute)) return [];
+  /** Обслуживание и зарплата за dt минут. Возвращает продажи и сорванные заказы. */
+  tick(dt: number, minute: number): TickResult {
+    const result: TickResult = { sales: [], failed: [] };
+    if (!this.isOpenAt(minute)) return result;
     this.payStaff(minute);
 
-    const sales: Sale[] = [];
     while (this.slots.length < this.counters && this.queue.length > 0) {
       const q = this.queue.shift()!;
       this.slots.push({ ...q, left: this.serviceMinutes });
@@ -280,13 +299,18 @@ export class Cafe {
     this.slots = this.slots.filter((s) => s.left > 0);
     for (const s of done) {
       const it = this.item(s.itemId);
+      if (!this.stock.canMake(it.id)) {
+        result.failed.push(s.residentId);
+        continue;
+      }
+      this.stock.use(it.id);
       this.today.guests += 1;
       this.today.revenue += it.price;
       this.today.cogs += it.cost;
       this.today.sold[it.id] = (this.today.sold[it.id] ?? 0) + 1;
-      sales.push({ residentId: s.residentId, itemId: it.id, price: it.price });
+      result.sales.push({ residentId: s.residentId, itemId: it.id, price: it.price });
     }
-    return sales;
+    return result;
   }
 
   /** Зарплата за прошедшую минуту. Смена оплачивается целиком в первую минуту, ночью — надбавка. */
@@ -341,7 +365,7 @@ export class Cafe {
       r.wages = Math.round(this.wagesToday);
       r.tax = Math.round(r.revenue * ECONOMY.taxRate);
     }
-    r.profit = r.revenue - r.cogs - r.rent - r.utilities - r.wages - r.tax;
+    r.profit = r.revenue - r.purchases - r.rent - r.utilities - r.wages - r.tax;
     this.today = Cafe.emptyDay(nextDay);
     this.wagesToday = 0;
     return r;

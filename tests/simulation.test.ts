@@ -145,8 +145,10 @@ describe('Кафе', () => {
     sim.removeMenuItem('tea');
     sim.addMenuItem('beer');
     sim.addMenuItem('cider');
-    sim.advance(DAY);
-    const bar = (sim.reports[0].sold.beer ?? 0) + (sim.reports[0].sold.cider ?? 0);
+    sim.setKeep('bar', 30);
+    sim.orderIngredient('bar', 30); // привезут утром второго дня
+    sim.advance(DAY * 2);
+    const bar = (sim.reports[1].sold.beer ?? 0) + (sim.reports[1].sold.cider ?? 0);
     expect(bar).toBeGreaterThan(3);
   });
 
@@ -208,5 +210,37 @@ describe('Кафе', () => {
     expect(a.reports.map((r) => r.weather)).toEqual(b.reports.map((r) => r.weather));
     expect(a.reports[0].forecast).toEqual(a.reports[1].weather);
   });
-});
 
+  it('заказ приезжает в 6:00 и оплачивается при доставке, оптом дешевле', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    const cash = sim.cash;
+    sim.orderIngredient('beans', 300);
+    sim.advance(hm(23)); // до 05:00 следующего дня — ещё не привезли
+    expect(sim.cafe.stock.pending.beans).toBe(300);
+    sim.advance(hm(1, 30));
+    expect(sim.cafe.stock.pending.beans ?? 0).toBe(0);
+    expect(sim.reports[1] ?? sim.cafe.today).toBeTruthy();
+    expect(sim.cafe.today.purchases).toBeGreaterThanOrEqual(Math.round(300 * 30 * 0.8));
+    expect(sim.cash).toBeLessThan(cash);
+  });
+
+  it('выпечка живёт один день — непроданное списывается', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.orderIngredient('bakery', 200);
+    sim.advance(DAY * 2);
+    expect(sim.reports[1].writtenOff).toBeGreaterThan(0);
+    expect(sim.reports[1].writtenOffItems.bakery ?? 0).toBeGreaterThan(100);
+  });
+
+  it('кончились продукты — гости уходят с причиной «нет в наличии»', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    for (const k of ['beans', 'milk', 'bakery', 'kitchen', 'drinks'] as const) sim.setKeep(k, 0);
+    sim.advance(DAY * 5); // стартовый запас кончается к пятнице
+    const fri = sim.reports[4];
+    expect(fri.missed['out-of-stock'] ?? 0).toBeGreaterThan(10);
+    expect(fri.guests).toBeLessThan(sim.reports[0].guests);
+  });
+});

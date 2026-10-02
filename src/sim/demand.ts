@@ -113,11 +113,14 @@ export function rollWant(
   entry: ScheduleEntry,
   prev: ScheduleEntry | undefined,
   weather: WeatherKind = 'sunny',
+  weekend = false,
 ): Want | null {
   for (const rule of RULES) {
     const chance = rule.chance[r.kind];
     if (chance === undefined || !rule.test(r, entry, prev)) continue;
-    const mult = WEATHER_WANT[weather][rule.want.kind] ?? 1;
+    // В выходные есть время посидеть — «посидеть в кафе» случается чаще
+    const free = weekend && rule.want.mode === 'replace' ? 1.5 : 1;
+    const mult = (WEATHER_WANT[weather][rule.want.kind] ?? 1) * free;
     return rng.chance(Math.min(1, chance * mult)) ? rule.want : null;
   }
   return null;
