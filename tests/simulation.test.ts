@@ -292,4 +292,26 @@ describe('Кафе', () => {
     const given = sim.reports.reduce((a, r) => a + r.giveaways, 0);
     expect(given).toBeGreaterThan(0);
   });
+
+  it('сохранение: игра после загрузки идёт так же, как без перерыва', () => {
+    const a = new Simulation(5);
+    a.openCafe();
+    a.hireBarista('hourly');
+    a.buySign();
+    a.orderIngredient('bar', 40);
+    a.advance(DAY * 2 + hm(3, 17));
+    const saved = JSON.parse(JSON.stringify(a.serialize()));
+    const b = Simulation.restore(saved)!;
+    expect(b).not.toBeNull();
+    a.advance(DAY * 2);
+    b.advance(DAY * 2);
+    expect(b.cash).toBe(a.cash);
+    expect(b.reports.map((r) => r.profit)).toEqual(a.reports.map((r) => r.profit));
+    expect(b.residents.map((r) => r.pos)).toEqual(a.residents.map((r) => r.pos));
+  });
+
+  it('сохранение старой версии не загружается', () => {
+    const save = new Simulation(1).serialize();
+    expect(Simulation.restore({ ...save, version: -1 })).toBeNull();
+  });
 });

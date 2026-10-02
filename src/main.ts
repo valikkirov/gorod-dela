@@ -2,10 +2,14 @@ import Phaser from 'phaser';
 import './style.css';
 import { Hud } from './game/hud';
 import { StreetScene, type SceneHooks } from './game/StreetScene';
+import { autosave, loadGame } from './game/save';
 import { Simulation } from './sim/simulation';
 import { WORLD } from './sim/world';
 
-const sim = new Simulation(Number(new URLSearchParams(location.search).get('seed') ?? 1));
+const params = new URLSearchParams(location.search);
+// ?seed=N — новый город с этим seed (без загрузки сохранения)
+const sim = (params.has('seed') ? null : loadGame()) ?? new Simulation(Number(params.get('seed') ?? 1));
+autosave(sim);
 const scene = new StreetScene();
 const hud = new Hud(sim, () => scene.select(null));
 

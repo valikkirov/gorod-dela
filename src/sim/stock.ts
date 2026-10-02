@@ -94,6 +94,13 @@ export const STARTER_KEEP: Record<IngredientId, number> = {
   bar: 0,
 };
 
+export interface StockSave {
+  batches: Partial<Record<IngredientId, { qty: number; lastDay: number | null; unitPaid: number }[]>>;
+  pending: Partial<Record<IngredientId, number>>;
+  keep: Record<IngredientId, number>;
+  keepWeekend: Record<IngredientId, number>;
+}
+
 export class Stock {
   private batches = new Map<IngredientId, Batch[]>();
   /** Заказы, которые привезут в 6:00 */
@@ -102,6 +109,28 @@ export class Stock {
   keep: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0 };
   /** Отдельный уровень на выходные: в субботу ланчей не будет */
   keepWeekend: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0 };
+
+  toJSON(): StockSave {
+    const batches: StockSave['batches'] = {};
+    for (const [id, list] of this.batches) {
+      // Infinity в JSON не живёт — «не портится» храним как null
+      batches[id] = list.map((b) => ({ ...b, lastDay: Number.isFinite(b.lastDay) ? b.lastDay : null }));
+    }
+    return { batches, pending: { ...this.pending }, keep: { ...this.keep }, keepWeekend: { ...this.keepWeekend } };
+  }
+
+  load(d: StockSave): void {
+    this.batches = new Map();
+    for (const [id, list] of Object.entries(d.batches) as [IngredientId, StockSave['batches'][IngredientId]][]) {
+      this.batches.set(
+        id,
+        (list ?? []).map((b) => ({ ...b, lastDay: b.lastDay ?? Number.POSITIVE_INFINITY })),
+      );
+    }
+    this.pending = { ...d.pending };
+    this.keep = { ...this.keep, ...d.keep };
+    this.keepWeekend = { ...this.keepWeekend, ...d.keepWeekend };
+  }
 
   qty(id: IngredientId): number {
     return (this.batches.get(id) ?? []).reduce((s, b) => s + b.qty, 0);

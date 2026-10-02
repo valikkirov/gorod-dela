@@ -682,3 +682,32 @@ button.small.ghost {
   height: 34px;
   font-size: 14px;
 }
+
+button.link {
+  display: block;
+  margin: 14px auto 2px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+small.saved {
+  text-align: center;
+}
+
+.restart {
+  margin-top: 14px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #f8e7e4;
+}
+
+button.small.danger {
+  border-color: var(--bad);
+  background: var(--bad);
+  color: #fff;
+}

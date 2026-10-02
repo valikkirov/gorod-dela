@@ -27,6 +27,7 @@ import { ACTIVITY_LABEL, currentEntry, KIND_LABEL, type Resident, type ResidentK
 import type { Simulation } from '../sim/simulation';
 import { place } from '../sim/world';
 import { RESIDENT_COLOR, toCss } from './palette';
+import { clearSave } from './save';
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
 // и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.
@@ -92,6 +93,7 @@ export class Hud {
   private readonly cash = $('#cash');
   private readonly panel = $('#panel');
   private catalogOpen = false;
+  private confirmRestart = false;
   private tab: CafeTab = 'overview';
 
   constructor(
@@ -237,8 +239,11 @@ export class Hud {
         if (this.selected) this.onDeselect();
         break;
       case 'restart':
-        location.reload();
+        this.restart();
         return;
+      case 'restart-ask':
+        this.confirmRestart = !this.confirmRestart;
+        break;
     }
     this.render(true);
   }
@@ -262,6 +267,13 @@ export class Hud {
       this.sim.setHours(cafe.openAt, el.value === ALL_DAY ? cafe.openAt + MINUTES_PER_DAY : Number(el.value));
     }
     this.render(true);
+  }
+
+  /** Новая игра: стереть сохранение и перезапустить */
+  private restart(): void {
+    window.dispatchEvent(new Event('gorod-dela:reset'));
+    clearSave();
+    location.href = location.pathname;
   }
 
   // ——— Отрисовка панели ———
@@ -308,7 +320,8 @@ export class Hud {
         <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Посмотри, кто и${NB}когда, — нажми на${NB}жителя.</p>
         <button class="primary" data-action="open-cafe" ${canAfford ? '' : 'disabled'}>
           Открыть кафе · ${money(ECONOMY.cafeOpeningCost)}
-        </button>`;
+        </button>
+        ${this.sim.time > hm(7) ? this.restartBlock() : ''}`;
     }
 
     const minute = this.sim.minute;
@@ -430,7 +443,8 @@ export class Hud {
         <span>—</span>
         <select data-action="close-at" aria-label="Закрытие">${closeOpt}</select>
       </div>
-      ${last ? `<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}`;
+      ${last ? `<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}
+      ${this.restartBlock()}`;
     } else if (this.tab === 'menu') {
       body = `
       <h4>Меню и${NB}цены · ${cafe.menu.length}${NB}из${NB}${MAX_MENU}</h4>
@@ -521,6 +535,15 @@ export class Hud {
         )}
       </ul>
       <p class="wages">Сегодня на${NB}маркетинг: <b data-live="mkt"></b></p>`;
+  }
+
+  private restartBlock(): string {
+    return this.confirmRestart
+      ? `<div class="restart"><small>Кафе, деньги и${NB}весь прогресс сотрутся.</small>
+          <div class="hire"><button class="small" data-action="restart-ask">Отмена</button>
+          <button class="small danger" data-action="restart">Да, начать заново</button></div></div>`
+      : `<button class="link" data-action="restart-ask">Начать заново</button>
+         <small class="saved">Игра сохраняется автоматически в${NB}этом браузере</small>`;
   }
 
   /** Что кончается или испортится — подсказка на обзоре */

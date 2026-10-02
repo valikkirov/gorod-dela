@@ -1,7 +1,7 @@
 import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, type Currency } from './economy';
 import type { AwareSource } from './marketing';
-import { recipeCost, Stock, type IngredientId } from './stock';
+import { recipeCost, Stock, type IngredientId, type StockSave } from './stock';
 import type { Weather } from './weather';
 
 export type ItemKind = 'coffee' | 'snack' | 'lunch' | 'tea' | 'bar';
@@ -148,6 +148,22 @@ export interface TickResult {
   failed: number[];
 }
 
+export interface CafeSave {
+  opened: boolean;
+  menu: MenuItem[];
+  openAt: number;
+  closeAt: number;
+  staff: Barista[];
+  nextStaffId: number;
+  queue: { residentId: number; itemId: string }[];
+  slots: Slot[];
+  retired: MenuItem[];
+  today: DayReport;
+  wagesToday: number;
+  lastPaidMinute: number;
+  stock: StockSave;
+}
+
 /** Состояние кафе игрока */
 export class Cafe {
   opened = false;
@@ -169,6 +185,40 @@ export class Cafe {
   today = Cafe.emptyDay(1);
   private wagesToday = 0;
   private lastPaidMinute = -1;
+
+  toJSON(): CafeSave {
+    return {
+      opened: this.opened,
+      menu: this.menu,
+      openAt: this.openAt,
+      closeAt: this.closeAt,
+      staff: this.staff,
+      nextStaffId: this.nextStaffId,
+      queue: this.queue,
+      slots: this.slots,
+      retired: [...this.retired.values()],
+      today: this.today,
+      wagesToday: this.wagesToday,
+      lastPaidMinute: this.lastPaidMinute,
+      stock: this.stock.toJSON(),
+    };
+  }
+
+  load(d: CafeSave): void {
+    this.opened = d.opened;
+    this.menu = d.menu;
+    this.openAt = d.openAt;
+    this.closeAt = d.closeAt;
+    this.staff = d.staff;
+    this.nextStaffId = d.nextStaffId;
+    this.queue.splice(0, this.queue.length, ...d.queue);
+    this.slots = d.slots;
+    this.retired = new Map(d.retired.map((m) => [m.id, m]));
+    this.today = d.today;
+    this.wagesToday = d.wagesToday;
+    this.lastPaidMinute = d.lastPaidMinute;
+    this.stock.load(d.stock);
+  }
 
   static emptyDay(day: number): DayReport {
     return {

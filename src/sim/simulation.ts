@@ -1,4 +1,4 @@
-import { Cafe, MAX_QUEUE, type Contract, type DayReport, type RejectReason } from './cafe';
+import { Cafe, MAX_QUEUE, type CafeSave, type Contract, type DayReport, type RejectReason } from './cafe';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY } from './economy';
@@ -18,6 +18,44 @@ import {
 
 /** Шаг симуляции в игровых минутах. Мелкий — чтобы движение было плавным. */
 const STEP = 0.2;
+/** Меняется, когда сохранения старой версии больше нельзя загрузить */
+export const SAVE_VERSION = 1;
+
+export interface SaveData {
+  version: number;
+  seed: number;
+  time: number;
+  day: number;
+  carry: number;
+  rng: number;
+  skyRng: number;
+  cash: number;
+  daysInRed: number;
+  bankrupt: boolean;
+  reports: DayReport[];
+  weather: Weather;
+  forecast: Weather;
+  marketing: Pick<Marketing, 'sign' | 'flyers' | 'socialDaysLeft' | 'happy' | 'loyaltyCard'>;
+  flyersToday: boolean;
+  cafe: CafeSave;
+  residents: {
+    pos: Point;
+    placeId: string;
+    /** [выходной ли день, номер занятия в расписании] */
+    entry: [number, number];
+    visit: Resident['visit'];
+    activity: Resident['activity'];
+    path: Point[];
+    walking: boolean;
+    visible: boolean;
+    loyalty: number;
+    decision: Resident['decision'];
+    aware: boolean;
+    noticed: boolean;
+    coffeeCount: number;
+  }[];
+}
+
 /** Когда поставщик привозит заказ */
 const DELIVERY_AT = hm(6);
 /** Дольше этого житель не ждёт заказ и уходит по делам */
@@ -53,7 +91,10 @@ export class Simulation {
   weather: Weather;
   forecast: Weather;
 
+  readonly seed: number;
+
   constructor(seed = 1, startTime = hm(6, 0)) {
+    this.seed = seed;
     this.rng = new Rng(seed);
     this.skyRng = new Rng(seed * 7919 + 13);
     this.time = startTime;
@@ -72,6 +113,90 @@ export class Simulation {
       r.activity = entry.activity;
       this.placeAt(r, entry.placeId);
     }
+  }
+
+  // ——— Сохранение ———
+
+  /** Всё, что меняется по ходу игры. Жители-«статика» (имена, расписания, вкусы) восстанавливаются из seed. */
+  serialize(): SaveData {
+    return {
+      version: SAVE_VERSION,
+      seed: this.seed,
+      time: this.time,
+      day: this.day,
+      carry: this.carry,
+      rng: this.rng.snapshot,
+      skyRng: this.skyRng.snapshot,
+      cash: this.cash,
+      daysInRed: this.daysInRed,
+      bankrupt: this.bankrupt,
+      reports: this.reports,
+      weather: this.weather,
+      forecast: this.forecast,
+      marketing: { ...this.marketing },
+      flyersToday: this.flyersToday,
+      cafe: this.cafe.toJSON(),
+      residents: this.residents.map((r) => {
+        const weekend = r.weekend.includes(r.entry);
+        return {
+          pos: r.pos,
+          placeId: r.placeId,
+          entry: [weekend ? 1 : 0, (weekend ? r.weekend : r.weekday).indexOf(r.entry)] as [number, number],
+          visit: r.visit,
+          activity: r.activity,
+          path: r.path,
+          walking: r.walking,
+          visible: r.visible,
+          loyalty: r.loyalty,
+          decision: r.decision,
+          aware: r.aware,
+          noticed: r.noticed,
+          coffeeCount: r.coffeeCount,
+        };
+      }),
+    };
+  }
+
+  /** Восстановить игру из сохранения. null — если сохранение от старой версии игры. */
+  static restore(d: SaveData): Simulation | null {
+    if (d.version !== SAVE_VERSION) return null;
+    const sim = new Simulation(d.seed);
+    if (sim.residents.length !== d.residents.length) return null;
+    sim.time = d.time;
+    sim.day = d.day;
+    sim.carry = d.carry;
+    sim.rng.snapshot = d.rng;
+    sim.skyRng.snapshot = d.skyRng;
+    sim.cash = d.cash;
+    sim.daysInRed = d.daysInRed;
+    sim.bankrupt = d.bankrupt;
+    sim.reports.push(...d.reports);
+    sim.weather = d.weather;
+    sim.forecast = d.forecast;
+    Object.assign(sim.marketing, d.marketing);
+    sim.flyersToday = d.flyersToday;
+    sim.cafe.load(d.cafe);
+    sim.applyDaySchedules();
+    d.residents.forEach((s, i) => {
+      const r = sim.residents[i];
+      const list = s.entry[0] ? r.weekend : r.weekday;
+      Object.assign(r, {
+        pos: s.pos,
+        placeId: s.placeId,
+        entry: list[s.entry[1]] ?? r.schedule[0],
+        visit: s.visit,
+        activity: s.activity,
+        path: s.path,
+        walking: s.walking,
+        visible: s.visible,
+        loyalty: s.loyalty,
+        decision: s.decision,
+        aware: s.aware,
+        noticed: s.noticed,
+        coffeeCount: s.coffeeCount,
+      });
+    });
+    return sim;
   }
 
   // ——— Команды игрока ———

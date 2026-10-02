@@ -7,9 +7,20 @@ export class Rng {
     this.state = seed >>> 0;
   }
 
+  /** Внутреннее состояние — для сохранения игры */
+  get snapshot(): number {
+    return this.state;
+  }
+
+  set snapshot(v: number) {
+    this.state = v >>> 0;
+  }
+
   /** Число в диапазоне [0, 1) */
   next(): number {
-    let t = (this.state += 0x6d2b79f5);
+    // Держим состояние в 32 битах — вывод тот же, а в долгой игре нет потери точности
+    this.state = (this.state + 0x6d2b79f5) >>> 0;
+    let t = this.state;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
