@@ -7,7 +7,18 @@ import {
   type ItemKind,
   type RejectReason,
 } from '../sim/cafe';
-import { dayNumber, formatClock, hm, MINUTES_PER_DAY, minuteOfDay } from '../sim/clock';
+import {
+  dayNumber,
+  formatClock,
+  hm,
+  isWeekend,
+  MINUTES_PER_DAY,
+  minuteOfDay,
+  WEEKDAY_FULL,
+  WEEKDAY_SHORT,
+  weekday,
+} from '../sim/clock';
+import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
 import { ECONOMY, formatMoney } from '../sim/economy';
 import { ACTIVITY_LABEL, currentEntry, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
@@ -33,6 +44,8 @@ const fmtMinute = (m: number): string =>
   `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m) % 60).padStart(2, '0')}`;
 
 const money = formatMoney;
+
+const weatherShort = (w: Weather): string => `${WEATHER_ICON[w.kind]}${NB}${w.temp > 0 ? '+' : ''}${w.temp}°`;
 
 const WANT_VISIT: Record<WantKind, string> = {
   coffee: `за${NB}кофе`,
@@ -129,7 +142,9 @@ export class Hud {
     const now = performance.now();
     if (now - this.lastRender < 100) return;
     this.lastRender = now;
-    this.clock.textContent = `День ${dayNumber(this.sim.time)} · ${formatClock(this.sim.time)}`;
+    const day = dayNumber(this.sim.time);
+    const clock = `<b>${WEEKDAY_SHORT[weekday(day)]} · ${formatClock(this.sim.time)}</b><small>День ${day} · ${weatherShort(this.sim.weather)}</small>`;
+    if (this.clock.innerHTML !== clock) this.clock.innerHTML = clock;
     this.cash.textContent = money(this.sim.cash);
     this.cash.classList.toggle('neg', this.sim.cash < 0);
     this.render();
@@ -387,15 +402,26 @@ export class Hud {
       .filter((m) => r.sold[m.id])
       .map((m) => `<li><span>${m.name}</span><b>${r.sold[m.id]}</b></li>`)
       .join('');
+    const next = r.day + 1;
+    const forecast = r.forecast
+      ? `<div class="forecast"><small>Завтра · ${WEEKDAY_FULL[weekday(next)]}</small>
+          <b>${weatherShort(r.forecast)} ${WEATHER_LABEL[r.forecast.kind]}</b>
+          <span>${WEATHER_HINT[r.forecast.kind]}${
+            isWeekend(next) ? `. Выходной: офисные не${NB}придут, зато больше гуляют` : ''
+          }</span></div>`
+      : '';
     const warn =
       this.sim.daysInRed > 0
         ? `<p class="warn">Касса в${NB}минусе ${this.sim.daysInRed}${NB}дн. подряд. На${NB}${ECONOMY.bankruptDays}-й день — банкротство.</p>`
         : '';
 
     return `
-      <div class="card-head"><div><b>Итоги дня ${r.day}</b><small>${r.guests} гостей из ${r.wanted}, кто хотел зайти</small></div>
+      <div class="card-head"><div><b>Итоги дня ${r.day}</b><small>${r.weekday !== undefined ? WEEKDAY_FULL[r.weekday] : ''}${
+        r.weather ? ` · ${weatherShort(r.weather)} ${WEATHER_LABEL[r.weather.kind].toLowerCase()}` : ''
+      } · ${r.guests} гостей из ${r.wanted}, кто хотел зайти</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button></div>
       ${warn}
+      ${forecast}
       ${
         r.opened
           ? `<table class="pnl">

@@ -4,6 +4,7 @@ import type { ItemKind, MenuItem, RejectReason } from './cafe';
 import { hm } from './clock';
 import type { Resident, ResidentKind, ScheduleEntry } from './residents';
 import type { Rng } from './rng';
+import { WEATHER_WANT, type WeatherKind } from './weather';
 import type { Point } from './world';
 
 export type WantKind = ItemKind;
@@ -93,7 +94,7 @@ const RULES: WantRule[] = [
   {
     // Посидеть с ноутбуком или с друзьями
     test: (_r, e) => e.activity === 'walk',
-    chance: { remote: 0.6, student: 0.3, youth: 0.5 },
+    chance: { remote: 0.6, student: 0.3, youth: 0.5, office: 0.35 },
     want: { kind: 'coffee', mode: 'replace', dwell: 40 },
   },
   {
@@ -111,11 +112,13 @@ export function rollWant(
   r: Resident,
   entry: ScheduleEntry,
   prev: ScheduleEntry | undefined,
+  weather: WeatherKind = 'sunny',
 ): Want | null {
   for (const rule of RULES) {
     const chance = rule.chance[r.kind];
     if (chance === undefined || !rule.test(r, entry, prev)) continue;
-    return rng.chance(chance) ? rule.want : null;
+    const mult = WEATHER_WANT[weather][rule.want.kind] ?? 1;
+    return rng.chance(Math.min(1, chance * mult)) ? rule.want : null;
   }
   return null;
 }
@@ -149,12 +152,14 @@ export function evaluate(
   from: Point,
   cafeDoor: Point,
   goalDoor: Point,
+  weather: WeatherKind = 'sunny',
 ): Offer {
   const budget = r.budget[want.kind];
   const kinds = ACCEPTS[want.kind];
   // Цена на 30 % ниже ожиданий — точно да, на 35 % выше — точно нет
   const pFor = (m: MenuItem) => clamp((1.35 - m.price / budget) / 0.65, 0, 1);
-  const favorite = r.favorites[want.kind];
+  // В жару «чай» превращается в лимонад
+  const favorite = weather === 'hot' && want.kind === 'tea' ? 'lemonade' : r.favorites[want.kind];
   const isFav = (m: MenuItem) => m.id === favorite;
   // Порядок предпочтений: любимая позиция (если не слишком дорого) → основная категория → замена
   const rank = (m: MenuItem) =>

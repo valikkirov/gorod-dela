@@ -20,3 +20,13 @@ export function formatClock(time: number): string {
   const h = Math.floor(m / 60);
   return `${String(h).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
+
+export const WEEKDAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
+export const WEEKDAY_FULL = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'] as const;
+
+/** 0 — понедельник. Первый день игры — понедельник. */
+export function weekday(day: number): number {
+  return (((day - 1) % 7) + 7) % 7;
+}
+
+export const isWeekend = (day: number): boolean => weekday(day) >= 5;

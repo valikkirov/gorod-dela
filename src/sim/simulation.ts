@@ -1,9 +1,10 @@
 import { Cafe, MAX_QUEUE, type Contract, type DayReport, type RejectReason } from './cafe';
-import { dayNumber, hm, MINUTES_PER_DAY, minuteOfDay } from './clock';
+import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY } from './economy';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
 import { Rng } from './rng';
+import { rollWeather, type Weather } from './weather';
 import {
   clampSidewalkY,
   place,
@@ -39,13 +40,22 @@ export class Simulation {
   private readonly rng: Rng;
   private carry = 0;
   private day: number;
+  /** Отдельный генератор для погоды — чтобы она не сдвигала жизнь жителей */
+  private readonly skyRng: Rng;
+  weather: Weather;
+  forecast: Weather;
 
   constructor(seed = 1, startTime = hm(6, 0)) {
     this.rng = new Rng(seed);
+    this.skyRng = new Rng(seed * 7919 + 13);
     this.time = startTime;
     this.day = dayNumber(startTime);
     this.cafe.today = Cafe.emptyDay(this.day);
+    // Первый день — ясно, дальше как повезёт
+    this.weather = { kind: 'sunny', temp: 21 };
+    this.forecast = rollWeather(this.skyRng, this.weather);
     this.residents = generateResidents(this.rng);
+    this.applyDaySchedules();
     // Каждого ставим туда, где он должен быть в стартовую минуту
     for (const r of this.residents) {
       const entry = currentEntry(r.schedule, minuteOfDay(this.time));
@@ -161,9 +171,14 @@ export class Simulation {
     r.activity = entry.activity;
     if (r.visit) this.dropVisit(r, 'no-time');
 
-    const want = rollWant(this.rng, r, entry, prev);
+    const want = rollWant(this.rng, r, entry, prev, this.weather.kind);
     if (want && this.decide(r, want, entry)) {
       this.goTo(r, 'cafe');
+      return;
+    }
+    // В дождь в сквер идут немногие — остаются дома
+    if (entry.placeId === 'park' && this.weather.kind === 'rain' && this.rng.chance(0.6) && r.homeId !== 'metro') {
+      this.goTo(r, r.homeId);
       return;
     }
     this.goTo(r, entry.placeId);
@@ -183,7 +198,7 @@ export class Simulation {
     // Дорога до кафе занимает несколько минут — проверяем с запасом
     else if (!cafe.isOpenAt(minute) || !cafe.isOpenAt(minuteOfDay(minute + 10))) reason = 'closed';
     else {
-      const offer = evaluate(r, want, cafe.menu, r.pos, place('cafe').door, place(entry.placeId).door);
+      const offer = evaluate(r, want, cafe.menu, r.pos, place('cafe').door, place(entry.placeId).door, this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
       if (!offer.item || !this.rng.chance(offer.p)) reason = rejectReason(offer, r.budget[want.kind]);
@@ -259,11 +274,18 @@ export class Simulation {
     // Если кафе работает через полночь, гости остаются — день меняется только в отчёте
     if (!this.cafe.isOpenAt(0)) for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
     const report = this.cafe.closeDay(nextDay);
+    report.weekday = weekday(report.day);
+    report.weather = this.weather;
+    // Новый день: погода из прогноза, новый прогноз, будни или выходные
+    this.weather = this.forecast;
+    this.forecast = rollWeather(this.skyRng, this.weather);
+    report.forecast = this.weather;
     // Выручка и закупка уже прошли через кассу — списываем постоянные расходы и налог
     this.cash -= report.rent + report.utilities + report.wages + report.tax;
     report.cashAfter = this.cash;
     this.reports.push(report);
     this.day = nextDay;
+    this.applyDaySchedules();
     this.events.push({ type: 'day', report });
 
     if (this.cafe.opened && this.cash < 0) this.daysInRed += 1;
@@ -272,6 +294,16 @@ export class Simulation {
       this.bankrupt = true;
       this.events.push({ type: 'bankrupt' });
     }
+  }
+
+  /** Будни или выходные: каждому жителю — расписание на сегодня */
+  private applyDaySchedules(): void {
+    const weekend = isWeekend(this.day);
+    for (const r of this.residents) r.schedule = weekend ? r.weekend : r.weekday;
+  }
+
+  get weekday(): number {
+    return weekday(this.day);
   }
 
   // ——— Движение ———

@@ -187,4 +187,26 @@ describe('Кафе', () => {
       expect(r.decision!.visited || r.decision!.reason).toBeTruthy();
     }
   });
+
+  it('в выходные офисы пустые — бизнес-ланчи не продаются, зато гуляют', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.advance(DAY * 6); // до субботы
+    const fri = sim.reports[4];
+    const sat = sim.reports[5];
+    expect(fri.weekday).toBe(4);
+    expect(sat.weekday).toBe(5);
+    expect(fri.sold.lunch ?? 0).toBeGreaterThan(5);
+    expect(sat.sold.lunch ?? 0).toBeLessThan(fri.sold.lunch ?? 0);
+  });
+
+  it('погода детерминирована и есть прогноз на завтра', () => {
+    const a = new Simulation(3);
+    const b = new Simulation(3);
+    a.advance(DAY * 3);
+    b.advance(DAY * 3);
+    expect(a.reports.map((r) => r.weather)).toEqual(b.reports.map((r) => r.weather));
+    expect(a.reports[0].forecast).toEqual(a.reports[1].weather);
+  });
 });
+

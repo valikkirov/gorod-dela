@@ -47,6 +47,7 @@ export class StreetScene extends Phaser.Scene {
   private people!: Phaser.GameObjects.Graphics;
   private cafeShade!: Phaser.GameObjects.Graphics;
   private night!: Phaser.GameObjects.Graphics;
+  private sky!: Phaser.GameObjects.Graphics;
   private cafeName!: Phaser.GameObjects.Text;
   private cafeStatus!: Phaser.GameObjects.Text;
   private selected: Resident | null = null;
@@ -62,6 +63,7 @@ export class StreetScene extends Phaser.Scene {
   create(): void {
     this.drawMap();
     this.night = this.add.graphics();
+    this.sky = this.add.graphics().setDepth(5);
     this.cafeShade = this.add.graphics();
     const c = place('cafe').rect;
     this.cafeName = this.label(c.x + c.w / 2, c.y + c.h / 2 - 12, '', 26, true);
@@ -75,6 +77,7 @@ export class StreetScene extends Phaser.Scene {
     this.hooks.sim.advance(realSeconds * GAME_MINUTES_PER_SECOND * this.hooks.getSpeed());
     this.handleEvents();
     this.drawCafe();
+    this.drawSky(_time);
     this.drawPeople();
     this.hooks.onFrame();
   }
@@ -172,6 +175,32 @@ export class StreetScene extends Phaser.Scene {
     } else if (open && dark > 0) {
       g.fillStyle(0xffd27a, Math.min(0.9, dark * 2.2));
       g.fillRoundedRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, 12);
+    }
+  }
+
+  /** Погода: оттенок улицы и капли дождя */
+  private drawSky(time: number): void {
+    const kind = this.hooks.sim.weather.kind;
+    const g = this.sky;
+    g.clear();
+    const tint: Record<string, [number, number]> = {
+      rain: [0x4d5f7a, 0.16],
+      cloudy: [0x7d8a99, 0.1],
+      hot: [0xffa040, 0.08],
+    };
+    const t = tint[kind];
+    if (t) {
+      g.fillStyle(t[0], t[1]);
+      g.fillRect(0, 0, WORLD.width, WORLD.height);
+    }
+    if (kind === 'rain') {
+      g.lineStyle(2, 0xc9d6ea, 0.55);
+      const fall = (time / 4) % WORLD.height;
+      for (let i = 0; i < 70; i++) {
+        const x = (i * 97) % WORLD.width;
+        const y = ((i * 211) % WORLD.height + fall) % WORLD.height;
+        g.lineBetween(x, y, x - 6, y + 18);
+      }
     }
   }
 

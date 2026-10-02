@@ -48,8 +48,11 @@ export interface Resident {
   homeId: string;
   /** Где работает или учится; 'metro' — за пределами улицы */
   workId: string | null;
-  /** Отсортировано по start; первое занятие начинается в 0:00 */
+  /** Расписание на сегодня: отсортировано по start, первое занятие начинается в 0:00 */
   schedule: ScheduleEntry[];
+  /** Будни и выходные — разные дни */
+  weekday: ScheduleEntry[];
+  weekend: ScheduleEntry[];
 
   /** Готовность платить, ₽ — у каждого своя */
   budget: Record<WantKind, number>;
@@ -192,6 +195,48 @@ const SCHEDULES: Record<ResidentKind, Builder> = {
   },
 };
 
+/** Выходные: офисы пустеют, люди гуляют и встречаются. Кого нет в списке — живёт как в будни. */
+const WEEKEND: Partial<Record<ResidentKind, Builder>> = {
+  office: (rng, home) => {
+    // Те, кто приезжает на метро в офисы улицы, в выходные не появляются
+    if (home === 'metro') return [e(0, home, 'home')];
+    const out = [e(0, home, 'home')];
+    const walk = hm(11, 30) + rng.jitter(60);
+    out.push(e(walk, rng.chance(0.6) ? 'park' : 'shop', 'walk'), e(walk + rng.int(60, 150), home, 'home'));
+    if (rng.chance(0.3)) {
+      const evening = hm(19, 30) + rng.jitter(40);
+      out.push(e(evening, 'park', 'night'), e(evening + rng.int(90, 180), home, 'home'));
+    }
+    return out;
+  },
+  student: (rng, home) => {
+    const out = [e(0, home, 'home')];
+    const walk = hm(13) + rng.jitter(60);
+    out.push(e(walk, 'park', 'walk'), e(walk + rng.int(60, 120), home, 'home'));
+    if (rng.chance(0.7)) {
+      const evening = hm(20) + rng.jitter(40);
+      out.push(e(evening, 'park', 'night'), e(evening + rng.int(120, 200), home, 'home'));
+    }
+    return out;
+  },
+  youth: (rng, home) => {
+    // В выходные гуляют почти все и дольше
+    const day = hm(13) + rng.jitter(60);
+    return [
+      e(0, 'park', 'night'),
+      e(hm(2, 30) + rng.jitter(40), home, 'home'),
+      e(day, 'park', 'walk'),
+      e(day + rng.int(60, 150), home, 'home'),
+      e(hm(20, 30) + rng.jitter(60), 'park', 'night'),
+    ];
+  },
+  shopkeeper: (rng, home) => [
+    e(0, home, 'home'),
+    e(hm(8, 30) + rng.jitter(10), 'shop', 'work'),
+    e(hm(20, 15) + rng.jitter(10), home, 'home'),
+  ],
+};
+
 /** Вкусы: какая позиция в категории нравится больше — зависит от типа жителя */
 const TASTES: Record<WantKind, Partial<Record<ResidentKind, [string, number][]>> & { any: [string, number][] }> = {
   coffee: {
@@ -264,7 +309,9 @@ export function generateResidents(rng: Rng): Resident[] {
     for (let i = 0; i < t.count; i++) {
       const homeId = t.home();
       const workId = t.work();
-      const schedule = SCHEDULES[t.kind](rng, homeId, workId).sort((a, b) => a.start - b.start);
+      const byStart = (a: ScheduleEntry, b: ScheduleEntry) => a.start - b.start;
+      const schedule = SCHEDULES[t.kind](rng, homeId, workId).sort(byStart);
+      const weekend = (WEEKEND[t.kind] ?? SCHEDULES[t.kind])(rng, homeId, workId).sort(byStart);
       const wallet = rng.range(0.8, 1.25);
       const base = BASE_BUDGET[t.kind];
       residents.push({
@@ -274,6 +321,8 @@ export function generateResidents(rng: Rng): Resident[] {
         homeId,
         workId: t.kind === 'pensioner' || t.kind === 'remote' || t.kind === 'youth' ? null : workId,
         schedule,
+        weekday: schedule,
+        weekend,
         budget: {
           coffee: Math.round(base.coffee * wallet),
           lunch: Math.round(base.lunch * wallet),

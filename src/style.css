@@ -45,9 +45,19 @@ body {
 }
 
 #clock {
-  font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  line-height: 1.15;
+}
+
+#clock b {
+  display: block;
+  font-size: 15px;
+}
+
+#clock small {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 #cash {
@@ -525,4 +535,19 @@ button.small.ghost {
 
 .wages {
   margin-top: 10px !important;
+}
+
+.forecast {
+  display: grid;
+  gap: 2px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #eef3fb;
+  border: 1px solid #d6e2f3;
+}
+
+.forecast span {
+  font-size: 13px;
+  color: var(--ink);
 }

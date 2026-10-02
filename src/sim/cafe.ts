@@ -1,5 +1,6 @@
 import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, type Currency } from './economy';
+import type { Weather } from './weather';
 
 export type ItemKind = 'coffee' | 'snack' | 'lunch' | 'tea' | 'bar';
 
@@ -59,6 +60,10 @@ export interface DayReport {
   /** Чего не нашли в меню: категория → сколько раз */
   missingKinds: Partial<Record<ItemKind, number>>;
   sold: Record<string, number>;
+  weekday?: number;
+  weather?: Weather;
+  /** Прогноз на завтра */
+  forecast?: Weather;
 }
 
 /** Всё, что кафе может продавать. Цена — стартовая, игрок меняет её сам.
