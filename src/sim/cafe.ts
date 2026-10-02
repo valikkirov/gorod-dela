@@ -1,5 +1,6 @@
 import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, type Currency } from './economy';
+import type { AwareSource } from './marketing';
 import { recipeCost, Stock, type IngredientId } from './stock';
 import type { Weather } from './weather';
 
@@ -30,7 +31,8 @@ export type RejectReason =
   | 'queue'
   | 'no-time'
   | 'mood'
-  | 'out-of-stock';
+  | 'out-of-stock'
+  | 'unaware';
 
 export const REJECT_LABEL: Record<RejectReason, string> = {
   'not-open': 'Кафе ещё не открыто',
@@ -42,6 +44,7 @@ export const REJECT_LABEL: Record<RejectReason, string> = {
   'no-time': 'Не дождался',
   mood: 'Не сегодня',
   'out-of-stock': 'Нет в наличии',
+  unaware: 'Не знает о кафе',
 };
 
 export interface DayReport {
@@ -56,6 +59,13 @@ export interface DayReport {
   /** Испортилось и выброшено, ₽ (уже оплачено при закупке) */
   writtenOff: number;
   writtenOffItems: Partial<Record<IngredientId, number>>;
+  /** Вывеска, листовки, соцсети */
+  marketing: number;
+  /** Бесплатный кофе по карте лояльности, ₽ по меню */
+  giveaways: number;
+  newAware: Partial<Record<AwareSource, number>>;
+  /** Сколько жителей знают о кафе к концу дня */
+  awareCount: number;
   rent: number;
   utilities: number;
   wages: number;
@@ -147,6 +157,8 @@ export class Cafe {
   closeAt = hm(20);
   staff: Barista[] = [];
   readonly stock = new Stock();
+  /** Цена в момент продажи (счастливые часы) — подставляет симуляция */
+  pricing: (price: number, minute: number) => number = (p) => p;
   private nextStaffId = 1;
   readonly queue: { residentId: number; itemId: string }[] = [];
   private slots: Slot[] = [];
@@ -168,6 +180,10 @@ export class Cafe {
       purchases: 0,
       writtenOff: 0,
       writtenOffItems: {},
+      marketing: 0,
+      giveaways: 0,
+      newAware: {},
+      awareCount: 0,
       rent: 0,
       utilities: 0,
       wages: 0,
@@ -305,10 +321,11 @@ export class Cafe {
       }
       this.stock.use(it.id);
       this.today.guests += 1;
-      this.today.revenue += it.price;
+      const price = this.pricing(it.price, minute);
+      this.today.revenue += price;
       this.today.cogs += it.cost;
       this.today.sold[it.id] = (this.today.sold[it.id] ?? 0) + 1;
-      result.sales.push({ residentId: s.residentId, itemId: it.id, price: it.price });
+      result.sales.push({ residentId: s.residentId, itemId: it.id, price });
     }
     return result;
   }
@@ -365,7 +382,7 @@ export class Cafe {
       r.wages = Math.round(this.wagesToday);
       r.tax = Math.round(r.revenue * ECONOMY.taxRate);
     }
-    r.profit = r.revenue - r.purchases - r.rent - r.utilities - r.wages - r.tax;
+    r.profit = r.revenue - r.purchases - r.rent - r.utilities - r.wages - r.tax - r.marketing;
     this.today = Cafe.emptyDay(nextDay);
     this.wagesToday = 0;
     return r;

@@ -18,6 +18,7 @@ import {
   WEEKDAY_SHORT,
   weekday,
 } from '../sim/clock';
+import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { INGREDIENTS, orderPrice, RECIPES, type IngredientId } from '../sim/stock';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
@@ -34,7 +35,7 @@ const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
 
 type View = 'cafe' | 'resident' | 'report';
-type CafeTab = 'overview' | 'menu' | 'stock' | 'staff';
+type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'marketing';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -68,6 +69,7 @@ const REASON_HINT: Record<RejectReason, string> = {
   'no-item': `Не${NB}нашли нужного в${NB}меню`,
   queue: `Не${NB}стали стоять в${NB}очереди — нужен бариста`,
   'no-time': `Не${NB}дождались заказа и${NB}ушли`,
+  unaware: `Хотели зайти куда-нибудь, но о${NB}твоём кафе не${NB}знают. Помогут вывеска, листовки и${NB}соцсети — вкладка «Маркетинг»`,
   'out-of-stock': `Позиция закончилась на${NB}складе. Гость ушёл недовольным — закажи больше или подними автозаказ`,
   mood: `Цена и${NB}дорога устраивали, но${NB}не${NB}каждый день хочется в${NB}кафе. Постоянные гости заходят чаще`,
 };
@@ -85,6 +87,7 @@ export class Hud {
   private lastHtml = '';
   private lastView = '';
   private live: Record<string, string> = {};
+  private liveWidth: Record<string, string> = {};
   private readonly clock = $('#clock');
   private readonly cash = $('#cash');
   private readonly panel = $('#panel');
@@ -200,6 +203,18 @@ export class Hud {
         sim.setKeep(item as IngredientId, cur + step, weekend);
         break;
       }
+      case 'sign':
+        sim.buySign();
+        break;
+      case 'flyers':
+        sim.setFlyers(!sim.marketing.flyers);
+        break;
+      case 'social':
+        sim.launchSocial();
+        break;
+      case 'card':
+        sim.setLoyaltyCard(!sim.marketing.loyaltyCard);
+        break;
       case 'hire-shift':
         sim.hireBarista('shift');
         break;
@@ -237,6 +252,12 @@ export class Hud {
       const close = cafe.allDay ? open + MINUTES_PER_DAY : Math.max(cafe.closeAt, open + 60);
       this.sim.setHours(open, close);
     }
+    if (el.dataset.action?.startsWith('happy-')) {
+      const root = this.panel;
+      const val = (a: string) => Number(root.querySelector<HTMLSelectElement>(`select[data-action="${a}"]`)!.value);
+      const discount = val('happy-disc');
+      this.sim.setHappyHours(discount > 0 ? { from: val('happy-from'), to: val('happy-to'), discount } : null);
+    }
     if (el.dataset.action === 'close-at') {
       this.sim.setHours(cafe.openAt, el.value === ALL_DAY ? cafe.openAt + MINUTES_PER_DAY : Number(el.value));
     }
@@ -247,6 +268,7 @@ export class Hud {
 
   private render(force = false): void {
     this.live = {};
+    this.liveWidth = {};
     const html = this.sim.bankrupt
       ? this.bankruptView()
       : this.view === 'resident' && this.selected
@@ -262,6 +284,10 @@ export class Hud {
       const viewKey = this.sim.bankrupt ? 'bankrupt' : `${this.view}:${this.selected?.id ?? ''}`;
       if (viewKey !== this.lastView) this.panel.scrollTop = 0;
       this.lastView = viewKey;
+    }
+    for (const [key, value] of Object.entries(this.liveWidth)) {
+      const el = this.panel.querySelector<HTMLElement>(`[data-live-width="${key}"]`);
+      if (el && el.style.width !== value) el.style.width = value;
     }
     for (const [key, value] of Object.entries(this.live)) {
       const el = this.panel.querySelector(`[data-live="${key}"]`);
@@ -382,6 +408,7 @@ export class Hud {
       ['menu', 'Меню'],
       ['stock', 'Склад'],
       ['staff', 'Персонал'],
+      ['marketing', 'Маркетинг'],
     ];
     const tabBar = `<nav class="tabs">${tabs
       .map(([id, label]) => `<button data-action="tab" data-item="${id}" class="${this.tab === id ? 'active' : ''}">${label}</button>`)
@@ -412,6 +439,8 @@ export class Hud {
       <div class="catalog-wrap">${catalog}</div>`;
     } else if (this.tab === 'stock') {
       body = this.stockTab();
+    } else if (this.tab === 'marketing') {
+      body = this.marketingTab();
     } else {
       body = `
       <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}4${NB}мин на${NB}гостя. С${NB}бариста — 2${NB}мин, и${NB}обслуживают параллельно.</small>
@@ -432,6 +461,66 @@ export class Hud {
       <div class="row head"><b>Твоё кафе</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
       ${tabBar}
       ${body}`;
+  }
+
+  private marketingTab(): string {
+    const { marketing: mk } = this.sim;
+    const total = this.sim.residents.length;
+    const aware = this.sim.awareCount;
+    this.live.aware = `${aware} из ${total}`;
+    this.liveWidth.awarebar = `${Math.round((aware / total) * 100)}%`;
+    this.live.mkt = money(this.sim.cafe.today.marketing);
+    const happy = mk.happy;
+    const hours = Array.from({ length: 17 }, (_, i) => hm(7) + i * 60); // 07:00…23:00
+    const opt = (v: number | undefined) =>
+      hours.map((m) => `<option value="${m}" ${m === v ? 'selected' : ''}>${fmtMinute(m)}</option>`).join('');
+    const disc = [0, 0.1, 0.2, 0.3]
+      .map((d) => `<option value="${d}" ${(happy?.discount ?? 0) === d ? 'selected' : ''}>${d === 0 ? 'выкл.' : `−${d * 100}${NB}%`}</option>`)
+      .join('');
+    const channel = (title: string, note: string, control: string) =>
+      `<li><div class="grow"><b>${title}</b><small>${note}</small></div>${control}</li>`;
+    return `
+      <div class="aware">
+        <div class="row"><span class="grow">Знают о${NB}кафе</span><b data-live="aware"></b></div>
+        <div class="meter"><i data-live-width="awarebar"></i></div>
+        <small>Кто не${NB}знает, тот не${NB}зайдёт, даже если очень хочет кофе.</small>
+      </div>
+      <h4>Как узнают</h4>
+      <ul class="menu">
+        ${channel(
+          'Вывеска',
+          `Прохожие замечают кафе втрое чаще. Разово ${money(MARKETING.signCost)}`,
+          mk.sign ? '<span class="badge on">висит</span>' : `<button class="small" data-action="sign">Повесить</button>`,
+        )}
+        ${channel(
+          `Листовки у${NB}метро`,
+          `Утром и${NB}вечером — узнают офисные. ${money(MARKETING.flyersPerDay)} в${NB}день`,
+          `<button class="small ${mk.flyers ? 'ghost' : ''}" data-action="flyers">${mk.flyers ? 'Остановить' : 'Раздавать'}</button>`,
+        )}
+        ${channel(
+          'Соцсети',
+          `Узнают молодёжь и${NB}студенты. ${money(MARKETING.socialCampaign)} за${NB}${MARKETING.socialDays}${NB}дней`,
+          mk.socialDaysLeft > 0
+            ? `<span class="badge on">ещё ${mk.socialDaysLeft}${NB}дн.</span>`
+            : `<button class="small" data-action="social">Запустить</button>`,
+        )}
+        ${channel('Сарафан', `Постоянные гости сами рассказывают соседям и${NB}коллегам. Бесплатно`, '<span class="badge on">работает</span>')}
+      </ul>
+      <h4>Акции</h4>
+      <ul class="menu">
+        <li><div class="grow"><b>Счастливые часы</b><small>Скидка на${NB}всё меню в${NB}выбранное время — чтобы заполнить пустые часы</small>
+          <div class="row hours happy">
+            <select data-action="happy-from" aria-label="С">${opt(happy?.from ?? hm(15))}</select><span>—</span>
+            <select data-action="happy-to" aria-label="До">${opt(happy?.to ?? hm(17))}</select>
+            <select data-action="happy-disc" aria-label="Скидка">${disc}</select>
+          </div></div></li>
+        ${channel(
+          'Карта лояльности',
+          `Каждый ${MARKETING.loyaltyEvery}-й кофе в${NB}подарок. Постоянные возвращаются чаще и${NB}охотнее рассказывают о${NB}тебе`,
+          `<button class="small ${mk.loyaltyCard ? 'ghost' : ''}" data-action="card">${mk.loyaltyCard ? 'Выключить' : 'Включить'}</button>`,
+        )}
+      </ul>
+      <p class="wages">Сегодня на${NB}маркетинг: <b data-live="mkt"></b></p>`;
   }
 
   /** Что кончается или испортится — подсказка на обзоре */
@@ -506,6 +595,9 @@ export class Hud {
       .filter((m) => r.sold[m.id])
       .map((m) => `<li><span>${m.name}</span><b>${r.sold[m.id]}</b></li>`)
       .join('');
+    const learnedEntries = (Object.entries(r.newAware) as [AwareSource, number][]).filter(([src]) => src !== 'start');
+    const learnedTotal = learnedEntries.reduce((a, [, n]) => a + n, 0);
+    const learned = learnedEntries.map(([src, n]) => `<li><span>${AWARE_LABEL[src]}</span><b>${n}</b></li>`).join('');
     const spoiled = (Object.entries(r.writtenOffItems) as [IngredientId, number][])
       .map(([id, q]) => `${INGREDIENTS.find((i) => i.id === id)!.name.toLowerCase()} ${q}`)
       .join(', ');
@@ -538,6 +630,7 @@ export class Hud {
         ${row('Коммуналка', -r.utilities)}
         ${r.wages ? row('Зарплата', -r.wages) : ''}
         ${row(`Налог 6${NB}%`, -r.tax)}
+        ${r.marketing ? row('Маркетинг', -r.marketing) : ''}
         ${row('Итог дня', r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
         ${row('В кассе', r.cashAfter, 'cash')}
       </table>
@@ -547,6 +640,8 @@ export class Hud {
           : ''
       }
       ${missed ? `<h4>Не${NB}зашли — почему</h4><ul class="reasons">${missed}</ul>` : ''}
+      ${learned ? `<h4>Узнали о${NB}кафе: +${learnedTotal} · всего ${r.awareCount} из ${this.sim.residents.length}</h4><ul class="sold">${learned}</ul>` : ''}
+      ${r.giveaways ? `<small>По${NB}карте лояльности подарено кофе на${NB}${money(r.giveaways)}</small>` : ''}
       ${missing ? `<h4>Искали, но${NB}не${NB}нашли в${NB}меню</h4><ul class="sold">${missing}</ul>` : ''}
       ${sold ? `<h4>Продажи</h4><ul class="sold">${sold}</ul>` : ''}`;
   }
@@ -611,7 +706,7 @@ export class Hud {
       </div>
       <div class="status">${status}</div>
       ${decision}
-      <div class="facts"><div>${home}</div>${work}<div>${f ? 'Готова' : 'Готов'} платить: ${budget}</div></div>
+      <div class="facts"><div>${home}</div>${work}<div>${r.aware ? `Знает о${NB}твоём кафе` : `<b class="oos">Не${NB}знает о${NB}твоём кафе</b>`}</div><div>${f ? 'Готова' : 'Готов'} платить: ${budget}</div></div>
       <ul class="schedule">${rows}</ul>`;
   }
 }

@@ -3,6 +3,7 @@ import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from 
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY } from './economy';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
+import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
 import { INGREDIENTS, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
 import { rollWeather, type Weather } from './weather';
@@ -27,6 +28,7 @@ export type SimEvent =
   | { type: 'reject'; residentId: number; reason: RejectReason }
   | { type: 'day'; report: DayReport }
   | { type: 'delivery'; cost: number }
+  | { type: 'aware'; residentId: number; source: AwareSource }
   | { type: 'bankrupt' };
 
 /** Ядро симуляции. Не знает ничего об отрисовке — этот же код
@@ -36,6 +38,8 @@ export class Simulation {
   time: number;
   readonly residents: Resident[];
   readonly cafe = new Cafe();
+  readonly marketing = new Marketing();
+  private flyersToday = false;
   cash: number = ECONOMY.startCash;
   daysInRed = 0;
   bankrupt = false;
@@ -59,6 +63,7 @@ export class Simulation {
     this.weather = { kind: 'sunny', temp: 21 };
     this.forecast = rollWeather(this.skyRng, this.weather);
     this.residents = generateResidents(this.rng);
+    this.cafe.pricing = (price, minute) => this.marketing.priceAt(price, minute);
     this.applyDaySchedules();
     // Каждого ставим туда, где он должен быть в стартовую минуту
     for (const r of this.residents) {
@@ -75,6 +80,12 @@ export class Simulation {
     if (this.cafe.opened || this.bankrupt || this.cash < ECONOMY.cafeOpeningCost) return false;
     this.cash -= ECONOMY.cafeOpeningCost;
     this.cafe.opened = true;
+    // О кафе сразу знают соседи по дому и продавцы напротив; остальным предстоит узнать
+    for (const r of this.residents) {
+      const neighbour = r.homeId === 'home-1' || r.homeId === 'home-2';
+      const p = r.kind === 'shopkeeper' ? 1 : neighbour ? 0.7 : 0.1;
+      if (this.rng.chance(p)) this.learn(r, 'start');
+    }
     // Стартовая закупка входит в стоимость открытия; автозаказ включён на тех же уровнях
     for (const ing of INGREDIENTS) {
       const qty = STARTER_KEEP[ing.id];
@@ -214,8 +225,11 @@ export class Simulation {
     if (!cafe.opened) reason = 'not-open';
     // Дорога до кафе занимает несколько минут — проверяем с запасом
     else if (!cafe.isOpenAt(minute) || !cafe.isOpenAt(minuteOfDay(minute + 10))) reason = 'closed';
+    else if (!r.aware) reason = 'unaware';
     else {
-      const offer = evaluate(r, want, cafe.menu, r.pos, place('cafe').door, place(entry.placeId).door, this.weather.kind);
+      // Житель видит цены с учётом счастливых часов
+      const menu = cafe.menu.map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
+      const offer = evaluate(r, want, menu, r.pos, place('cafe').door, place(entry.placeId).door, this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
       if (!offer.item || !this.rng.chance(offer.p)) reason = rejectReason(offer, r.budget[want.kind]);
@@ -257,7 +271,24 @@ export class Simulation {
   private onSale(residentId: number, price: number, itemId: string): void {
     const r = this.residents[residentId];
     this.cash += price; // продукты уже оплачены при закупке
-    r.loyalty = Math.min(0.4, r.loyalty + 0.1);
+    const card = this.marketing.loyaltyCard;
+    r.loyalty = Math.min(card ? 0.5 : 0.4, r.loyalty + (card ? 0.15 : 0.1));
+    // Карта лояльности: каждый N-й кофе — в подарок
+    if (card && this.cafe.item(itemId).kind === 'coffee') {
+      r.coffeeCount += 1;
+      if (r.coffeeCount % MARKETING.loyaltyEvery === 0) {
+        this.cash -= price;
+        this.cafe.today.revenue -= price;
+        this.cafe.today.giveaways += price;
+      }
+    }
+    // Постоянный гость рассказывает соседу, коллеге или другу
+    if (r.loyalty >= 0.3 && this.rng.chance(MARKETING.wordChance)) {
+      const friends = this.residents.filter(
+        (o) => !o.aware && (o.homeId === r.homeId || (r.workId !== null && o.workId === r.workId) || o.kind === r.kind),
+      );
+      if (friends.length) this.learn(this.rng.pick(friends), 'word');
+    }
     if (r.visit) {
       r.visit.stage = 'dining';
       r.visit.until = this.time + r.visit.want.dwell;
@@ -295,10 +326,63 @@ export class Simulation {
   private receiveDelivery(): void {
     if (!this.cafe.opened) return;
     const d = this.cafe.stock.deliver(this.day);
+    // Соцсети работают каждый день кампании
+    if (this.marketing.socialDaysLeft > 0) {
+      this.marketing.socialDaysLeft -= 1;
+      for (const r of this.residents) {
+        if (r.aware) continue;
+        const young = r.kind === 'youth' || r.kind === 'student';
+        if (this.rng.chance(young ? MARKETING.socialYoung : MARKETING.socialOther)) this.learn(r, 'social');
+      }
+    }
+    if (this.marketing.flyers) this.flyersToday = true;
     if (d.cost === 0) return;
     this.cash -= d.cost;
     this.cafe.today.purchases += d.cost;
     this.events.push({ type: 'delivery', cost: d.cost });
+  }
+
+  private learn(r: Resident, source: AwareSource): void {
+    if (r.aware) return;
+    r.aware = true;
+    const na = this.cafe.today.newAware;
+    na[source] = (na[source] ?? 0) + 1;
+    if (source !== 'start') this.events.push({ type: 'aware', residentId: r.id, source });
+  }
+
+  get awareCount(): number {
+    return this.residents.filter((r) => r.aware).length;
+  }
+
+  // ——— Маркетинг: команды игрока ———
+
+  buySign(): boolean {
+    if (this.marketing.sign || !this.cafe.opened) return false;
+    this.marketing.sign = true;
+    this.cash -= MARKETING.signCost;
+    this.cafe.today.marketing += MARKETING.signCost;
+    return true;
+  }
+
+  setFlyers(on: boolean): void {
+    this.marketing.flyers = on;
+    if (on) this.flyersToday = true;
+  }
+
+  launchSocial(): boolean {
+    if (this.marketing.socialDaysLeft > 0 || !this.cafe.opened) return false;
+    this.marketing.socialDaysLeft = MARKETING.socialDays;
+    this.cash -= MARKETING.socialCampaign;
+    this.cafe.today.marketing += MARKETING.socialCampaign;
+    return true;
+  }
+
+  setHappyHours(h: HappyHours | null): void {
+    this.marketing.happy = h && h.to > h.from && h.discount > 0 ? h : null;
+  }
+
+  setLoyaltyCard(on: boolean): void {
+    this.marketing.loyaltyCard = on;
   }
 
   // ——— Склад: команды игрока ———
@@ -332,6 +416,13 @@ export class Simulation {
     this.cafe.today.writtenOff = spoiled.value;
     this.cafe.today.writtenOffItems = spoiled.items;
     if (this.cafe.opened) this.cafe.stock.autoOrder(isWeekend(nextDay));
+    // Листовки оплачиваются за каждый день, когда их раздавали
+    if (this.flyersToday || this.marketing.flyers) {
+      this.cash -= MARKETING.flyersPerDay;
+      this.cafe.today.marketing += MARKETING.flyersPerDay;
+    }
+    this.flyersToday = this.marketing.flyers;
+    this.cafe.today.awareCount = this.residents.filter((r) => r.aware).length;
     const report = this.cafe.closeDay(nextDay);
     report.weekday = weekday(report.day);
     report.weather = this.weather;
@@ -368,6 +459,20 @@ export class Simulation {
   // ——— Движение ———
 
   private goTo(r: Resident, placeId: string): void {
+    // Листовки раздают у метро в часы пик
+    const m = this.minute;
+    const peak = (m >= hm(7) && m < hm(10)) || (m >= hm(17) && m < hm(20));
+    if (
+      this.marketing.flyers &&
+      this.cafe.opened &&
+      !r.aware &&
+      peak &&
+      (placeId === 'metro' || r.placeId === 'metro') &&
+      this.rng.chance(MARKETING.flyerChance)
+    ) {
+      this.learn(r, 'flyers');
+    }
+    r.noticed = false;
     r.placeId = placeId;
     r.path = this.route(r, place(placeId));
     r.walking = true;
@@ -388,6 +493,15 @@ export class Simulation {
       } else {
         r.pos = { x: r.pos.x + (dx / dist) * budget, y: r.pos.y + (dy / dist) * budget };
         budget = 0;
+      }
+    }
+    // Проходя мимо открытого кафе, можно его заметить — вывеска помогает
+    if (this.cafe.opened && !r.aware && !r.noticed) {
+      const door = place('cafe').door;
+      if (Math.abs(r.pos.x - door.x) < 45 && Math.abs(r.pos.y - door.y) < 60) {
+        r.noticed = true;
+        const p = this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase;
+        if (this.rng.chance(p)) this.learn(r, 'walk');
       }
     }
     if (r.path.length === 0) {

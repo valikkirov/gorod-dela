@@ -638,3 +638,47 @@ button.small.ghost {
   padding: 0 8px;
   font-size: 12px;
 }
+
+.aware {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.aware b {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.meter {
+  height: 8px;
+  border-radius: 99px;
+  background: #eee9dd;
+  overflow: hidden;
+}
+
+.meter i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+
+.tabs button {
+  font-size: 12px;
+  padding: 0 2px;
+}
+
+.happy {
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.happy select {
+  height: 34px;
+  font-size: 14px;
+}

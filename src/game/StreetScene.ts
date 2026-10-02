@@ -27,6 +27,7 @@ const REASON_SHORT: Record<RejectReason, string> = {
   'no-time': 'не дождался',
   mood: 'не сегодня',
   'out-of-stock': 'кончилось',
+  unaware: 'не знает о кафе',
 };
 
 const FONT = 'Inter, system-ui, sans-serif';
@@ -114,6 +115,9 @@ export class StreetScene extends Phaser.Scene {
         const text =
           e.reason === 'not-open' ? `хочет ${WANT_LABEL[r.decision?.want ?? 'coffee']}` : REASON_SHORT[e.reason];
         this.float(r.pos.x, r.pos.y - 22, text, e.reason === 'not-open' ? '#5b6270' : '#c0392b', 18);
+      } else if (e.type === 'aware') {
+        const r = sim.residents[e.residentId];
+        if (r.visible) this.float(r.pos.x, r.pos.y - 22, e.source === 'walk' ? 'заметил кафе' : 'узнал о кафе', '#2f6fb0', 16);
       } else if (e.type === 'day') {
         this.hooks.onDayEnd();
       } else if (e.type === 'bankrupt') {

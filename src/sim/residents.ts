@@ -62,6 +62,12 @@ export interface Resident {
   loyalty: number;
   /** Последнее решение насчёт кафе — для карточки жителя */
   decision: Decision | null;
+  /** Знает ли о кафе игрока */
+  aware: boolean;
+  /** Уже проходил мимо кафе в этой прогулке — второй раз не «замечает» */
+  noticed: boolean;
+  /** Сколько кофе купил — для карты лояльности */
+  coffeeCount: number;
 
   // Состояние симуляции
   pos: Point;
@@ -339,6 +345,9 @@ export function generateResidents(rng: Rng): Resident[] {
         },
         loyalty: 0,
         decision: null,
+        aware: false,
+        noticed: false,
+        coffeeCount: 0,
         pos: { x: 0, y: 0 },
         entry: schedule[0],
         placeId: homeId,
