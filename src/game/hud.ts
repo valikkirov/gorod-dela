@@ -1,5 +1,13 @@
-import { REJECT_LABEL, type DayReport, type RejectReason } from '../sim/cafe';
-import { dayNumber, formatClock, hm, minuteOfDay } from '../sim/clock';
+import {
+  CATALOG,
+  KIND_TITLE,
+  MAX_MENU,
+  REJECT_LABEL,
+  type DayReport,
+  type ItemKind,
+  type RejectReason,
+} from '../sim/cafe';
+import { dayNumber, formatClock, hm, MINUTES_PER_DAY, minuteOfDay } from '../sim/clock';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
 import { ECONOMY, formatMoney } from '../sim/economy';
 import { ACTIVITY_LABEL, currentEntry, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
@@ -26,7 +34,13 @@ const fmtMinute = (m: number): string =>
 
 const money = formatMoney;
 
-const WANT_INSTR: Record<WantKind, string> = { coffee: 'кофе', lunch: 'обедом', tea: 'чаем', snack: 'перекусом' };
+const WANT_VISIT: Record<WantKind, string> = {
+  coffee: `за${NB}кофе`,
+  lunch: 'пообедать',
+  tea: `на${NB}чай`,
+  snack: 'перекусить',
+  bar: 'выпить',
+};
 
 /** Фамилии в генераторе женского рода оканчиваются на «а» */
 const isFemale = (r: Resident): boolean => r.name.endsWith('а');
@@ -43,7 +57,9 @@ const REASON_HINT: Record<RejectReason, string> = {
 };
 
 const OPEN_OPTIONS = Array.from({ length: 13 }, (_, i) => hm(6) + i * 30); // 06:00…12:00
-const CLOSE_OPTIONS = Array.from({ length: 10 }, (_, i) => hm(14) + i * 60); // 14:00…23:00
+// 14:00…04:00 следующего дня: после 24:00 — работа через полночь
+const CLOSE_OPTIONS = Array.from({ length: 15 }, (_, i) => hm(14) + i * 60);
+const ALL_DAY = 'all-day';
 
 export class Hud {
   speed = 1;
@@ -56,6 +72,7 @@ export class Hud {
   private readonly clock = $('#clock');
   private readonly cash = $('#cash');
   private readonly panel = $('#panel');
+  private catalogOpen = false;
 
   constructor(
     private readonly sim: Simulation,
@@ -135,6 +152,16 @@ export class Hud {
         sim.setPrice(it.id, it.price + (action === 'price-up' ? 1 : -1) * ECONOMY.priceStep);
         break;
       }
+      case 'remove-item':
+        sim.removeMenuItem(item!);
+        break;
+      case 'add-item':
+        sim.addMenuItem(item!);
+        if (sim.cafe.menu.length >= MAX_MENU) this.catalogOpen = false;
+        break;
+      case 'toggle-catalog':
+        this.catalogOpen = !this.catalogOpen;
+        break;
       case 'staff-up':
         sim.setBaristas(sim.cafe.baristas + 1);
         break;
@@ -158,8 +185,15 @@ export class Hud {
   private onChange(ev: Event): void {
     const el = ev.target as HTMLSelectElement;
     const cafe = this.sim.cafe;
-    if (el.dataset.action === 'open-at') this.sim.setHours(Number(el.value), cafe.closeAt);
-    if (el.dataset.action === 'close-at') this.sim.setHours(cafe.openAt, Number(el.value));
+    if (el.dataset.action === 'open-at') {
+      const open = Number(el.value);
+      // Круглосуточный режим сохраняем; иначе не даём закрытию оказаться раньше открытия
+      const close = cafe.allDay ? open + MINUTES_PER_DAY : Math.max(cafe.closeAt, open + 60);
+      this.sim.setHours(open, close);
+    }
+    if (el.dataset.action === 'close-at') {
+      this.sim.setHours(cafe.openAt, el.value === ALL_DAY ? cafe.openAt + MINUTES_PER_DAY : Number(el.value));
+    }
     this.render(true);
   }
 
@@ -207,10 +241,15 @@ export class Hud {
 
     const minute = this.sim.minute;
     const open = cafe.isOpenAt(minute);
-    this.live.status = open ? `Открыто до ${fmtMinute(cafe.closeAt)}` : `Закрыто до ${fmtMinute(cafe.openAt)}`;
+    this.live.status = cafe.allDay
+      ? 'Круглосуточно'
+      : open
+        ? `Открыто до ${fmtMinute(cafe.closeAt % MINUTES_PER_DAY)}`
+        : `Закрыто до ${fmtMinute(cafe.openAt)}`;
     this.live.guests = String(today.guests);
     this.live.revenue = money(today.revenue);
-    this.live.queue = String(cafe.busy);
+    this.live.queue = String(this.sim.guestsInside);
+    this.live.wages = money(cafe.wagesSoFar);
 
     const items = cafe.menu
       .map((m) => {
@@ -224,12 +263,44 @@ export class Hud {
             <span>${money(m.price)}</span>
             <button data-action="price-up" data-item="${m.id}" aria-label="Дороже">+</button>
           </div>
+          <button class="icon" data-action="remove-item" data-item="${m.id}" ${cafe.menu.length <= 1 ? 'disabled' : ''}
+            aria-label="Убрать из меню">✕</button>
         </li>`;
       })
       .join('');
 
+    const full = cafe.menu.length >= MAX_MENU;
+    const catalog = this.catalogOpen
+      ? (Object.keys(KIND_TITLE) as ItemKind[])
+          .map((kind) => {
+            const rows = CATALOG.filter((c) => c.kind === kind)
+              .map((c) => {
+                const inMenu = cafe.hasItem(c.id);
+                return `<li><div class="grow"><b>${c.name}</b>
+                  <small>от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
+                  ${
+                    inMenu
+                      ? '<span class="badge on">в меню</span>'
+                      : `<button class="small" data-action="add-item" data-item="${c.id}" ${full ? 'disabled' : ''}>Добавить</button>`
+                  }</li>`;
+              })
+              .join('');
+            const note =
+              kind === 'bar' ? `<small class="note">ИП может продавать только пиво и${NB}сидр. Вино и${NB}крепкое — с${NB}лицензией ООО, позже</small>` : '';
+            return `<h5>${KIND_TITLE[kind]}</h5><ul class="menu catalog">${rows}</ul>${note}`;
+          })
+          .join('')
+      : '';
+
     const opt = (list: number[], value: number) =>
       list.map((m) => `<option value="${m}" ${m === value ? 'selected' : ''}>${fmtMinute(m)}</option>`).join('');
+    const closeOpt =
+      CLOSE_OPTIONS.filter((m) => m > cafe.openAt)
+        .map((m) => {
+          const label = m > MINUTES_PER_DAY || m === MINUTES_PER_DAY ? `${fmtMinute(m % MINUTES_PER_DAY)} ночи` : fmtMinute(m);
+          return `<option value="${m}" ${!cafe.allDay && m === cafe.closeAt ? 'selected' : ''}>${label}</option>`;
+        })
+        .join('') + `<option value="${ALL_DAY}" ${cafe.allDay ? 'selected' : ''}>круглосуточно</option>`;
     const staff = cafe.baristas === 0 ? 'Ты сам' : `${cafe.baristas}${NB}бариста`;
     const last = this.sim.reports.at(-1);
 
@@ -240,18 +311,21 @@ export class Hud {
         <div><small>Выручка</small><b data-live="revenue"></b></div>
         <div><small>В${NB}кафе сейчас</small><b data-live="queue"></b></div>
       </div>
-      <h4>Меню и${NB}цены</h4>
+      <h4>Меню и${NB}цены · ${cafe.menu.length}${NB}из${NB}${MAX_MENU}</h4>
       <ul class="menu">${items}</ul>
+      <button class="secondary" data-action="toggle-catalog">${this.catalogOpen ? 'Скрыть каталог' : `Изменить меню${full ? ` — мест нет, сначала убери позицию` : ''}`}</button>
+      <div class="catalog-wrap">${catalog}</div>
       <h4>Часы работы</h4>
       <div class="row hours">
         <select data-action="open-at" aria-label="Открытие">${opt(OPEN_OPTIONS, cafe.openAt)}</select>
         <span>—</span>
-        <select data-action="close-at" aria-label="Закрытие">${opt(CLOSE_OPTIONS, cafe.closeAt)}</select>
+        <select data-action="close-at" aria-label="Закрытие">${closeOpt}</select>
       </div>
       <h4>За${NB}стойкой</h4>
       <div class="row">
         <div class="grow"><b>${staff}</b>
-          <small>${cafe.baristas === 0 ? `Бесплатно, но${NB}медленно: 4${NB}мин на${NB}гостя` : `${money(ECONOMY.baristaWagePerShift)} за${NB}смену каждому · 2${NB}мин на${NB}гостя`}</small></div>
+          <small>Сегодня на${NB}зарплату: <span data-live="wages"></span></small>
+          <small>${cafe.baristas === 0 ? `Бесплатно, но${NB}медленно: 4${NB}мин на${NB}гостя` : `${money(ECONOMY.baristaWagePerHour)} в${NB}час каждому, ночью +20${NB}% · 2${NB}мин на${NB}гостя`}</small></div>
         <div class="stepper">
           <button data-action="staff-down" ${cafe.baristas === 0 ? 'disabled' : ''} aria-label="Меньше">−</button>
           <span>${cafe.baristas}</span>
@@ -269,7 +343,11 @@ export class Hud {
       .sort((a, b) => b[1] - a[1])
       .map(([reason, n]) => `<li><b>${n}</b><div><span>${REJECT_LABEL[reason]}</span><small>${REASON_HINT[reason]}</small></div></li>`)
       .join('');
-    const sold = this.sim.cafe.menu
+    const missing = (Object.entries(r.missingKinds) as [ItemKind, number][])
+      .sort((a, b) => b[1] - a[1])
+      .map(([kind, n]) => `<li><span>${KIND_TITLE[kind]}</span><b>${n}</b></li>`)
+      .join('');
+    const sold = CATALOG
       .filter((m) => r.sold[m.id])
       .map((m) => `<li><span>${m.name}</span><b>${r.sold[m.id]}</b></li>`)
       .join('');
@@ -297,6 +375,7 @@ export class Hud {
           : ''
       }
       ${missed ? `<h4>Не${NB}зашли — почему</h4><ul class="reasons">${missed}</ul>` : ''}
+      ${missing ? `<h4>Искали, но${NB}не${NB}нашли в${NB}меню</h4><ul class="sold">${missing}</ul>` : ''}
       ${sold ? `<h4>Продажи</h4><ul class="sold">${sold}</ul>` : ''}`;
   }
 
@@ -340,7 +419,7 @@ export class Hud {
       const item = d.itemId ? this.sim.cafe.menu.find((m) => m.id === d.itemId) : undefined;
       const when = `${d.day === dayNumber(this.sim.time) ? 'Сегодня' : `День ${d.day}`}, ${fmtMinute(d.minute)}`;
       decision = d.visited
-        ? `<div class="decision ok"><small>${when}</small>${f ? 'Зашла' : 'Зашёл'} за${NB}${WANT_INSTR[d.want]}: ${item?.name ?? ''}, ${money(d.price ?? 0)}</div>`
+        ? `<div class="decision ok"><small>${when}</small>${f ? 'Зашла' : 'Зашёл'} ${WANT_VISIT[d.want]}: ${item?.name ?? ''}, ${money(d.price ?? 0)}</div>`
         : `<div class="decision no"><small>${when} · ${f ? 'хотела' : 'хотел'} ${WANT_LABEL[d.want]}</small>Не${NB}${f ? 'зашла' : 'зашёл'}: ${REJECT_LABEL[d.reason!].toLowerCase()}${
             d.reason === 'expensive' && item ? ` — ${item.name} ${money(d.price ?? 0)}, ${f ? 'готова' : 'готов'} до${NB}${money(d.budget)}` : ''
           }</div>`;

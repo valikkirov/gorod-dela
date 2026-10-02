@@ -28,6 +28,8 @@ export const RESIDENT_COLOR: Record<ResidentKind, number> = {
   pensioner: 0x6b7480,
   shopkeeper: 0xe67e22,
   remote: 0x16a085,
+  youth: 0xd6336c,
+  nightworker: 0x34495e,
 };
 
 export const toCss = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;

@@ -17,10 +17,12 @@ describe('Город', () => {
     expect(a.cash).toBe(b.cash);
   });
 
-  it('ночью улица пустая', () => {
+  it('ночью большинство спит, но улица живёт: молодёжь и ночная смена', () => {
     const sim = new Simulation(1, hm(23, 0));
-    sim.advance(hm(4, 0)); // до 03:00
-    expect(sim.onStreet).toBe(0);
+    sim.advance(hm(1, 30)); // до 00:30
+    const out = sim.residents.filter((r) => r.placeId !== r.homeId);
+    expect(out.length).toBeGreaterThan(5);
+    expect(out.every((r) => r.kind === 'youth' || r.kind === 'nightworker' || r.kind === 'student')).toBe(true);
   });
 
   it('днём офисные сотрудники доходят до работы', () => {
@@ -77,12 +79,61 @@ describe('Кафе', () => {
     expect(early.reports[0].guests).toBeGreaterThan(late.reports[0].guests);
   });
 
-  it('бариста стоит денег в отчёте', () => {
-    const sim = new Simulation(1);
-    sim.openCafe();
+  it('бариста получает за каждый час работы кафе', () => {
+    const sim = new Simulation(1); // старт в 06:00
+    sim.openCafe(); // 08:00–20:00 — 12 часов
     sim.setBaristas(1);
     sim.advance(DAY);
-    expect(sim.reports[0].wages).toBe(ECONOMY.baristaWagePerShift);
+    expect(sim.reports[0].wages).toBe(12 * ECONOMY.baristaWagePerHour);
+  });
+
+  it('ночные часы оплачиваются с надбавкой 20 %', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.setHours(hm(20), hm(24)); // 20:00–00:00: 2 часа обычных + 2 ночных
+    sim.setBaristas(1);
+    sim.advance(DAY);
+    const rate = ECONOMY.baristaWagePerHour;
+    expect(sim.reports[0].wages).toBe(2 * rate + 2 * rate * (1 + ECONOMY.nightBonus));
+  });
+
+  it('кафе может работать через полночь и круглосуточно', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.setHours(hm(10), hm(26)); // до 02:00
+    expect(sim.cafe.isOpenAt(hm(1))).toBe(true);
+    expect(sim.cafe.isOpenAt(hm(3))).toBe(false);
+    sim.setHours(hm(8), hm(32)); // 24 часа
+    expect(sim.cafe.isOpenAt(hm(4))).toBe(true);
+  });
+
+  it('ночью молодёжь идёт в бар, если в меню есть пиво или сидр', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.setHours(hm(8), hm(26));
+    sim.removeMenuItem('tea');
+    sim.addMenuItem('beer');
+    sim.addMenuItem('cider');
+    sim.advance(DAY);
+    const bar = (sim.reports[0].sold.beer ?? 0) + (sim.reports[0].sold.cider ?? 0);
+    expect(bar).toBeGreaterThan(3);
+  });
+
+  it('без бара ночной спрос виден как «нет нужного в меню»', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.setHours(hm(8), hm(26));
+    sim.advance(DAY);
+    expect(sim.reports[0].missingKinds.bar ?? 0).toBeGreaterThan(3);
+  });
+
+  it('меню: до 8 позиций, хотя бы одна', () => {
+    const sim = new Simulation(1);
+    for (const id of ['latte', 'raf', 'sandwich', 'soup', 'beer']) sim.addMenuItem(id);
+    expect(sim.cafe.menu.length).toBe(8);
+    expect(sim.addMenuItem('cider')).toBe(false);
+    for (const m of [...sim.cafe.menu]) sim.removeMenuItem(m.id);
+    expect(sim.cafe.menu.length).toBe(1);
   });
 
   it('три дня в минусе — банкротство', () => {

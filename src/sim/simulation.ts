@@ -1,5 +1,5 @@
 import { Cafe, MAX_QUEUE, type DayReport, type RejectReason } from './cafe';
-import { dayNumber, hm, minuteOfDay } from './clock';
+import { dayNumber, hm, MINUTES_PER_DAY, minuteOfDay } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY } from './economy';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
@@ -68,14 +68,23 @@ export class Simulation {
     this.cafe.item(itemId).price = Math.max(ECONOMY.priceStep, Math.round(price / ECONOMY.priceStep) * ECONOMY.priceStep);
   }
 
+  /** closeAt может быть больше 24:00 (работа через полночь); openAt + 24 ч — круглосуточно */
   setHours(openAt: number, closeAt: number): void {
-    if (closeAt <= openAt) return;
+    if (closeAt <= openAt || closeAt - openAt > MINUTES_PER_DAY) return;
     this.cafe.openAt = openAt;
     this.cafe.closeAt = closeAt;
   }
 
   setBaristas(n: number): void {
-    this.cafe.setBaristas(n, minuteOfDay(this.time));
+    this.cafe.setBaristas(n);
+  }
+
+  addMenuItem(id: string): boolean {
+    return this.cafe.addItem(id);
+  }
+
+  removeMenuItem(id: string): boolean {
+    return this.cafe.removeItem(id);
   }
 
   // ——— Время ———
@@ -101,6 +110,11 @@ export class Simulation {
     return this.residents.filter((r) => r.visible).length;
   }
 
+  /** Сколько гостей сейчас внутри кафе: в очереди и за столиками */
+  get guestsInside(): number {
+    return this.residents.filter((r) => r.placeId === 'cafe' && !r.walking).length;
+  }
+
   get minute(): number {
     return minuteOfDay(this.time);
   }
@@ -115,6 +129,7 @@ export class Simulation {
     if (this.bankrupt) return;
 
     if (wasOpen && !this.cafe.isOpenAt(minute)) {
+      // Закрылись — недообслуженные уходят
       for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
     }
 
@@ -158,12 +173,16 @@ export class Simulation {
     let price: number | undefined;
     if (!cafe.opened) reason = 'not-open';
     // Дорога до кафе занимает несколько минут — проверяем с запасом
-    else if (!cafe.isOpenAt(minute) || !cafe.isOpenAt(minute + 10)) reason = 'closed';
+    else if (!cafe.isOpenAt(minute) || !cafe.isOpenAt(minuteOfDay(minute + 10))) reason = 'closed';
     else {
       const offer = evaluate(r, want, cafe.menu, r.pos, place('cafe').door, place(entry.placeId).door);
       itemId = offer.item?.id;
       price = offer.item?.price;
       if (!offer.item || !this.rng.chance(offer.p)) reason = rejectReason(offer, r.budget[want.kind]);
+      if (reason === 'no-item') {
+        const mk = cafe.today.missingKinds;
+        mk[want.kind] = (mk[want.kind] ?? 0) + 1;
+      }
     }
 
     if (reason) {
@@ -229,7 +248,8 @@ export class Simulation {
   // ——— Деньги ———
 
   private closeDay(nextDay: number): void {
-    for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
+    // Если кафе работает через полночь, гости остаются — день меняется только в отчёте
+    if (!this.cafe.isOpenAt(0)) for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
     const report = this.cafe.closeDay(nextDay);
     // Выручка и закупка уже прошли через кассу — списываем постоянные расходы и налог
     this.cash -= report.rent + report.utilities + report.wages + report.tax;

@@ -459,3 +459,50 @@ button.secondary {
 .card-head small {
   display: block;
 }
+
+.menu li .icon {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.menu li .icon:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+#panel h5 {
+  margin: 12px 0 4px;
+  font-size: 13px;
+}
+
+.catalog li {
+  padding: 4px 0;
+}
+
+button.small {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accent);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button.small:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#panel small.note {
+  margin-top: 4px;
+}

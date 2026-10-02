@@ -9,7 +9,9 @@ export const ECONOMY = {
   /** 90 000 ₽ в месяц → списывается каждый игровой день */
   rentPerDay: 3_000,
   utilitiesPerDay: 500,
-  baristaWagePerShift: 2_500,
+  /** Ставка бариста. Ночью (22:00–6:00) — с надбавкой, как по ТК */
+  baristaWagePerHour: 300,
+  nightBonus: 0.2,
   maxBaristas: 2,
   /** УСН «доходы» */
   taxRate: 0.06,

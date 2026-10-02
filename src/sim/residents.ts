@@ -3,7 +3,14 @@ import { BASE_BUDGET, type Decision, type Want, type WantKind } from './demand';
 import { Rng } from './rng';
 import type { Point } from './world';
 
-export type ResidentKind = 'office' | 'student' | 'pensioner' | 'shopkeeper' | 'remote';
+export type ResidentKind =
+  | 'office'
+  | 'student'
+  | 'pensioner'
+  | 'shopkeeper'
+  | 'remote'
+  | 'youth'
+  | 'nightworker';
 
 export const KIND_LABEL: Record<ResidentKind, string> = {
   office: 'Офисный сотрудник',
@@ -11,9 +18,11 @@ export const KIND_LABEL: Record<ResidentKind, string> = {
   pensioner: 'Пенсионер',
   shopkeeper: 'Продавец',
   remote: 'Фрилансер',
+  youth: 'Молодёжь',
+  nightworker: 'Ночная смена',
 };
 
-export type Activity = 'home' | 'work' | 'study' | 'lunch' | 'groceries' | 'walk';
+export type Activity = 'home' | 'work' | 'study' | 'lunch' | 'groceries' | 'walk' | 'night';
 
 export const ACTIVITY_LABEL: Record<Activity, string> = {
   home: 'Дома',
@@ -22,6 +31,7 @@ export const ACTIVITY_LABEL: Record<Activity, string> = {
   lunch: 'Обед',
   groceries: 'За продуктами',
   walk: 'Прогулка',
+  night: 'Вечер с друзьями',
 };
 
 export interface ScheduleEntry {
@@ -43,8 +53,8 @@ export interface Resident {
 
   /** Готовность платить, ₽ — у каждого своя */
   budget: Record<WantKind, number>;
-  /** Любимая позиция меню — к ней житель готов прибавить */
-  favorite: string;
+  /** Любимая позиция в каждой категории — за ней житель идёт охотнее */
+  favorites: Record<WantKind, string>;
   /** 0…0.4: растёт после удачных визитов */
   loyalty: number;
   /** Последнее решение насчёт кафе — для карточки жителя */
@@ -128,7 +138,7 @@ const SCHEDULES: Record<ResidentKind, Builder> = {
     ];
     if (rng.chance(0.45)) {
       const walk = hm(19, 30) + rng.jitter(40);
-      out.push(e(walk, 'park', 'walk'), e(walk + rng.int(60, 120), home, 'home'));
+      out.push(e(walk, 'park', 'night'), e(walk + rng.int(90, 180), home, 'home'));
     }
     return out;
   },
@@ -159,7 +169,71 @@ const SCHEDULES: Record<ResidentKind, Builder> = {
       e(shop + rng.int(15, 30), home, 'home'),
     ];
   },
+  youth: (rng, home) => {
+    // Просыпаются поздно, вечером и ночью — в сквере и барах
+    const day = hm(13) + rng.jitter(60);
+    const out = [e(0, home, 'home'), e(day, rng.chance(0.6) ? 'park' : 'shop', 'walk'), e(day + rng.int(60, 120), home, 'home')];
+    if (rng.chance(0.75)) {
+      out[0] = e(0, 'park', 'night');
+      out.push(e(hm(1, 30) + rng.jitter(40), home, 'home'), e(hm(21) + rng.jitter(60), 'park', 'night'));
+    }
+    return out;
+  },
+  nightworker: (rng, home, work) => {
+    // Охрана, курьеры, таксисты: работают ночью, ночной перекус около 2:00
+    const snack = hm(2) + rng.jitter(30);
+    return [
+      e(0, work, 'work'),
+      e(snack, 'shop', 'lunch'),
+      e(snack + rng.int(20, 30), work, 'work'),
+      e(hm(7, 30) + rng.jitter(20), home, 'home'),
+      e(hm(21, 30) + rng.jitter(30), work, 'work'),
+    ];
+  },
 };
+
+/** Вкусы: какая позиция в категории нравится больше — зависит от типа жителя */
+const TASTES: Record<WantKind, Partial<Record<ResidentKind, [string, number][]>> & { any: [string, number][] }> = {
+  coffee: {
+    any: [['americano', 1], ['cappuccino', 1], ['latte', 1], ['raf', 0.5]],
+    office: [['americano', 4], ['cappuccino', 3], ['latte', 2], ['raf', 1]],
+    pensioner: [['americano', 5], ['cappuccino', 3], ['latte', 2]],
+    student: [['cappuccino', 3], ['latte', 3], ['raf', 3], ['americano', 1]],
+    youth: [['raf', 4], ['latte', 3], ['cappuccino', 2], ['americano', 1]],
+  },
+  snack: {
+    any: [['croissant', 1], ['sandwich', 1], ['syrniki', 1]],
+    office: [['sandwich', 3], ['croissant', 2], ['syrniki', 1]],
+    pensioner: [['syrniki', 3], ['croissant', 2]],
+    nightworker: [['sandwich', 4], ['croissant', 1]],
+  },
+  lunch: {
+    any: [['lunch', 1], ['soup', 1]],
+    office: [['lunch', 3], ['soup', 2]],
+    student: [['soup', 3], ['lunch', 1]],
+    pensioner: [['soup', 3], ['lunch', 1]],
+  },
+  tea: {
+    any: [['tea', 1], ['lemonade', 1]],
+    pensioner: [['tea', 4], ['lemonade', 1]],
+    youth: [['lemonade', 3], ['tea', 1]],
+  },
+  bar: {
+    any: [['beer', 1], ['cider', 1]],
+    youth: [['cider', 3], ['beer', 2]],
+    nightworker: [['beer', 1]],
+  },
+};
+
+function weighted(rng: Rng, items: [string, number][]): string {
+  const total = items.reduce((s, [, w]) => s + w, 0);
+  let x = rng.range(0, total);
+  for (const [id, w] of items) {
+    x -= w;
+    if (x <= 0) return id;
+  }
+  return items[items.length - 1][0];
+}
 
 interface Template {
   kind: ResidentKind;
@@ -180,6 +254,9 @@ export function generateResidents(rng: Rng): Resident[] {
     // Приезжают на метро работать на улице
     { kind: 'office', count: 36, home: () => 'metro', work: () => rng.pick(STREET_OFFICES) },
     { kind: 'shopkeeper', count: 2, home: () => 'metro', work: () => 'shop' },
+    // Ночная жизнь
+    { kind: 'youth', count: 9, home: fromStreet, work: () => 'metro' },
+    { kind: 'nightworker', count: 5, home: fromStreet, work: () => rng.pick([...STREET_OFFICES, 'metro']) },
   ];
 
   const residents: Resident[] = [];
@@ -195,15 +272,22 @@ export function generateResidents(rng: Rng): Resident[] {
         name: makeName(rng),
         kind: t.kind,
         homeId,
-        workId: t.kind === 'pensioner' || t.kind === 'remote' ? null : workId,
+        workId: t.kind === 'pensioner' || t.kind === 'remote' || t.kind === 'youth' ? null : workId,
         schedule,
         budget: {
           coffee: Math.round(base.coffee * wallet),
           lunch: Math.round(base.lunch * wallet),
           tea: Math.round(base.tea * wallet),
           snack: Math.round(base.snack * wallet),
+          bar: Math.round(base.bar * wallet),
         },
-        favorite: rng.chance(0.5) ? 'cappuccino' : 'americano',
+        favorites: {
+          coffee: weighted(rng, TASTES.coffee[t.kind] ?? TASTES.coffee.any),
+          snack: weighted(rng, TASTES.snack[t.kind] ?? TASTES.snack.any),
+          lunch: weighted(rng, TASTES.lunch[t.kind] ?? TASTES.lunch.any),
+          tea: weighted(rng, TASTES.tea[t.kind] ?? TASTES.tea.any),
+          bar: weighted(rng, TASTES.bar[t.kind] ?? TASTES.bar.any),
+        },
         loyalty: 0,
         decision: null,
         pos: { x: 0, y: 0 },

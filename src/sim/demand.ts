@@ -13,6 +13,7 @@ export const WANT_LABEL: Record<WantKind, string> = {
   lunch: 'обед',
   tea: 'чай',
   snack: 'перекус',
+  bar: 'выпить',
 };
 
 export interface Want {
@@ -25,11 +26,13 @@ export interface Want {
 
 /** Готовность платить (₽) за желание — у каждого типа жителя своя */
 export const BASE_BUDGET: Record<ResidentKind, Record<WantKind, number>> = {
-  office: { coffee: 200, lunch: 420, snack: 180, tea: 160 },
-  student: { coffee: 160, lunch: 280, snack: 150, tea: 120 },
-  pensioner: { coffee: 120, lunch: 250, snack: 120, tea: 170 },
-  remote: { coffee: 230, lunch: 400, snack: 200, tea: 180 },
-  shopkeeper: { coffee: 150, lunch: 300, snack: 150, tea: 130 },
+  office: { coffee: 200, lunch: 420, snack: 180, tea: 160, bar: 350 },
+  student: { coffee: 160, lunch: 280, snack: 150, tea: 120, bar: 280 },
+  pensioner: { coffee: 120, lunch: 250, snack: 120, tea: 170, bar: 200 },
+  remote: { coffee: 230, lunch: 400, snack: 200, tea: 180, bar: 330 },
+  shopkeeper: { coffee: 150, lunch: 300, snack: 150, tea: 130, bar: 280 },
+  youth: { coffee: 220, lunch: 320, snack: 200, tea: 170, bar: 360 },
+  nightworker: { coffee: 170, lunch: 300, snack: 220, tea: 140, bar: 250 },
 };
 
 /** Какие позиции меню закрывают желание */
@@ -38,6 +41,7 @@ const ACCEPTS: Record<WantKind, ItemKind[]> = {
   lunch: ['lunch'],
   tea: ['tea', 'coffee'],
   snack: ['snack', 'coffee'],
+  bar: ['bar'],
 };
 
 interface WantRule {
@@ -48,6 +52,7 @@ interface WantRule {
 
 const MORNING_END = hm(11);
 const EVENING_START = hm(16);
+const NIGHT_SHIFT = hm(20);
 
 const RULES: WantRule[] = [
   {
@@ -57,10 +62,28 @@ const RULES: WantRule[] = [
     want: { kind: 'coffee', mode: 'stopover', dwell: 0 },
   },
   {
-    // Обед — сейчас офисные идут в «Продукты»
+    // Кофе перед ночной сменой
+    test: (_r, e) => e.activity === 'work' && e.start >= NIGHT_SHIFT,
+    chance: { nightworker: 0.6 },
+    want: { kind: 'coffee', mode: 'stopover', dwell: 0 },
+  },
+  {
+    // Обед — офисные идут в «Продукты», ночная смена перекусывает около 2:00
     test: (_r, e) => e.activity === 'lunch',
-    chance: { office: 1 },
+    chance: { office: 1, nightworker: 0.8 },
     want: { kind: 'lunch', mode: 'replace', dwell: 20 },
+  },
+  {
+    // Вечер с друзьями — бар
+    test: (_r, e) => e.activity === 'night',
+    chance: { youth: 0.75, student: 0.5 },
+    want: { kind: 'bar', mode: 'replace', dwell: 60 },
+  },
+  {
+    // Завтрак после ночной смены
+    test: (_r, e, prev) => e.activity === 'home' && prev?.activity === 'work' && e.start < MORNING_END,
+    chance: { nightworker: 0.4 },
+    want: { kind: 'snack', mode: 'stopover', dwell: 0 },
   },
   {
     test: (_r, e) => e.activity === 'walk',
@@ -70,7 +93,7 @@ const RULES: WantRule[] = [
   {
     // Посидеть с ноутбуком или с друзьями
     test: (_r, e) => e.activity === 'walk',
-    chance: { remote: 0.6, student: 0.3 },
+    chance: { remote: 0.6, student: 0.3, youth: 0.5 },
     want: { kind: 'coffee', mode: 'replace', dwell: 40 },
   },
   {
@@ -131,15 +154,18 @@ export function evaluate(
   const kinds = ACCEPTS[want.kind];
   // Цена на 30 % ниже ожиданий — точно да, на 35 % выше — точно нет
   const pFor = (m: MenuItem) => clamp((1.35 - m.price / budget) / 0.65, 0, 1);
+  const favorite = r.favorites[want.kind];
+  const isFav = (m: MenuItem) => m.id === favorite;
   // Порядок предпочтений: любимая позиция (если не слишком дорого) → основная категория → замена
   const rank = (m: MenuItem) =>
-    (m.id === r.favorite && m.kind === kinds[0] && pFor(m) >= 0.25 ? 2 : 0) + (m.kind === kinds[0] ? 1 : 0) + pFor(m) / 2;
+    (isFav(m) && pFor(m) >= 0.25 ? 2 : 0) + (m.kind === kinds[0] ? 1 : 0) + pFor(m) / 2;
   let item: MenuItem | null = null;
   for (const m of menu) {
     if (!kinds.includes(m.kind)) continue;
     if (item === null || rank(m) > rank(item)) item = m;
   }
-  const pPrice = item ? pFor(item) : 0;
+  // Без любимой позиции в меню житель берёт другую, но с меньшей охотой — повод расширять меню
+  const pPrice = item ? pFor(item) * (isFav(item) ? 1 : 0.85) : 0;
   // Крюк: насколько дальше идти через кафе, чем сразу к цели
   const detour =
     want.mode === 'stopover'

@@ -30,12 +30,23 @@ const REASON_SHORT: Record<RejectReason, string> = {
 
 const FONT = 'Inter, system-ui, sans-serif';
 
+/** Насколько темно на улице: 0 днём, 0.42 глубокой ночью */
+function darkness(minute: number): number {
+  const h = minute / 60;
+  const MAX = 0.42;
+  if (h >= 7 && h < 18) return 0;
+  if (h >= 18 && h < 21) return ((h - 18) / 3) * MAX;
+  if (h >= 5 && h < 7) return ((7 - h) / 2) * MAX;
+  return MAX;
+}
+
 const RADIUS = 9;
 
 export class StreetScene extends Phaser.Scene {
   private hooks!: SceneHooks;
   private people!: Phaser.GameObjects.Graphics;
   private cafeShade!: Phaser.GameObjects.Graphics;
+  private night!: Phaser.GameObjects.Graphics;
   private cafeName!: Phaser.GameObjects.Text;
   private cafeStatus!: Phaser.GameObjects.Text;
   private selected: Resident | null = null;
@@ -50,6 +61,7 @@ export class StreetScene extends Phaser.Scene {
 
   create(): void {
     this.drawMap();
+    this.night = this.add.graphics();
     this.cafeShade = this.add.graphics();
     const c = place('cafe').rect;
     this.cafeName = this.label(c.x + c.w / 2, c.y + c.h / 2 - 12, '', 26, true);
@@ -144,11 +156,21 @@ export class StreetScene extends Phaser.Scene {
     this.cafeName.setText(cafe.opened ? 'Твоё кафе' : 'Сдаётся');
     this.cafeStatus.setText(cafe.opened ? (open ? 'открыто' : 'закрыто') : 'свободное помещение');
     this.cafeStatus.setColor(open ? '#2e8b57' : '#6b7080');
+    // Вечером город темнеет; открытое кафе светится
+    const dark = darkness(this.hooks.sim.minute);
+    this.night.clear();
+    if (dark > 0) {
+      this.night.fillStyle(0x1b2340, dark);
+      this.night.fillRect(0, 0, WORLD.width, WORLD.height);
+    }
     const g = this.cafeShade;
     g.clear();
+    const r = place('cafe').rect;
     if (!cafe.opened) {
-      const r = place('cafe').rect;
       g.fillStyle(0xffffff, 0.45);
+      g.fillRoundedRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, 12);
+    } else if (open && dark > 0) {
+      g.fillStyle(0xffd27a, Math.min(0.9, dark * 2.2));
       g.fillRoundedRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, 12);
     }
   }

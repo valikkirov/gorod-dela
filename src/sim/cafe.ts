@@ -1,7 +1,15 @@
-import { hm } from './clock';
+import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, type Currency } from './economy';
 
-export type ItemKind = 'coffee' | 'lunch' | 'tea' | 'snack';
+export type ItemKind = 'coffee' | 'snack' | 'lunch' | 'tea' | 'bar';
+
+export const KIND_TITLE: Record<ItemKind, string> = {
+  coffee: 'Кофе',
+  snack: 'Выпечка и перекус',
+  lunch: 'Обеды',
+  tea: 'Чай и напитки',
+  bar: 'Бар',
+};
 
 export interface MenuItem {
   id: string;
@@ -48,18 +56,41 @@ export interface DayReport {
   /** Сколько раз жители хотели зайти (включая отказы) */
   wanted: number;
   missed: Partial<Record<RejectReason, number>>;
+  /** Чего не нашли в меню: категория → сколько раз */
+  missingKinds: Partial<Record<ItemKind, number>>;
   sold: Record<string, number>;
 }
 
-export const DEFAULT_MENU: MenuItem[] = [
+/** Всё, что кафе может продавать. Цена — стартовая, игрок меняет её сам.
+ *  Для ИП из алкоголя доступны только пиво и сидр; вино и крепкое — с лицензией ООО (позже). */
+export const CATALOG: readonly MenuItem[] = [
   { id: 'americano', name: 'Американо', kind: 'coffee', price: 150, cost: 30 },
   { id: 'cappuccino', name: 'Капучино', kind: 'coffee', price: 220, cost: 50 },
+  { id: 'latte', name: 'Латте', kind: 'coffee', price: 230, cost: 55 },
+  { id: 'raf', name: 'Раф', kind: 'coffee', price: 280, cost: 70 },
   { id: 'croissant', name: 'Круассан', kind: 'snack', price: 160, cost: 60 },
+  { id: 'sandwich', name: 'Сэндвич', kind: 'snack', price: 250, cost: 100 },
+  { id: 'syrniki', name: 'Сырники', kind: 'snack', price: 280, cost: 90 },
+  { id: 'soup', name: 'Суп дня', kind: 'lunch', price: 250, cost: 80 },
   { id: 'lunch', name: 'Бизнес-ланч', kind: 'lunch', price: 390, cost: 160 },
   { id: 'tea', name: 'Чай с пирогом', kind: 'tea', price: 180, cost: 50 },
+  { id: 'lemonade', name: 'Лимонад', kind: 'tea', price: 200, cost: 40 },
+  { id: 'beer', name: 'Пиво', kind: 'bar', price: 300, cost: 110 },
+  { id: 'cider', name: 'Сидр', kind: 'bar', price: 320, cost: 120 },
 ];
 
+export const DEFAULT_MENU_IDS = ['americano', 'cappuccino', 'croissant', 'lunch', 'tea'];
+export const MAX_MENU = 8;
 export const MAX_QUEUE = 6;
+
+const catalogItem = (id: string): MenuItem => {
+  const it = CATALOG.find((m) => m.id === id);
+  if (!it) throw new Error(`Нет позиции ${id} в каталоге`);
+  return { ...it };
+};
+
+/** Ночные часы для надбавки +20 % */
+export const isNightMinute = (m: number): boolean => m >= hm(22) || m < hm(6);
 
 interface Slot {
   residentId: number;
@@ -76,16 +107,20 @@ export interface Sale {
 /** Состояние кафе игрока */
 export class Cafe {
   opened = false;
-  menu: MenuItem[] = DEFAULT_MENU.map((m) => ({ ...m }));
+  menu: MenuItem[] = DEFAULT_MENU_IDS.map(catalogItem);
   openAt = hm(8);
+  /** Может быть больше 24:00 — работа через полночь. openAt + 1440 = круглосуточно. */
   closeAt = hm(20);
   baristas = 0;
   readonly queue: { residentId: number; itemId: string }[] = [];
   private slots: Slot[] = [];
+  /** Цены позиций, убранных из меню, — чтобы дообслужить уже сделанные заказы */
+  private retired = new Map<string, MenuItem>();
 
   // Счётчики текущего дня
   today = Cafe.emptyDay(1);
-  private maxBaristasToday = 0;
+  private wagesToday = 0;
+  private lastPaidMinute = -1;
 
   static emptyDay(day: number): DayReport {
     return {
@@ -103,23 +138,55 @@ export class Cafe {
       currency: CURRENCY,
       wanted: 0,
       missed: {},
+      missingKinds: {},
       sold: {},
     };
   }
 
+  get allDay(): boolean {
+    return this.closeAt - this.openAt >= MINUTES_PER_DAY;
+  }
+
   isOpenAt(minute: number): boolean {
-    return this.opened && minute >= this.openAt && minute < this.closeAt;
+    if (!this.opened) return false;
+    if (this.allDay) return true;
+    const m = ((minute % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+    if (this.closeAt <= MINUTES_PER_DAY) return m >= this.openAt && m < this.closeAt;
+    return m >= this.openAt || m < this.closeAt - MINUTES_PER_DAY;
   }
 
   item(id: string): MenuItem {
-    const it = this.menu.find((m) => m.id === id);
+    const it = this.menu.find((m) => m.id === id) ?? this.retired.get(id);
     if (!it) throw new Error(`Нет позиции ${id}`);
     return it;
   }
 
-  setBaristas(n: number, minute: number): void {
+  hasItem(id: string): boolean {
+    return this.menu.some((m) => m.id === id);
+  }
+
+  addItem(id: string): boolean {
+    if (this.hasItem(id) || this.menu.length >= MAX_MENU) return false;
+    const it = this.retired.get(id) ?? catalogItem(id);
+    this.retired.delete(id);
+    // Держим порядок каталога — так меню читается по категориям
+    this.menu.push(it);
+    const order = CATALOG.map((c) => c.id);
+    this.menu.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    return true;
+  }
+
+  removeItem(id: string): boolean {
+    if (this.menu.length <= 1) return false;
+    const i = this.menu.findIndex((m) => m.id === id);
+    if (i < 0) return false;
+    this.retired.set(id, this.menu[i]);
+    this.menu.splice(i, 1);
+    return true;
+  }
+
+  setBaristas(n: number): void {
     this.baristas = Math.max(0, Math.min(ECONOMY.maxBaristas, n));
-    if (this.isOpenAt(minute)) this.maxBaristasToday = Math.max(this.maxBaristasToday, this.baristas);
   }
 
   /** Минут на одного гостя у одного «места за стойкой» */
@@ -156,10 +223,17 @@ export class Cafe {
     return false;
   }
 
-  /** Обслуживание за dt минут. Возвращает продажи. */
+  /** Обслуживание и зарплата за dt минут. Возвращает продажи. */
   tick(dt: number, minute: number): Sale[] {
     if (!this.isOpenAt(minute)) return [];
-    this.maxBaristasToday = Math.max(this.maxBaristasToday, this.baristas);
+    // Бариста получают за каждую отработанную минуту, ночью — с надбавкой
+    const whole = Math.floor(minute);
+    if (whole !== this.lastPaidMinute) {
+      this.lastPaidMinute = whole;
+      const rate = ECONOMY.baristaWagePerHour * (isNightMinute(whole) ? 1 + ECONOMY.nightBonus : 1);
+      this.wagesToday += (this.baristas * rate) / 60;
+    }
+
     const sales: Sale[] = [];
     while (this.slots.length < this.counters && this.queue.length > 0) {
       const q = this.queue.shift()!;
@@ -179,6 +253,11 @@ export class Cafe {
     return sales;
   }
 
+  /** Сколько уже начислено бариста сегодня */
+  get wagesSoFar(): number {
+    return Math.round(this.wagesToday);
+  }
+
   /** Все, кто не обслужен к закрытию */
   flush(): number[] {
     const ids = [...this.slots.map((s) => s.residentId), ...this.queue.map((q) => q.residentId)];
@@ -194,12 +273,12 @@ export class Cafe {
       r.opened = true;
       r.rent = ECONOMY.rentPerDay;
       r.utilities = ECONOMY.utilitiesPerDay;
-      r.wages = this.maxBaristasToday * ECONOMY.baristaWagePerShift;
+      r.wages = Math.round(this.wagesToday);
       r.tax = Math.round(r.revenue * ECONOMY.taxRate);
     }
     r.profit = r.revenue - r.cogs - r.rent - r.utilities - r.wages - r.tax;
     this.today = Cafe.emptyDay(nextDay);
-    this.maxBaristasToday = 0;
+    this.wagesToday = 0;
     return r;
   }
 }
