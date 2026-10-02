@@ -162,12 +162,20 @@ export class Hud {
       case 'toggle-catalog':
         this.catalogOpen = !this.catalogOpen;
         break;
-      case 'staff-up':
-        sim.setBaristas(sim.cafe.baristas + 1);
+      case 'hire-shift':
+        sim.hireBarista('shift');
         break;
-      case 'staff-down':
-        sim.setBaristas(sim.cafe.baristas - 1);
+      case 'hire-hourly':
+        sim.hireBarista('hourly');
         break;
+      case 'fire':
+        sim.fireBarista(Number(item));
+        break;
+      case 'duty': {
+        const st = sim.cafe.staff.find((b) => b.id === Number(item));
+        if (st) sim.setOnDuty(st.id, !st.onDuty);
+        break;
+      }
       case 'report':
         this.view = 'report';
         break;
@@ -301,7 +309,33 @@ export class Hud {
           return `<option value="${m}" ${!cafe.allDay && m === cafe.closeAt ? 'selected' : ''}>${label}</option>`;
         })
         .join('') + `<option value="${ALL_DAY}" ${cafe.allDay ? 'selected' : ''}>круглосуточно</option>`;
-    const staff = cafe.baristas === 0 ? 'Ты сам' : `${cafe.baristas}${NB}бариста`;
+    const staffRows = cafe.staff
+      .map((st, i) => {
+        let status: string;
+        if (st.contract === 'hourly') {
+          status = !st.onDuty ? 'отпущен' : open ? 'работает' : `выйдет к${NB}открытию`;
+        } else {
+          const left = ECONOMY.shiftHours * 60 - st.shiftMinutes;
+          status =
+            left <= 0
+              ? `смена окончена, выйдет к${NB}открытию`
+              : open
+                ? `на${NB}смене ещё ${Math.floor(left / 60)}${NB}ч ${left % 60}${NB}мин`
+                : `выйдет к${NB}открытию`;
+        }
+        this.live[`staff-${st.id}`] = status;
+        return `<li>
+          <div class="grow"><b>Бариста ${i + 1} · ${st.contract === 'shift' ? 'на смене' : 'почасово'}</b>
+            <small data-live="staff-${st.id}"></small></div>
+          ${
+            st.contract === 'hourly'
+              ? `<button class="small ${st.onDuty ? '' : 'ghost'}" data-action="duty" data-item="${st.id}">${st.onDuty ? 'Отпустить' : 'Вызвать'}</button>`
+              : ''
+          }
+          <button class="icon" data-action="fire" data-item="${st.id}" aria-label="Уволить">✕</button>
+        </li>`;
+      })
+      .join('');
     const last = this.sim.reports.at(-1);
 
     return `
@@ -322,16 +356,18 @@ export class Hud {
         <select data-action="close-at" aria-label="Закрытие">${closeOpt}</select>
       </div>
       <h4>За${NB}стойкой</h4>
-      <div class="row">
-        <div class="grow"><b>${staff}</b>
-          <small>Сегодня на${NB}зарплату: <span data-live="wages"></span></small>
-          <small>${cafe.baristas === 0 ? `Бесплатно, но${NB}медленно: 4${NB}мин на${NB}гостя` : `${money(ECONOMY.baristaWagePerHour)} в${NB}час каждому, ночью +20${NB}% · 2${NB}мин на${NB}гостя`}</small></div>
-        <div class="stepper">
-          <button data-action="staff-down" ${cafe.baristas === 0 ? 'disabled' : ''} aria-label="Меньше">−</button>
-          <span>${cafe.baristas}</span>
-          <button data-action="staff-up" ${cafe.baristas >= ECONOMY.maxBaristas ? 'disabled' : ''} aria-label="Больше">+</button>
-        </div>
+      <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}4${NB}мин на${NB}гостя. С${NB}бариста — 2${NB}мин, и${NB}обслуживают параллельно.</small>
+      <ul class="menu staff">${staffRows}</ul>
+      ${
+        cafe.staff.length < ECONOMY.maxBaristas
+          ? `<div class="hire">
+        <button class="small" data-action="hire-shift">На${NB}смену · ${money(ECONOMY.shiftWage)}</button>
+        <button class="small" data-action="hire-hourly">Почасово · ${money(ECONOMY.baristaWagePerHour)}/ч</button>
       </div>
+      <small>Смена — до${NB}${ECONOMY.shiftHours}${NB}часов с${NB}открытия, платишь всю сумму. Почасового вызываешь и${NB}отпускаешь сам.</small>`
+          : ''
+      }
+      <p class="wages">Сегодня на${NB}зарплату: <b data-live="wages"></b> <small>ночью (22:00–6:00) +20${NB}%</small></p>
       ${last ? `<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}`;
   }
 

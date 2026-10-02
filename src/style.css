@@ -506,3 +506,23 @@ button.small:disabled {
 #panel small.note {
   margin-top: 4px;
 }
+
+.hire {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.hire button.small {
+  height: 40px;
+}
+
+button.small.ghost {
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.wages {
+  margin-top: 10px !important;
+}

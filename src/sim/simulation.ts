@@ -1,4 +1,4 @@
-import { Cafe, MAX_QUEUE, type DayReport, type RejectReason } from './cafe';
+import { Cafe, MAX_QUEUE, type Contract, type DayReport, type RejectReason } from './cafe';
 import { dayNumber, hm, MINUTES_PER_DAY, minuteOfDay } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY } from './economy';
@@ -75,8 +75,16 @@ export class Simulation {
     this.cafe.closeAt = closeAt;
   }
 
-  setBaristas(n: number): void {
-    this.cafe.setBaristas(n);
+  hireBarista(contract: Contract): boolean {
+    return this.cafe.hire(contract) !== null;
+  }
+
+  fireBarista(id: number): void {
+    this.cafe.fire(id);
+  }
+
+  setOnDuty(id: number, onDuty: boolean): void {
+    this.cafe.setOnDuty(id, onDuty);
   }
 
   addMenuItem(id: string): boolean {

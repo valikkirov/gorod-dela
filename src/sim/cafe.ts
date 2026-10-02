@@ -92,6 +92,20 @@ const catalogItem = (id: string): MenuItem => {
 /** Ночные часы для надбавки +20 % */
 export const isNightMinute = (m: number): boolean => m >= hm(22) || m < hm(6);
 
+export type Contract = 'shift' | 'hourly';
+
+/** Бариста: на смене (фикс за до 12 часов) или почасово (вызываешь и отпускаешь сам) */
+export interface Barista {
+  id: number;
+  contract: Contract;
+  /** Почасовой: сейчас на работе или отпущен */
+  onDuty: boolean;
+  /** Сменный: сколько минут отработано в текущей смене */
+  shiftMinutes: number;
+  /** Сменный: оплачена ли текущая смена */
+  shiftPaid: boolean;
+}
+
 interface Slot {
   residentId: number;
   itemId: string;
@@ -111,7 +125,8 @@ export class Cafe {
   openAt = hm(8);
   /** Может быть больше 24:00 — работа через полночь. openAt + 1440 = круглосуточно. */
   closeAt = hm(20);
-  baristas = 0;
+  staff: Barista[] = [];
+  private nextStaffId = 1;
   readonly queue: { residentId: number; itemId: string }[] = [];
   private slots: Slot[] = [];
   /** Цены позиций, убранных из меню, — чтобы дообслужить уже сделанные заказы */
@@ -185,8 +200,30 @@ export class Cafe {
     return true;
   }
 
-  setBaristas(n: number): void {
-    this.baristas = Math.max(0, Math.min(ECONOMY.maxBaristas, n));
+  hire(contract: Contract): Barista | null {
+    if (this.staff.length >= ECONOMY.maxBaristas) return null;
+    const b: Barista = { id: this.nextStaffId++, contract, onDuty: true, shiftMinutes: 0, shiftPaid: false };
+    this.staff.push(b);
+    return b;
+  }
+
+  fire(id: number): void {
+    this.staff = this.staff.filter((b) => b.id !== id);
+  }
+
+  setOnDuty(id: number, onDuty: boolean): void {
+    const b = this.staff.find((s) => s.id === id);
+    if (b?.contract === 'hourly') b.onDuty = onDuty;
+  }
+
+  /** Работает ли бариста прямо сейчас (при открытом кафе) */
+  isWorking(b: Barista): boolean {
+    return b.contract === 'hourly' ? b.onDuty : b.shiftMinutes < ECONOMY.shiftHours * 60;
+  }
+
+  /** Сколько бариста сейчас за стойкой */
+  get baristas(): number {
+    return this.staff.filter((b) => this.isWorking(b)).length;
   }
 
   /** Минут на одного гостя у одного «места за стойкой» */
@@ -226,13 +263,7 @@ export class Cafe {
   /** Обслуживание и зарплата за dt минут. Возвращает продажи. */
   tick(dt: number, minute: number): Sale[] {
     if (!this.isOpenAt(minute)) return [];
-    // Бариста получают за каждую отработанную минуту, ночью — с надбавкой
-    const whole = Math.floor(minute);
-    if (whole !== this.lastPaidMinute) {
-      this.lastPaidMinute = whole;
-      const rate = ECONOMY.baristaWagePerHour * (isNightMinute(whole) ? 1 + ECONOMY.nightBonus : 1);
-      this.wagesToday += (this.baristas * rate) / 60;
-    }
+    this.payStaff(minute);
 
     const sales: Sale[] = [];
     while (this.slots.length < this.counters && this.queue.length > 0) {
@@ -251,6 +282,35 @@ export class Cafe {
       sales.push({ residentId: s.residentId, itemId: it.id, price: it.price });
     }
     return sales;
+  }
+
+  /** Зарплата за прошедшую минуту. Смена оплачивается целиком в первую минуту, ночью — надбавка. */
+  private payStaff(minute: number): void {
+    const whole = Math.floor(minute);
+    if (whole === this.lastPaidMinute) return;
+    this.lastPaidMinute = whole;
+    // Новая смена начинается с открытием кафе
+    if (whole === this.openAt % MINUTES_PER_DAY) {
+      for (const b of this.staff) {
+        b.shiftMinutes = 0;
+        b.shiftPaid = false;
+      }
+    }
+    const night = isNightMinute(whole) ? ECONOMY.nightBonus : 0;
+    const shiftHourly = ECONOMY.shiftWage / (ECONOMY.shiftHours * 60);
+    for (const b of this.staff) {
+      if (!this.isWorking(b)) continue;
+      if (b.contract === 'hourly') {
+        this.wagesToday += (ECONOMY.baristaWagePerHour * (1 + night)) / 60;
+      } else {
+        if (!b.shiftPaid) {
+          this.wagesToday += ECONOMY.shiftWage;
+          b.shiftPaid = true;
+        }
+        this.wagesToday += shiftHourly * night;
+        b.shiftMinutes += 1;
+      }
+    }
   }
 
   /** Сколько уже начислено бариста сегодня */

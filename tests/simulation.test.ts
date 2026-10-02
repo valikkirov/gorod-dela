@@ -79,22 +79,53 @@ describe('Кафе', () => {
     expect(early.reports[0].guests).toBeGreaterThan(late.reports[0].guests);
   });
 
-  it('бариста получает за каждый час работы кафе', () => {
+  it('почасовой бариста получает за каждый отработанный час', () => {
     const sim = new Simulation(1); // старт в 06:00
     sim.openCafe(); // 08:00–20:00 — 12 часов
-    sim.setBaristas(1);
+    sim.hireBarista('hourly');
     sim.advance(DAY);
     expect(sim.reports[0].wages).toBe(12 * ECONOMY.baristaWagePerHour);
   });
 
-  it('ночные часы оплачиваются с надбавкой 20 %', () => {
+  it('почасового можно отпустить — платим только за пик', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.hireBarista('hourly');
+    const id = sim.cafe.staff[0].id;
+    sim.advance(hm(4)); // 06:00 → 10:00, работал 2 часа
+    sim.setOnDuty(id, false);
+    sim.advance(DAY - hm(4));
+    // ±1 минута на границе отпуска
+    expect(Math.abs(sim.reports[0].wages - 2 * ECONOMY.baristaWagePerHour)).toBeLessThanOrEqual(5);
+  });
+
+  it('смена — фикс за день, дольше 12 часов бариста не работает', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.setHours(hm(7), hm(21)); // 14 часов, без ночных
+    sim.hireBarista('shift');
+    sim.advance(hm(13, 30)); // 06:00 → 19:30: 12,5 часа с открытия
+    expect(sim.cafe.baristas).toBe(0); // смена закончилась в 19:00
+    sim.advance(DAY - hm(13, 30));
+    expect(sim.reports[0].wages).toBe(ECONOMY.shiftWage);
+  });
+
+  it('ночные часы дороже на 20 % — и почасово, и в смену', () => {
     const sim = new Simulation(1);
     sim.openCafe();
     sim.setHours(hm(20), hm(24)); // 20:00–00:00: 2 часа обычных + 2 ночных
-    sim.setBaristas(1);
+    sim.hireBarista('hourly');
     sim.advance(DAY);
     const rate = ECONOMY.baristaWagePerHour;
     expect(sim.reports[0].wages).toBe(2 * rate + 2 * rate * (1 + ECONOMY.nightBonus));
+
+    const shift = new Simulation(1);
+    shift.openCafe();
+    shift.setHours(hm(20), hm(24));
+    shift.hireBarista('shift');
+    shift.advance(DAY);
+    const perHour = ECONOMY.shiftWage / ECONOMY.shiftHours;
+    expect(shift.reports[0].wages).toBe(Math.round(ECONOMY.shiftWage + 2 * perHour * ECONOMY.nightBonus));
   });
 
   it('кафе может работать через полночь и круглосуточно', () => {
