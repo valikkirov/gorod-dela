@@ -24,6 +24,8 @@ const hooks: SceneHooks = {
   getSpeed: () => hud.speed,
   onSelect: (r) => hud.select(r),
   onFrame: () => hud.frame(),
+  onDayEnd: () => hud.onDayEnd(),
+  onBankrupt: () => hud.onBankrupt(),
 };
 game.scene.add('street', scene, true, hooks);
 

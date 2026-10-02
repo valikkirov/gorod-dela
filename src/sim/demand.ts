@@ -1,0 +1,161 @@
+// Спрос: когда у жителя возникает желание зайти и как он решает.
+// Логика из GDD §4.2: расстояние, цена, (позже — качество, атмосфера, отзывы), лояльность.
+import type { ItemKind, MenuItem, RejectReason } from './cafe';
+import { hm } from './clock';
+import type { Resident, ResidentKind, ScheduleEntry } from './residents';
+import type { Rng } from './rng';
+import type { Point } from './world';
+
+export type WantKind = ItemKind;
+
+export const WANT_LABEL: Record<WantKind, string> = {
+  coffee: 'кофе',
+  lunch: 'обед',
+  tea: 'чай',
+  snack: 'перекус',
+};
+
+export interface Want {
+  kind: WantKind;
+  /** stopover — зайти по пути и идти дальше; replace — провести время в кафе вместо планов */
+  mode: 'stopover' | 'replace';
+  /** Сколько минут сидит после покупки */
+  dwell: number;
+}
+
+/** Готовность платить (₽) за желание — у каждого типа жителя своя */
+export const BASE_BUDGET: Record<ResidentKind, Record<WantKind, number>> = {
+  office: { coffee: 200, lunch: 420, snack: 180, tea: 160 },
+  student: { coffee: 160, lunch: 280, snack: 150, tea: 120 },
+  pensioner: { coffee: 120, lunch: 250, snack: 120, tea: 170 },
+  remote: { coffee: 230, lunch: 400, snack: 200, tea: 180 },
+  shopkeeper: { coffee: 150, lunch: 300, snack: 150, tea: 130 },
+};
+
+/** Какие позиции меню закрывают желание */
+const ACCEPTS: Record<WantKind, ItemKind[]> = {
+  coffee: ['coffee'],
+  lunch: ['lunch'],
+  tea: ['tea', 'coffee'],
+  snack: ['snack', 'coffee'],
+};
+
+interface WantRule {
+  test: (r: Resident, entry: ScheduleEntry, prev: ScheduleEntry | undefined) => boolean;
+  chance: Partial<Record<ResidentKind, number>>;
+  want: Want;
+}
+
+const MORNING_END = hm(11);
+const EVENING_START = hm(16);
+
+const RULES: WantRule[] = [
+  {
+    // Кофе по дороге на работу или учёбу
+    test: (_r, e) => (e.activity === 'work' || e.activity === 'study') && e.start < MORNING_END,
+    chance: { office: 0.55, student: 0.35, shopkeeper: 0.4 },
+    want: { kind: 'coffee', mode: 'stopover', dwell: 0 },
+  },
+  {
+    // Обед — сейчас офисные идут в «Продукты»
+    test: (_r, e) => e.activity === 'lunch',
+    chance: { office: 1 },
+    want: { kind: 'lunch', mode: 'replace', dwell: 20 },
+  },
+  {
+    test: (_r, e) => e.activity === 'walk',
+    chance: { pensioner: 0.5 },
+    want: { kind: 'tea', mode: 'replace', dwell: 30 },
+  },
+  {
+    // Посидеть с ноутбуком или с друзьями
+    test: (_r, e) => e.activity === 'walk',
+    chance: { remote: 0.6, student: 0.3 },
+    want: { kind: 'coffee', mode: 'replace', dwell: 40 },
+  },
+  {
+    // Перекус по дороге домой
+    test: (_r, e, prev) =>
+      e.activity === 'home' && e.start >= EVENING_START && (prev?.activity === 'work' || prev?.activity === 'study'),
+    chance: { office: 0.2, student: 0.3 },
+    want: { kind: 'snack', mode: 'stopover', dwell: 0 },
+  },
+];
+
+/** Возникает ли желание при смене занятия. Бросок кубика — внутри. */
+export function rollWant(
+  rng: Rng,
+  r: Resident,
+  entry: ScheduleEntry,
+  prev: ScheduleEntry | undefined,
+): Want | null {
+  for (const rule of RULES) {
+    const chance = rule.chance[r.kind];
+    if (chance === undefined || !rule.test(r, entry, prev)) continue;
+    return rng.chance(chance) ? rule.want : null;
+  }
+  return null;
+}
+
+export interface Decision {
+  day: number;
+  minute: number;
+  want: WantKind;
+  visited: boolean;
+  reason?: RejectReason;
+  itemId?: string;
+  price?: number;
+  /** Сколько был готов заплатить */
+  budget: number;
+}
+
+const manhattan = (a: Point, b: Point): number => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+export interface Offer {
+  item: MenuItem | null;
+  pPrice: number;
+  pRoute: number;
+  p: number;
+}
+
+/** Насколько житель склонен зайти: цена × крюк × лояльность */
+export function evaluate(
+  r: Resident,
+  want: Want,
+  menu: MenuItem[],
+  from: Point,
+  cafeDoor: Point,
+  goalDoor: Point,
+): Offer {
+  const budget = r.budget[want.kind];
+  const kinds = ACCEPTS[want.kind];
+  // Цена на 30 % ниже ожиданий — точно да, на 35 % выше — точно нет
+  const pFor = (m: MenuItem) => clamp((1.35 - m.price / budget) / 0.65, 0, 1);
+  // Порядок предпочтений: любимая позиция (если не слишком дорого) → основная категория → замена
+  const rank = (m: MenuItem) =>
+    (m.id === r.favorite && m.kind === kinds[0] && pFor(m) >= 0.25 ? 2 : 0) + (m.kind === kinds[0] ? 1 : 0) + pFor(m) / 2;
+  let item: MenuItem | null = null;
+  for (const m of menu) {
+    if (!kinds.includes(m.kind)) continue;
+    if (item === null || rank(m) > rank(item)) item = m;
+  }
+  const pPrice = item ? pFor(item) : 0;
+  // Крюк: насколько дальше идти через кафе, чем сразу к цели
+  const detour =
+    want.mode === 'stopover'
+      ? manhattan(from, cafeDoor) + manhattan(cafeDoor, goalDoor) - manhattan(from, goalDoor)
+      : manhattan(from, cafeDoor) - manhattan(from, goalDoor);
+  const pRoute = clamp(1 - Math.max(0, detour) / 700, 0.15, 1);
+  const p = item ? pPrice * pRoute * (0.8 + r.loyalty) : 0;
+  return { item, pPrice, pRoute, p };
+}
+
+/** Почему житель не зашёл — объясняем честно, без «дорого» при нормальной цене */
+export function rejectReason(o: Offer, budget: number): RejectReason {
+  if (!o.item) return 'no-item';
+  if (o.item.price > budget) return 'expensive';
+  if (o.pRoute < 0.7) return 'off-route';
+  return 'mood';
+}
+
+const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));

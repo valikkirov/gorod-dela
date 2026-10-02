@@ -1,5 +1,8 @@
-import { hm, minuteOfDay } from './clock';
-import { currentEntry, generateResidents, type Resident } from './residents';
+import { Cafe, MAX_QUEUE, type DayReport, type RejectReason } from './cafe';
+import { dayNumber, hm, minuteOfDay } from './clock';
+import { evaluate, rejectReason, rollWant, type Want } from './demand';
+import { ECONOMY } from './economy';
+import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
 import { Rng } from './rng';
 import {
   clampSidewalkY,
@@ -12,6 +15,14 @@ import {
 
 /** Шаг симуляции в игровых минутах. Мелкий — чтобы движение было плавным. */
 const STEP = 0.2;
+/** Дольше этого житель не ждёт заказ и уходит по делам */
+const PATIENCE = 30;
+
+export type SimEvent =
+  | { type: 'sale'; residentId: number; price: number; itemId: string }
+  | { type: 'reject'; residentId: number; reason: RejectReason }
+  | { type: 'day'; report: DayReport }
+  | { type: 'bankrupt' };
 
 /** Ядро симуляции. Не знает ничего об отрисовке — этот же код
  *  на этапе 2 переедет на сервер. */
@@ -19,49 +30,229 @@ export class Simulation {
   /** Игровое время в минутах с начала первого дня */
   time: number;
   readonly residents: Resident[];
+  readonly cafe = new Cafe();
+  cash: number = ECONOMY.startCash;
+  daysInRed = 0;
+  bankrupt = false;
+  readonly reports: DayReport[] = [];
+  private events: SimEvent[] = [];
   private readonly rng: Rng;
   private carry = 0;
+  private day: number;
 
   constructor(seed = 1, startTime = hm(6, 0)) {
     this.rng = new Rng(seed);
     this.time = startTime;
+    this.day = dayNumber(startTime);
+    this.cafe.today = Cafe.emptyDay(this.day);
     this.residents = generateResidents(this.rng);
-    for (const r of this.residents) this.placeAt(r, r.homeId);
-    // Сразу ставим каждого туда, где он должен быть в стартовую минуту
+    // Каждого ставим туда, где он должен быть в стартовую минуту
     for (const r of this.residents) {
       const entry = currentEntry(r.schedule, minuteOfDay(this.time));
-      this.placeAt(r, entry.placeId);
+      r.entry = entry;
       r.activity = entry.activity;
+      this.placeAt(r, entry.placeId);
     }
   }
 
+  // ——— Команды игрока ———
+
+  openCafe(): boolean {
+    if (this.cafe.opened || this.bankrupt || this.cash < ECONOMY.cafeOpeningCost) return false;
+    this.cash -= ECONOMY.cafeOpeningCost;
+    this.cafe.opened = true;
+    return true;
+  }
+
+  setPrice(itemId: string, price: number): void {
+    this.cafe.item(itemId).price = Math.max(ECONOMY.priceStep, Math.round(price / ECONOMY.priceStep) * ECONOMY.priceStep);
+  }
+
+  setHours(openAt: number, closeAt: number): void {
+    if (closeAt <= openAt) return;
+    this.cafe.openAt = openAt;
+    this.cafe.closeAt = closeAt;
+  }
+
+  setBaristas(n: number): void {
+    this.cafe.setBaristas(n, minuteOfDay(this.time));
+  }
+
+  // ——— Время ———
+
   /** Продвинуть время на dt игровых минут */
   advance(dt: number): void {
+    if (this.bankrupt) return;
     this.carry += dt;
-    while (this.carry >= STEP) {
+    while (this.carry >= STEP && !this.bankrupt) {
       this.carry -= STEP;
       this.step(STEP);
     }
+  }
+
+  /** Забрать накопившиеся события (для отрисовки и интерфейса) */
+  drainEvents(): SimEvent[] {
+    const out = this.events;
+    this.events = [];
+    return out;
   }
 
   get onStreet(): number {
     return this.residents.filter((r) => r.visible).length;
   }
 
+  get minute(): number {
+    return minuteOfDay(this.time);
+  }
+
   private step(dt: number): void {
+    const wasOpen = this.cafe.isOpenAt(this.minute);
     this.time += dt;
-    const minute = minuteOfDay(this.time);
+    const minute = this.minute;
+
+    const today = dayNumber(this.time);
+    if (today !== this.day) this.closeDay(today);
+    if (this.bankrupt) return;
+
+    if (wasOpen && !this.cafe.isOpenAt(minute)) {
+      for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
+    }
+
     for (const r of this.residents) {
       const entry = currentEntry(r.schedule, minute);
-      if (entry.placeId !== r.placeId) {
-        r.placeId = entry.placeId;
-        r.path = this.route(r, place(entry.placeId));
-        r.walking = true;
-        r.visible = true;
-      }
-      r.activity = entry.activity;
+      // Пока житель в кафе и ещё не получил заказ, следующее занятие подождёт
+      const waiting = r.visit && r.visit.stage !== 'dining' && this.time - r.visit.since < PATIENCE;
+      if (entry !== r.entry && !waiting) this.onTransition(r, entry);
+      if (r.visit?.stage === 'dining' && this.time >= r.visit.until) this.finishVisit(r);
       if (r.walking) this.walk(r, dt);
     }
+
+    for (const sale of this.cafe.tick(dt, minute)) this.onSale(sale.residentId, sale.price, sale.itemId);
+  }
+
+  // ——— Жители и кафе ———
+
+  private onTransition(r: Resident, entry: ScheduleEntry): void {
+    const prev = r.entry;
+    r.entry = entry;
+    r.activity = entry.activity;
+    if (r.visit) this.dropVisit(r, 'no-time');
+
+    const want = rollWant(this.rng, r, entry, prev);
+    if (want && this.decide(r, want, entry)) {
+      this.goTo(r, 'cafe');
+      return;
+    }
+    this.goTo(r, entry.placeId);
+  }
+
+  /** Решение «зайти или нет». true — житель идёт в кафе. */
+  private decide(r: Resident, want: Want, entry: ScheduleEntry): boolean {
+    const cafe = this.cafe;
+    const minute = Math.floor(this.minute);
+    const base = { day: this.day, minute, want: want.kind, budget: r.budget[want.kind] };
+    cafe.today.wanted += 1;
+
+    let reason: RejectReason | null = null;
+    let itemId: string | undefined;
+    let price: number | undefined;
+    if (!cafe.opened) reason = 'not-open';
+    // Дорога до кафе занимает несколько минут — проверяем с запасом
+    else if (!cafe.isOpenAt(minute) || !cafe.isOpenAt(minute + 10)) reason = 'closed';
+    else {
+      const offer = evaluate(r, want, cafe.menu, r.pos, place('cafe').door, place(entry.placeId).door);
+      itemId = offer.item?.id;
+      price = offer.item?.price;
+      if (!offer.item || !this.rng.chance(offer.p)) reason = rejectReason(offer, r.budget[want.kind]);
+    }
+
+    if (reason) {
+      r.decision = { ...base, visited: false, reason, itemId, price };
+      this.miss(r, reason);
+      return false;
+    }
+    r.decision = { ...base, visited: true, itemId, price };
+    r.visit = { want, itemId: itemId!, stage: 'going', until: 0, since: this.time };
+    return true;
+  }
+
+  private onArrive(r: Resident): void {
+    const v = r.visit;
+    if (r.placeId !== 'cafe' || v?.stage !== 'going') return;
+    if (!this.cafe.isOpenAt(this.minute)) return this.dropVisit(r, 'closed');
+    if (this.cafe.busy >= MAX_QUEUE || !this.cafe.join(r.id, v.itemId)) {
+      r.loyalty = Math.max(0, r.loyalty - 0.1);
+      return this.dropVisit(r, 'queue');
+    }
+    v.stage = 'queued';
+  }
+
+  private onSale(residentId: number, price: number, itemId: string): void {
+    const r = this.residents[residentId];
+    const cost = this.cafe.item(itemId).cost;
+    this.cash += price - cost; // выручка минус закупка продуктов
+    r.loyalty = Math.min(0.4, r.loyalty + 0.1);
+    if (r.visit) {
+      r.visit.stage = 'dining';
+      r.visit.until = this.time + r.visit.want.dwell;
+    }
+    this.events.push({ type: 'sale', residentId, price, itemId });
+  }
+
+  private finishVisit(r: Resident): void {
+    const mode = r.visit?.want.mode;
+    r.visit = null;
+    // replace — житель провёл время в кафе вместо планов и сидит до следующего занятия
+    if (mode === 'stopover') this.goTo(r, r.entry.placeId);
+  }
+
+  /** Визит сорвался: житель идёт по своим делам */
+  private dropVisit(r: Resident, reason: RejectReason): void {
+    const v = r.visit;
+    if (!v) return;
+    const served = v.stage === 'dining';
+    this.cafe.leave(r.id);
+    r.visit = null;
+    if (!served) {
+      if (r.decision) r.decision = { ...r.decision, visited: false, reason };
+      this.miss(r, reason);
+    }
+    if (r.placeId === 'cafe' || r.walking) this.goTo(r, r.entry.placeId);
+  }
+
+  private miss(r: Resident, reason: RejectReason): void {
+    const m = this.cafe.today.missed;
+    m[reason] = (m[reason] ?? 0) + 1;
+    this.events.push({ type: 'reject', residentId: r.id, reason });
+  }
+
+  // ——— Деньги ———
+
+  private closeDay(nextDay: number): void {
+    for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
+    const report = this.cafe.closeDay(nextDay);
+    // Выручка и закупка уже прошли через кассу — списываем постоянные расходы и налог
+    this.cash -= report.rent + report.utilities + report.wages + report.tax;
+    report.cashAfter = this.cash;
+    this.reports.push(report);
+    this.day = nextDay;
+    this.events.push({ type: 'day', report });
+
+    if (this.cafe.opened && this.cash < 0) this.daysInRed += 1;
+    else this.daysInRed = 0;
+    if (this.daysInRed >= ECONOMY.bankruptDays) {
+      this.bankrupt = true;
+      this.events.push({ type: 'bankrupt' });
+    }
+  }
+
+  // ——— Движение ———
+
+  private goTo(r: Resident, placeId: string): void {
+    r.placeId = placeId;
+    r.path = this.route(r, place(placeId));
+    r.walking = true;
+    r.visible = true;
   }
 
   private walk(r: Resident, dt: number): void {
@@ -83,6 +274,7 @@ export class Simulation {
     if (r.path.length === 0) {
       r.walking = false;
       r.visible = !place(r.placeId).indoor;
+      this.onArrive(r);
     }
   }
 

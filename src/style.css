@@ -5,6 +5,8 @@
   --muted: #6b7080;
   --line: #ddd6c6;
   --accent: #d9643f;
+  --good: #2e8b57;
+  --bad: #c0392b;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   color: var(--ink);
 }
@@ -48,10 +50,15 @@ body {
   white-space: nowrap;
 }
 
-#on-street {
-  color: var(--muted);
-  font-size: 13px;
+#cash {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  color: var(--good);
+}
+
+#cash.neg {
+  color: var(--bad);
 }
 
 #speeds {
@@ -91,7 +98,7 @@ body {
   padding: 12px 16px;
   padding-bottom: max(12px, env(safe-area-inset-bottom));
   /* Фиксированная высота: карта не прыгает, когда открывается карточка */
-  height: clamp(150px, 30dvh, 280px);
+  height: clamp(180px, 40dvh, 400px);
   flex-shrink: 0;
   overflow-y: auto;
   font-size: 14px;
@@ -198,4 +205,257 @@ body {
   color: var(--ink);
   font-weight: 600;
   box-shadow: inset 3px 0 0 var(--accent);
+}
+
+/* ——— Панель кафе ——— */
+
+#panel p {
+  margin: 6px 0;
+  line-height: 1.4;
+}
+
+#panel h4 {
+  margin: 14px 0 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+#panel small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row.head {
+  justify-content: space-between;
+  font-size: 16px;
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eee9dd;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge.on {
+  background: #dff1e6;
+  color: var(--good);
+}
+
+.badge.neg {
+  background: #f8dedb;
+  color: var(--bad);
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.kpis > div {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.kpis b {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.menu,
+.reasons,
+.sold {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.menu li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stepper span {
+  min-width: 64px;
+  text-align: center;
+}
+
+.stepper button,
+.hours select {
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+}
+
+.stepper button {
+  width: 36px;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.stepper button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.hours select {
+  padding: 0 10px;
+  font-size: 15px;
+}
+
+button.primary,
+button.secondary {
+  width: 100%;
+  margin-top: 12px;
+  height: 44px;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+button.primary {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+}
+
+button.primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.secondary {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+.demand {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px dashed var(--line);
+}
+
+.warn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #f8dedb;
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.pnl {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.pnl td {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pnl td:last-child {
+  text-align: right;
+}
+
+.pnl .total td {
+  font-weight: 700;
+  font-size: 16px;
+  border-bottom: 0;
+  padding-top: 8px;
+}
+
+.pnl .pos td:last-child {
+  color: var(--good);
+}
+
+.pnl .neg td:last-child {
+  color: var(--bad);
+}
+
+.pnl .cash td {
+  color: var(--muted);
+  border-bottom: 0;
+}
+
+.reasons li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.reasons b {
+  min-width: 28px;
+  font-size: 16px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sold li {
+  display: flex;
+  justify-content: space-between;
+}
+
+.decision {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.decision.ok {
+  background: #dff1e6;
+  color: #1f6b41;
+}
+
+.decision.no {
+  background: #f8e7e4;
+  color: #9b2f22;
+}
+
+.card-head small {
+  display: block;
 }

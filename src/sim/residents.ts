@@ -1,4 +1,5 @@
 import { hm } from './clock';
+import { BASE_BUDGET, type Decision, type Want, type WantKind } from './demand';
 import { Rng } from './rng';
 import type { Point } from './world';
 
@@ -40,10 +41,23 @@ export interface Resident {
   /** Отсортировано по start; первое занятие начинается в 0:00 */
   schedule: ScheduleEntry[];
 
+  /** Готовность платить, ₽ — у каждого своя */
+  budget: Record<WantKind, number>;
+  /** Любимая позиция меню — к ней житель готов прибавить */
+  favorite: string;
+  /** 0…0.4: растёт после удачных визитов */
+  loyalty: number;
+  /** Последнее решение насчёт кафе — для карточки жителя */
+  decision: Decision | null;
+
   // Состояние симуляции
   pos: Point;
+  /** Занятие по расписанию, которое сейчас идёт */
+  entry: ScheduleEntry;
   /** Где житель сейчас находится или куда идёт */
   placeId: string;
+  /** Визит в кафе: идёт туда, стоит в очереди или сидит */
+  visit: Visit | null;
   activity: Activity;
   path: Point[];
   walking: boolean;
@@ -51,6 +65,15 @@ export interface Resident {
   speed: number;
   /** Смещение по ширине тротуара, чтобы жители не шли «друг в друге» */
   lane: number;
+}
+
+export interface Visit {
+  want: Want;
+  itemId: string;
+  stage: 'going' | 'queued' | 'dining';
+  until: number;
+  /** Когда житель решил зайти — чтобы не ждать бесконечно */
+  since: number;
 }
 
 const FIRST_NAMES = [
@@ -149,13 +172,13 @@ export function generateResidents(rng: Rng): Resident[] {
   const fromStreet = () => rng.pick(HOMES);
   const templates: Template[] = [
     // Живут на улице
-    { kind: 'office', count: 10, home: fromStreet, work: () => 'metro' },
-    { kind: 'office', count: 3, home: fromStreet, work: () => rng.pick(STREET_OFFICES) },
-    { kind: 'student', count: 6, home: fromStreet, work: () => 'metro' },
-    { kind: 'pensioner', count: 6, home: fromStreet, work: () => 'metro' },
-    { kind: 'remote', count: 4, home: fromStreet, work: () => 'metro' },
+    { kind: 'office', count: 14, home: fromStreet, work: () => 'metro' },
+    { kind: 'office', count: 6, home: fromStreet, work: () => rng.pick(STREET_OFFICES) },
+    { kind: 'student', count: 8, home: fromStreet, work: () => 'metro' },
+    { kind: 'pensioner', count: 8, home: fromStreet, work: () => 'metro' },
+    { kind: 'remote', count: 6, home: fromStreet, work: () => 'metro' },
     // Приезжают на метро работать на улице
-    { kind: 'office', count: 15, home: () => 'metro', work: () => rng.pick(STREET_OFFICES) },
+    { kind: 'office', count: 36, home: () => 'metro', work: () => rng.pick(STREET_OFFICES) },
     { kind: 'shopkeeper', count: 2, home: () => 'metro', work: () => 'shop' },
   ];
 
@@ -165,6 +188,8 @@ export function generateResidents(rng: Rng): Resident[] {
       const homeId = t.home();
       const workId = t.work();
       const schedule = SCHEDULES[t.kind](rng, homeId, workId).sort((a, b) => a.start - b.start);
+      const wallet = rng.range(0.8, 1.25);
+      const base = BASE_BUDGET[t.kind];
       residents.push({
         id: residents.length,
         name: makeName(rng),
@@ -172,8 +197,19 @@ export function generateResidents(rng: Rng): Resident[] {
         homeId,
         workId: t.kind === 'pensioner' || t.kind === 'remote' ? null : workId,
         schedule,
+        budget: {
+          coffee: Math.round(base.coffee * wallet),
+          lunch: Math.round(base.lunch * wallet),
+          tea: Math.round(base.tea * wallet),
+          snack: Math.round(base.snack * wallet),
+        },
+        favorite: rng.chance(0.5) ? 'cappuccino' : 'americano',
+        loyalty: 0,
+        decision: null,
         pos: { x: 0, y: 0 },
+        entry: schedule[0],
         placeId: homeId,
+        visit: null,
         activity: 'home',
         path: [],
         walking: false,

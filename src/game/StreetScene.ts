@@ -2,21 +2,42 @@ import Phaser from 'phaser';
 import { GAME_MINUTES_PER_SECOND } from '../sim/clock';
 import type { Resident } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
-import { PLACES, ROAD, SIDEWALK, WORLD, type Place } from '../sim/world';
+import { WANT_LABEL } from '../sim/demand';
+import { formatMoney } from '../sim/economy';
+import { place, PLACES, ROAD, SIDEWALK, WORLD, type Place } from '../sim/world';
 import { COLORS, PLACE_FILL, RESIDENT_COLOR } from './palette';
+import type { RejectReason } from '../sim/cafe';
 
 export interface SceneHooks {
   sim: Simulation;
   getSpeed: () => number;
   onSelect: (resident: Resident | null) => void;
   onFrame: () => void;
+  onDayEnd: () => void;
+  onBankrupt: () => void;
 }
+
+const REASON_SHORT: Record<RejectReason, string> = {
+  'not-open': '',
+  closed: 'закрыто',
+  expensive: 'дорого',
+  'off-route': 'не по пути',
+  'no-item': 'нет в меню',
+  queue: 'очередь',
+  'no-time': 'не дождался',
+  mood: 'не сегодня',
+};
+
+const FONT = 'Inter, system-ui, sans-serif';
 
 const RADIUS = 9;
 
 export class StreetScene extends Phaser.Scene {
   private hooks!: SceneHooks;
   private people!: Phaser.GameObjects.Graphics;
+  private cafeShade!: Phaser.GameObjects.Graphics;
+  private cafeName!: Phaser.GameObjects.Text;
+  private cafeStatus!: Phaser.GameObjects.Text;
   private selected: Resident | null = null;
 
   constructor() {
@@ -29,6 +50,10 @@ export class StreetScene extends Phaser.Scene {
 
   create(): void {
     this.drawMap();
+    this.cafeShade = this.add.graphics();
+    const c = place('cafe').rect;
+    this.cafeName = this.label(c.x + c.w / 2, c.y + c.h / 2 - 12, '', 26, true);
+    this.cafeStatus = this.label(c.x + c.w / 2, c.y + c.h / 2 + 20, '', 17, false);
     this.people = this.add.graphics();
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pick(p.worldX, p.worldY));
   }
@@ -36,6 +61,8 @@ export class StreetScene extends Phaser.Scene {
   update(_time: number, delta: number): void {
     const realSeconds = Math.min(delta, 250) / 1000;
     this.hooks.sim.advance(realSeconds * GAME_MINUTES_PER_SECOND * this.hooks.getSpeed());
+    this.handleEvents();
+    this.drawCafe();
     this.drawPeople();
     this.hooks.onFrame();
   }
@@ -59,6 +86,86 @@ export class StreetScene extends Phaser.Scene {
     this.select(best);
   }
 
+  private handleEvents(): void {
+    const sim = this.hooks.sim;
+    for (const e of sim.drainEvents()) {
+      if (e.type === 'sale') {
+        const c = place('cafe').rect;
+        this.float(c.x + c.w / 2, c.y + 18, `+${formatMoney(e.price)}`, '#2e8b57', 24);
+      } else if (e.type === 'reject') {
+        const r = sim.residents[e.residentId];
+        if (!r.visible) continue;
+        const text =
+          e.reason === 'not-open' ? `хочет ${WANT_LABEL[r.decision?.want ?? 'coffee']}` : REASON_SHORT[e.reason];
+        this.float(r.pos.x, r.pos.y - 22, text, e.reason === 'not-open' ? '#5b6270' : '#c0392b', 18);
+      } else if (e.type === 'day') {
+        this.hooks.onDayEnd();
+      } else if (e.type === 'bankrupt') {
+        this.hooks.onBankrupt();
+      }
+    }
+  }
+
+  /** Всплывающая подпись: поднимается и тает за ~1,5 с реального времени */
+  private floats = 0;
+
+  private float(x: number, y: number, text: string, color: string, size: number): void {
+    // На высокой скорости событий много — не заваливаем экран надписями
+    if (this.floats >= 8) return;
+    this.floats++;
+    const t = this.add
+      .text(x, y, text, {
+        fontFamily: FONT,
+        fontSize: `${size}px`,
+        fontStyle: 'bold',
+        color,
+        stroke: '#ffffff',
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5)
+      .setResolution(2)
+      .setDepth(10);
+    this.tweens.add({
+      targets: t,
+      y: y - 40,
+      alpha: 0,
+      duration: 1500,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        t.destroy();
+        this.floats--;
+      },
+    });
+  }
+
+  private drawCafe(): void {
+    const { cafe } = this.hooks.sim;
+    const open = cafe.isOpenAt(this.hooks.sim.minute);
+    this.cafeName.setText(cafe.opened ? 'Твоё кафе' : 'Сдаётся');
+    this.cafeStatus.setText(cafe.opened ? (open ? 'открыто' : 'закрыто') : 'свободное помещение');
+    this.cafeStatus.setColor(open ? '#2e8b57' : '#6b7080');
+    const g = this.cafeShade;
+    g.clear();
+    if (!cafe.opened) {
+      const r = place('cafe').rect;
+      g.fillStyle(0xffffff, 0.45);
+      g.fillRoundedRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4, 12);
+    }
+  }
+
+  private label(x: number, y: number, text: string, size: number, bold: boolean): Phaser.GameObjects.Text {
+    return this.add
+      .text(x, y, text, {
+        fontFamily: FONT,
+        fontSize: `${size}px`,
+        fontStyle: bold ? 'bold' : 'normal',
+        color: COLORS.label,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setResolution(2);
+  }
+
   private drawPeople(): void {
     const g = this.people;
     g.clear();
@@ -80,6 +187,22 @@ export class StreetScene extends Phaser.Scene {
       g.fillCircle(r.pos.x, r.pos.y, RADIUS);
       g.lineStyle(2, 0xffffff, 0.9);
       g.strokeCircle(r.pos.x, r.pos.y, RADIUS);
+    }
+
+    // Гости внутри кафе — видны через «витрину»
+    const c = place('cafe').rect;
+    let n = 0;
+    for (const r of this.hooks.sim.residents) {
+      if (r.placeId !== 'cafe' || r.walking) continue;
+      const x = c.x + 22 + (n % 10) * 22;
+      const y = c.y + c.h - 18 - Math.floor(n / 10) * 20;
+      g.fillStyle(RESIDENT_COLOR[r.kind], 1);
+      g.fillCircle(x, y, 7);
+      if (r === sel) {
+        g.lineStyle(3, COLORS.outline, 1);
+        g.strokeCircle(x, y, 12);
+      }
+      n++;
     }
 
     if (sel?.visible) {
@@ -128,12 +251,13 @@ export class StreetScene extends Phaser.Scene {
       else g.fillRect(p.door.x - 4, p.door.y - 16, 8, 32);
     }
 
+    if (p.kind === 'cafe') return; // подпись кафе живая — см. drawCafe
     const label = p.kind === 'metro' ? 'М  Метро' : p.name;
     this.add
       .text(x + w / 2, p.kind === 'park' ? y + 24 : y + h / 2, label, {
-        fontFamily: 'Inter, system-ui, sans-serif',
-        fontSize: p.kind === 'cafe' ? '26px' : '22px',
-        fontStyle: p.kind === 'cafe' || p.kind === 'metro' ? 'bold' : 'normal',
+        fontFamily: FONT,
+        fontSize: '22px',
+        fontStyle: p.kind === 'metro' ? 'bold' : 'normal',
         color: p.kind === 'metro' ? '#ffffff' : COLORS.label,
         align: 'center',
       })

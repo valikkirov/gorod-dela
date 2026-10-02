@@ -1,20 +1,19 @@
-import { dayNumber, formatClock, minuteOfDay } from '../sim/clock';
-import {
-  ACTIVITY_LABEL,
-  currentEntry,
-  KIND_LABEL,
-  type Resident,
-  type ResidentKind,
-} from '../sim/residents';
+import { REJECT_LABEL, type DayReport, type RejectReason } from '../sim/cafe';
+import { dayNumber, formatClock, hm, minuteOfDay } from '../sim/clock';
+import { WANT_LABEL, type WantKind } from '../sim/demand';
+import { ECONOMY, formatMoney } from '../sim/economy';
+import { ACTIVITY_LABEL, currentEntry, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import { place } from '../sim/world';
 import { RESIDENT_COLOR, toCss } from './palette';
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
-// и привычная вёрстка для правок дизайнера.
+// и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.
 
 const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
+
+type View = 'cafe' | 'resident' | 'report';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -23,14 +22,39 @@ const $ = <T extends HTMLElement>(sel: string): T => {
 };
 
 const fmtMinute = (m: number): string =>
-  `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m) % 60).padStart(2, '0')}`;
+
+const money = formatMoney;
+
+const WANT_INSTR: Record<WantKind, string> = { coffee: 'кофе', lunch: 'обедом', tea: 'чаем', snack: 'перекусом' };
+
+/** Фамилии в генераторе женского рода оканчиваются на «а» */
+const isFemale = (r: Resident): boolean => r.name.endsWith('а');
+
+const REASON_HINT: Record<RejectReason, string> = {
+  'not-open': 'Хотели зайти, но кафе ещё не работает',
+  closed: `Хотели зайти, когда было закрыто — подумай о${NB}часах работы`,
+  expensive: 'Цена выше, чем готовы платить',
+  'off-route': `Кафе не${NB}по${NB}пути — делать крюк не${NB}захотели`,
+  'no-item': `Не${NB}нашли нужного в${NB}меню`,
+  queue: `Не${NB}стали стоять в${NB}очереди — нужен бариста`,
+  'no-time': `Не${NB}дождались заказа и${NB}ушли`,
+  mood: `Цена и${NB}дорога устраивали, но${NB}не${NB}каждый день хочется в${NB}кафе. Постоянные гости заходят чаще`,
+};
+
+const OPEN_OPTIONS = Array.from({ length: 13 }, (_, i) => hm(6) + i * 30); // 06:00…12:00
+const CLOSE_OPTIONS = Array.from({ length: 10 }, (_, i) => hm(14) + i * 60); // 14:00…23:00
 
 export class Hud {
   speed = 1;
+  private view: View = 'cafe';
   private selected: Resident | null = null;
   private lastRender = 0;
+  private lastHtml = '';
+  private lastView = '';
+  private live: Record<string, string> = {};
   private readonly clock = $('#clock');
-  private readonly street = $('#on-street');
+  private readonly cash = $('#cash');
   private readonly panel = $('#panel');
 
   constructor(
@@ -47,24 +71,41 @@ export class Hud {
       speeds.append(b);
     }
     window.addEventListener('keydown', (ev) => {
-      if (ev.code === 'Space') this.setSpeed(this.speed === 0 ? 1 : 0);
+      if (ev.target instanceof HTMLSelectElement) return;
+      if (ev.code === 'Space') {
+        ev.preventDefault();
+        this.setSpeed(this.speed === 0 ? 1 : 0);
+      }
       const n = Number(ev.key);
       if (n >= 1 && n <= 3) this.setSpeed(SPEEDS[n]);
     });
+    this.panel.addEventListener('click', (ev) => this.onClick(ev));
+    this.panel.addEventListener('change', (ev) => this.onChange(ev));
     this.setSpeed(1);
-    this.renderPanel();
+    this.render(true);
   }
 
   setSpeed(s: number): void {
-    this.speed = s;
+    this.speed = this.sim.bankrupt ? 0 : s;
     document.querySelectorAll<HTMLButtonElement>('#speeds button').forEach((b) => {
-      b.classList.toggle('active', Number(b.dataset.speed) === s);
+      b.classList.toggle('active', Number(b.dataset.speed) === this.speed);
     });
   }
 
   select(r: Resident | null): void {
     this.selected = r;
-    this.renderPanel();
+    this.view = r ? 'resident' : 'cafe';
+    this.render(true);
+  }
+
+  onDayEnd(): void {
+    if (this.view !== 'resident') this.view = 'report';
+    this.render(true);
+  }
+
+  onBankrupt(): void {
+    this.setSpeed(0);
+    this.render(true);
   }
 
   frame(): void {
@@ -72,38 +113,215 @@ export class Hud {
     if (now - this.lastRender < 100) return;
     this.lastRender = now;
     this.clock.textContent = `День ${dayNumber(this.sim.time)} · ${formatClock(this.sim.time)}`;
-    this.street.textContent = `На${NB}улице: ${this.sim.onStreet}`;
-    if (this.selected) this.renderPanel();
+    this.cash.textContent = money(this.sim.cash);
+    this.cash.classList.toggle('neg', this.sim.cash < 0);
+    this.render();
   }
 
-  private lastHtml = '';
+  // ——— Действия ———
 
-  private renderPanel(): void {
-    const r = this.selected;
-    const html = r ? this.card(r) : this.legend();
-    if (html === this.lastHtml) return; // не трогаем DOM без нужды — сохраняется прокрутка
-    this.lastHtml = html;
-    this.panel.innerHTML = html;
-    this.panel.querySelector('[data-close]')?.addEventListener('click', () => this.onDeselect());
+  private onClick(ev: Event): void {
+    const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
+    if (!btn || btn.tagName === 'SELECT') return;
+    const { action, item } = btn.dataset;
+    const sim = this.sim;
+    switch (action) {
+      case 'open-cafe':
+        sim.openCafe();
+        break;
+      case 'price-up':
+      case 'price-down': {
+        const it = sim.cafe.item(item!);
+        sim.setPrice(it.id, it.price + (action === 'price-up' ? 1 : -1) * ECONOMY.priceStep);
+        break;
+      }
+      case 'staff-up':
+        sim.setBaristas(sim.cafe.baristas + 1);
+        break;
+      case 'staff-down':
+        sim.setBaristas(sim.cafe.baristas - 1);
+        break;
+      case 'report':
+        this.view = 'report';
+        break;
+      case 'back':
+        this.view = 'cafe';
+        if (this.selected) this.onDeselect();
+        break;
+      case 'restart':
+        location.reload();
+        return;
+    }
+    this.render(true);
   }
 
-  private legend(): string {
-    const kinds = Object.keys(KIND_LABEL) as ResidentKind[];
-    const items = kinds
-      .map((k) => `<li><i style="background:${toCss(RESIDENT_COLOR[k])}"></i>${KIND_LABEL[k]}</li>`)
+  private onChange(ev: Event): void {
+    const el = ev.target as HTMLSelectElement;
+    const cafe = this.sim.cafe;
+    if (el.dataset.action === 'open-at') this.sim.setHours(Number(el.value), cafe.closeAt);
+    if (el.dataset.action === 'close-at') this.sim.setHours(cafe.openAt, Number(el.value));
+    this.render(true);
+  }
+
+  // ——— Отрисовка панели ———
+
+  private render(force = false): void {
+    this.live = {};
+    const html = this.sim.bankrupt
+      ? this.bankruptView()
+      : this.view === 'resident' && this.selected
+        ? this.residentView(this.selected)
+        : this.view === 'report' && this.sim.reports.length > 0
+          ? this.reportView(this.sim.reports.at(-1)!)
+          : this.cafeView();
+    // Пересобираем DOM только когда изменилась структура — иначе обновляем «живые» числа.
+    // Так не сбиваются клики, прокрутка и открытые списки.
+    if (force || html !== this.lastHtml) {
+      this.lastHtml = html;
+      this.panel.innerHTML = html;
+      const viewKey = this.sim.bankrupt ? 'bankrupt' : `${this.view}:${this.selected?.id ?? ''}`;
+      if (viewKey !== this.lastView) this.panel.scrollTop = 0;
+      this.lastView = viewKey;
+    }
+    for (const [key, value] of Object.entries(this.live)) {
+      const el = this.panel.querySelector(`[data-live="${key}"]`);
+      if (el && el.textContent !== value) el.textContent = value;
+    }
+  }
+
+  private cafeView(): string {
+    const { cafe } = this.sim;
+    const today = cafe.today;
+    if (!cafe.opened) {
+      this.live.wanted = String(today.wanted);
+      const canAfford = this.sim.cash >= ECONOMY.cafeOpeningCost;
+      return `
+        <div class="row head"><b>Свободное помещение</b><span class="badge">Сдаётся</span></div>
+        <p>30${NB}м² на${NB}первой линии, рядом с${NB}метро и${NB}офисами. Аренда ${money(ECONOMY.rentPerDay * 30)} в${NB}месяц,
+        коммуналка и${NB}налог 6${NB}% с${NB}выручки.</p>
+        <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Посмотри, кто и${NB}когда, — нажми на${NB}жителя.</p>
+        <button class="primary" data-action="open-cafe" ${canAfford ? '' : 'disabled'}>
+          Открыть кафе · ${money(ECONOMY.cafeOpeningCost)}
+        </button>`;
+    }
+
+    const minute = this.sim.minute;
+    const open = cafe.isOpenAt(minute);
+    this.live.status = open ? `Открыто до ${fmtMinute(cafe.closeAt)}` : `Закрыто до ${fmtMinute(cafe.openAt)}`;
+    this.live.guests = String(today.guests);
+    this.live.revenue = money(today.revenue);
+    this.live.queue = String(cafe.busy);
+
+    const items = cafe.menu
+      .map((m) => {
+        this.live[`sold-${m.id}`] = String(today.sold[m.id] ?? 0);
+        return `
+        <li>
+          <div class="grow"><b>${m.name}</b>
+            <small>себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span></small></div>
+          <div class="stepper">
+            <button data-action="price-down" data-item="${m.id}" aria-label="Дешевле">−</button>
+            <span>${money(m.price)}</span>
+            <button data-action="price-up" data-item="${m.id}" aria-label="Дороже">+</button>
+          </div>
+        </li>`;
+      })
       .join('');
+
+    const opt = (list: number[], value: number) =>
+      list.map((m) => `<option value="${m}" ${m === value ? 'selected' : ''}>${fmtMinute(m)}</option>`).join('');
+    const staff = cafe.baristas === 0 ? 'Ты сам' : `${cafe.baristas}${NB}бариста`;
+    const last = this.sim.reports.at(-1);
+
     return `
-      <p class="hint">Нажми на${NB}жителя, чтобы узнать, кто он и${NB}куда идёт</p>
-      <ul class="legend">${items}</ul>`;
+      <div class="row head"><b>Твоё кафе</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
+      <div class="kpis">
+        <div><small>Гостей сегодня</small><b data-live="guests"></b></div>
+        <div><small>Выручка</small><b data-live="revenue"></b></div>
+        <div><small>В${NB}кафе сейчас</small><b data-live="queue"></b></div>
+      </div>
+      <h4>Меню и${NB}цены</h4>
+      <ul class="menu">${items}</ul>
+      <h4>Часы работы</h4>
+      <div class="row hours">
+        <select data-action="open-at" aria-label="Открытие">${opt(OPEN_OPTIONS, cafe.openAt)}</select>
+        <span>—</span>
+        <select data-action="close-at" aria-label="Закрытие">${opt(CLOSE_OPTIONS, cafe.closeAt)}</select>
+      </div>
+      <h4>За${NB}стойкой</h4>
+      <div class="row">
+        <div class="grow"><b>${staff}</b>
+          <small>${cafe.baristas === 0 ? `Бесплатно, но${NB}медленно: 4${NB}мин на${NB}гостя` : `${money(ECONOMY.baristaWagePerShift)} за${NB}смену каждому · 2${NB}мин на${NB}гостя`}</small></div>
+        <div class="stepper">
+          <button data-action="staff-down" ${cafe.baristas === 0 ? 'disabled' : ''} aria-label="Меньше">−</button>
+          <span>${cafe.baristas}</span>
+          <button data-action="staff-up" ${cafe.baristas >= ECONOMY.maxBaristas ? 'disabled' : ''} aria-label="Больше">+</button>
+        </div>
+      </div>
+      ${last ? `<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}`;
   }
 
-  private card(r: Resident): string {
+  private reportView(r: DayReport): string {
+    const row = (label: string, value: number, cls = '') =>
+      `<tr class="${cls}"><td>${label}</td><td>${money(value)}</td></tr>`;
+    const missed = (Object.entries(r.missed) as [RejectReason, number][])
+      .filter(([reason]) => r.opened || reason === 'not-open')
+      .sort((a, b) => b[1] - a[1])
+      .map(([reason, n]) => `<li><b>${n}</b><div><span>${REJECT_LABEL[reason]}</span><small>${REASON_HINT[reason]}</small></div></li>`)
+      .join('');
+    const sold = this.sim.cafe.menu
+      .filter((m) => r.sold[m.id])
+      .map((m) => `<li><span>${m.name}</span><b>${r.sold[m.id]}</b></li>`)
+      .join('');
+    const warn =
+      this.sim.daysInRed > 0
+        ? `<p class="warn">Касса в${NB}минусе ${this.sim.daysInRed}${NB}дн. подряд. На${NB}${ECONOMY.bankruptDays}-й день — банкротство.</p>`
+        : '';
+
+    return `
+      <div class="card-head"><div><b>Итоги дня ${r.day}</b><small>${r.guests} гостей из ${r.wanted}, кто хотел зайти</small></div>
+        <button data-action="back" aria-label="Закрыть">✕</button></div>
+      ${warn}
+      ${
+        r.opened
+          ? `<table class="pnl">
+        ${row('Выручка', r.revenue)}
+        ${row('Продукты', -r.cogs)}
+        ${row('Аренда', -r.rent)}
+        ${row('Коммуналка', -r.utilities)}
+        ${r.wages ? row('Зарплата', -r.wages) : ''}
+        ${row(`Налог 6${NB}%`, -r.tax)}
+        ${row('Итог дня', r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
+        ${row('В кассе', r.cashAfter, 'cash')}
+      </table>`
+          : ''
+      }
+      ${missed ? `<h4>Не${NB}зашли — почему</h4><ul class="reasons">${missed}</ul>` : ''}
+      ${sold ? `<h4>Продажи</h4><ul class="sold">${sold}</ul>` : ''}`;
+  }
+
+  private bankruptView(): string {
+    const last = this.sim.reports.at(-1);
+    return `
+      <div class="row head"><b>Банкротство</b><span class="badge neg">День ${last?.day ?? ''}</span></div>
+      <p>Касса была в${NB}минусе ${ECONOMY.bankruptDays}${NB}дня подряд. Кафе закрыто, имущество ушло в${NB}счёт долгов.</p>
+      <p>Это не${NB}конец: посмотри итоги дней — кто не${NB}заходил и${NB}почему — и${NB}попробуй снова.</p>
+      <button class="primary" data-action="restart">Начать заново</button>`;
+  }
+
+  private residentView(r: Resident): string {
     const minute = Math.floor(minuteOfDay(this.sim.time));
     const now = currentEntry(r.schedule, minute);
     const where = place(r.placeId).name;
-    const status = r.walking
-      ? `${ACTIVITY_LABEL[r.activity]} · в${NB}пути → ${where}`
-      : `${ACTIVITY_LABEL[r.activity]} · ${where}`;
+    const status = r.visit
+      ? r.visit.stage === 'going'
+        ? `Идёт в${NB}кафе`
+        : r.visit.stage === 'queued'
+          ? `Ждёт заказ в${NB}кафе`
+          : `Сидит в${NB}кафе`
+      : r.walking
+        ? `${ACTIVITY_LABEL[r.activity]} · в${NB}пути → ${where}`
+        : `${ACTIVITY_LABEL[r.activity]} · ${where}`;
     const home = r.homeId === 'metro' ? `Приезжает на${NB}метро` : `Живёт: ${place(r.homeId).name}`;
     const work =
       r.workId === null
@@ -111,22 +329,38 @@ export class Hud {
         : `<div>${r.kind === 'student' ? 'Учится' : 'Работает'}: ${
             r.workId === 'metro' ? `за${NB}пределами улицы` : place(r.workId).name
           }</div>`;
+    const budget = (Object.keys(WANT_LABEL) as WantKind[])
+      .map((k) => `${WANT_LABEL[k]} до${NB}${money(r.budget[k])}`)
+      .join(' · ');
+
+    let decision = '';
+    const f = isFemale(r);
+    const d = r.decision;
+    if (d) {
+      const item = d.itemId ? this.sim.cafe.menu.find((m) => m.id === d.itemId) : undefined;
+      const when = `${d.day === dayNumber(this.sim.time) ? 'Сегодня' : `День ${d.day}`}, ${fmtMinute(d.minute)}`;
+      decision = d.visited
+        ? `<div class="decision ok"><small>${when}</small>${f ? 'Зашла' : 'Зашёл'} за${NB}${WANT_INSTR[d.want]}: ${item?.name ?? ''}, ${money(d.price ?? 0)}</div>`
+        : `<div class="decision no"><small>${when} · ${f ? 'хотела' : 'хотел'} ${WANT_LABEL[d.want]}</small>Не${NB}${f ? 'зашла' : 'зашёл'}: ${REJECT_LABEL[d.reason!].toLowerCase()}${
+            d.reason === 'expensive' && item ? ` — ${item.name} ${money(d.price ?? 0)}, ${f ? 'готова' : 'готов'} до${NB}${money(d.budget)}` : ''
+          }</div>`;
+    }
+
     const rows = r.schedule
       .map(
         (s) =>
-          `<li class="${s === now ? 'now' : ''}"><span>${fmtMinute(s.start)}</span>${
-            ACTIVITY_LABEL[s.activity]
-          } — ${place(s.placeId).name}</li>`,
+          `<li class="${s === now ? 'now' : ''}"><span>${fmtMinute(s.start)}</span>${ACTIVITY_LABEL[s.activity]} — ${place(s.placeId).name}</li>`,
       )
       .join('');
     return `
       <div class="card-head">
-        <i style="background:${toCss(RESIDENT_COLOR[r.kind])}"></i>
+        <i style="background:${toCss(RESIDENT_COLOR[r.kind as ResidentKind])}"></i>
         <div><b>${r.name}</b><small>${KIND_LABEL[r.kind]}</small></div>
-        <button data-close aria-label="Закрыть">✕</button>
+        <button data-action="back" aria-label="Закрыть">✕</button>
       </div>
       <div class="status">${status}</div>
-      <div class="facts"><div>${home}</div>${work}</div>
+      ${decision}
+      <div class="facts"><div>${home}</div>${work}<div>${f ? 'Готова' : 'Готов'} платить: ${budget}</div></div>
       <ul class="schedule">${rows}</ul>`;
   }
 }
