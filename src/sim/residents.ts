@@ -84,6 +84,8 @@ export interface Resident {
   placeId: string;
   /** Визит в кафе: идёт туда, стоит в очереди или сидит */
   visit: Visit | null;
+  /** Ушёл к конкуренту: until — когда уйдёт от него (null — ещё идёт туда) */
+  rivalVisit: { until: number | null; dwell: number } | null;
   activity: Activity;
   path: Point[];
   walking: boolean;
@@ -395,6 +397,7 @@ export function generateResidents(rng: Rng): Resident[] {
         entry: schedule[0],
         placeId: homeId,
         visit: null,
+        rivalVisit: null,
         activity: 'home',
         path: [],
         walking: false,

@@ -78,6 +78,7 @@ const REASON_HINT: Record<RejectReason, string> = {
   unaware: `Хотели зайти куда-нибудь, но о${NB}твоём кафе не${NB}знают. Помогут вывеска, листовки и${NB}соцсети — вкладка «Маркетинг»`,
   'out-of-stock': `Позиция закончилась на${NB}складе. Гость ушёл недовольным — закажи больше или подними автозаказ`,
   mood: `Цена и${NB}дорога устраивали, но${NB}не${NB}каждый день хочется в${NB}кафе. Постоянные гости заходят чаще`,
+  rival: `Готовы были зайти, но${NB}выбрали конкурента: у${NB}него дешевле, ближе по${NB}пути или нужная позиция`,
 };
 
 const OPEN_OPTIONS = Array.from({ length: 25 }, (_, i) => hm(6) + i * 30); // 06:00…18:00 — бар может открываться вечером
@@ -473,6 +474,7 @@ export class Hud {
         <div><small>Внутри сейчас</small><b data-live="queue"></b></div>
       </div>
       <p class="hint-line" data-live="stock-warn"></p>
+      ${this.rivalCard()}
       <h4>Часы работы</h4>
       <div class="row hours">
         <select data-action="open-at" aria-label="Открытие">${opt(OPEN_OPTIONS, cafe.openAt)}</select>
@@ -512,6 +514,29 @@ export class Hud {
       <div class="row head"><b>${cafe.premises.mine}</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
       ${tabBar}
       ${body}`;
+  }
+
+  /** Конкурент: кто, чем берёт, цены, часы, акции */
+  private rivalCard(): string {
+    const sim = this.sim;
+    const rival = sim.rival;
+    if (!rival) return '';
+    const day = sim.today;
+    const t = rival.t;
+    const where = t.premises === 'kiosk' ? `в${NB}киоске у${NB}метро` : `в${NB}кафе напротив`;
+    if (day < rival.opensDay) {
+      const n = rival.opensDay - day;
+      return `<div class="rival soon"><b>Через ${n}${NB}дн. ${where} откроется ${t.name}</b><small>${t.pitch}. Цены ниже твоих — подумай, чем ты будешь отличаться.</small></div>`;
+    }
+    const menu = rival.menu(day).map((m) => `${m.name} ${money(m.price)}`).join(' · ');
+    const promo = rival.promo(day)
+      ? `<span class="badge neg">акция −${Math.round(15)}${NB}% до${NB}конца недели</span>`
+      : `<small>Следующая акция через ${rival.daysToPromo(day)}${NB}дн.</small>`;
+    this.live['rival-today'] = String(rival.servedToday);
+    return `<div class="rival"><div class="row"><b class="grow">Конкурент: ${t.name}</b>${rival.promo(day) ? promo : ''}</div>
+      <small>${t.pitch}. ${fmtMinute(t.openAt)}–${fmtMinute(t.closeAt)}.</small>
+      <small>${menu}</small>
+      <small>Сегодня у${NB}него гостей: <b data-live="rival-today"></b>${rival.promo(day) ? '' : ` · ${promo.replace(/<\/?small>/g, '')}`}</small></div>`;
   }
 
   /** Понятность формата: узкое меню привлекает сильнее, «всё подряд» — слабее */
@@ -810,6 +835,7 @@ export class Hud {
         ${a.factor ? `<p>${a.factor}</p>` : ''}
       </div>
       ${this.hourChart(r)}
+      ${r.rivalGuests !== undefined ? `<p class="rival-line">У${NB}конкурента сегодня гостей: <b>${r.rivalGuests}</b>${r.rivalPromo ? ` (шла акция)` : ''}${r.missed.rival ? ` · ушли к${NB}нему от${NB}тебя: <b>${r.missed.rival}</b>` : ''}</p>` : ''}
       ${a.lost ? `<p class="lost-line">${describeLost(a.lost)}</p>` : ''}
       ${a.observations.length ? `<h4>Стоит проверить</h4><ul class="observations">${a.observations.map((o) => `<li>${o}</li>`).join('')}</ul>` : ''}
       ${changes ? `<h4>Изменения за${NB}день</h4><ul class="changes">${changes}</ul>` : ''}

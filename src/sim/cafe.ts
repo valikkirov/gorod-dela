@@ -33,7 +33,8 @@ export type RejectReason =
   | 'no-time'
   | 'mood'
   | 'out-of-stock'
-  | 'unaware';
+  | 'unaware'
+  | 'rival';
 
 export const REJECT_LABEL: Record<RejectReason, string> = {
   'not-open': 'Кафе ещё не открыто',
@@ -46,6 +47,7 @@ export const REJECT_LABEL: Record<RejectReason, string> = {
   mood: 'Не сегодня',
   'out-of-stock': 'Нет в наличии',
   unaware: 'Не знает о кафе',
+  rival: 'Ушёл к конкуренту',
 };
 
 export interface DayReport {
@@ -100,6 +102,9 @@ export interface DayReport {
   changes?: Change[];
   /** Дозаказы сидящих гостей */
   extras?: number;
+  /** Сколько гостей было у конкурента и шла ли у него акция */
+  rivalGuests?: number;
+  rivalPromo?: boolean;
 }
 
 /** Запись в истории изменений: «Капучино: 220 ₽ → 200 ₽» */

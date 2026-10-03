@@ -6,6 +6,7 @@ import { currentEntry, generateResidents, type Resident, type ScheduleEntry } fr
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
 import { INGREDIENTS, ingredient, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
+import { Rival, RIVAL, type RivalSave } from './rival';
 import { rollWeather, type Weather } from './weather';
 import {
   clampSidewalkY,
@@ -38,12 +39,14 @@ export interface SaveData {
   marketing: Pick<Marketing, 'sign' | 'flyers' | 'socialDaysLeft' | 'happy' | 'loyaltyCard'>;
   flyersToday: boolean;
   cafe: CafeSave;
+  rival?: RivalSave | null;
   residents: {
     pos: Point;
     placeId: string;
     /** [выходной ли день, номер занятия в расписании] */
     entry: [number, number];
     visit: Resident['visit'];
+    rivalVisit?: Resident['rivalVisit'];
     activity: Resident['activity'];
     path: Point[];
     walking: boolean;
@@ -70,7 +73,8 @@ export type SimEvent =
   | { type: 'day'; report: DayReport }
   | { type: 'delivery'; cost: number }
   | { type: 'aware'; residentId: number; source: AwareSource }
-  | { type: 'bankrupt' };
+  | { type: 'bankrupt' }
+  | { type: 'rival'; what: 'open' | 'promo' };
 
 /** Ядро симуляции. Не знает ничего об отрисовке — этот же код
  *  на этапе 2 переедет на сервер. */
@@ -80,6 +84,8 @@ export class Simulation {
   readonly residents: Resident[];
   readonly cafe = new Cafe();
   readonly marketing = new Marketing();
+  /** Конкурент в соседнем помещении — появляется после открытия игрока */
+  rival: Rival | null = null;
   private flyersToday = false;
   cash: number = ECONOMY.startCash;
   daysInRed = 0;
@@ -139,6 +145,7 @@ export class Simulation {
       marketing: { ...this.marketing },
       flyersToday: this.flyersToday,
       cafe: this.cafe.toJSON(),
+      rival: this.rival?.toJSON() ?? null,
       residents: this.residents.map((r) => {
         const weekend = r.weekend.includes(r.entry);
         return {
@@ -146,6 +153,7 @@ export class Simulation {
           placeId: r.placeId,
           entry: [weekend ? 1 : 0, (weekend ? r.weekend : r.weekday).indexOf(r.entry)] as [number, number],
           visit: r.visit,
+          rivalVisit: r.rivalVisit,
           activity: r.activity,
           path: r.path,
           walking: r.walking,
@@ -179,6 +187,8 @@ export class Simulation {
     Object.assign(sim.marketing, d.marketing);
     sim.flyersToday = d.flyersToday;
     sim.cafe.load(d.cafe);
+    // Сохранения до конкурента: он появится через несколько дней, как у новой игры
+    sim.rival = d.rival ? Rival.load(d.rival) : d.cafe.opened ? new Rival(sim.cafe.premisesId, d.day + RIVAL.delayDays) : null;
     sim.applyDaySchedules();
     d.residents.forEach((s, i) => {
       const r = sim.residents[i];
@@ -188,6 +198,7 @@ export class Simulation {
         placeId: s.placeId,
         entry: list[s.entry[1]] ?? r.schedule[0],
         visit: s.visit,
+        rivalVisit: s.rivalVisit ?? null,
         activity: s.activity,
         path: s.path,
         walking: s.walking,
@@ -215,6 +226,7 @@ export class Simulation {
     for (const m of [...this.cafe.menu]) if (!this.cafe.fits(m.id)) this.cafe.removeItem(m.id);
     if (!this.cafe.hasItem('croissant')) this.cafe.addItem('croissant');
     this.note('open', `${pr.name}: открыто`, undefined, '');
+    this.rival = new Rival(premisesId, this.day + RIVAL.delayDays);
     // Сразу знают соседи и продавцы напротив; у киоска — те, кто ходит через метро
     for (const r of this.residents) {
       const neighbour =
@@ -405,6 +417,10 @@ export class Simulation {
       const waiting = r.visit && r.visit.stage !== 'dining' && this.time - r.visit.since < PATIENCE;
       if (entry !== r.entry && !waiting) this.onTransition(r, entry);
       if (r.visit?.stage === 'dining' && this.time >= r.visit.until) this.finishVisit(r);
+      if (r.rivalVisit?.until != null && this.time >= r.rivalVisit.until) {
+        r.rivalVisit = null;
+        this.goTo(r, r.entry.placeId);
+      }
       if (r.walking) this.walk(r, dt);
     }
 
@@ -420,10 +436,15 @@ export class Simulation {
     r.entry = entry;
     r.activity = entry.activity;
     if (r.visit) this.dropVisit(r, 'no-time');
+    r.rivalVisit = null;
 
     const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day));
     if (want && this.decide(r, want, entry)) {
       this.goTo(r, this.shopId);
+      return;
+    }
+    if (r.rivalVisit && this.rival) {
+      this.goTo(r, this.rival.placeId);
       return;
     }
     // В дождь в сквер идут немногие — остаются дома
@@ -454,11 +475,27 @@ export class Simulation {
       const offer = evaluate(r, want, menu, r.pos, place(this.shopId).front, place(entry.placeId).front, this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
-      if (!offer.item || !this.rng.chance(offer.p)) reason = rejectReason(offer, r.budget[want.kind]);
+      const pP = offer.item ? offer.p : 0;
+      const pR = this.rivalChance(r, want, entry, minute);
+      if (!offer.item) reason = 'no-item';
+      else if (pR <= 0) {
+        if (!this.rng.chance(pP)) reason = rejectReason(offer, r.budget[want.kind]);
+      } else if (!this.rng.chance(1 - (1 - Math.min(1, pP)) * (1 - Math.min(1, pR)))) {
+        reason = rejectReason(offer, r.budget[want.kind]);
+      } else if (!this.rng.chance(pP / (pP + pR))) {
+        // Зашёл бы, но выбрал конкурента: дешевле, ближе или открыт, когда ты закрыт
+        reason = 'rival';
+        r.rivalVisit = { until: null, dwell: this.rival!.t.seats ? want.dwell : 0 };
+      }
       if (reason === 'no-item') {
         const mk = cafe.today.missingKinds;
         mk[want.kind] = (mk[want.kind] ?? 0) + 1;
       }
+    }
+    // Не к тебе — может, к конкуренту: он открыт и у него есть нужное
+    if (reason && reason !== 'rival' && reason !== 'not-open' && this.rival) {
+      const pR = this.rivalChance(r, want, entry, minute);
+      if (pR > 0 && this.rng.chance(pR)) r.rivalVisit = { until: null, dwell: this.rival.t.seats ? want.dwell : 0 };
     }
 
     if (reason) {
@@ -473,7 +510,21 @@ export class Simulation {
     return true;
   }
 
+  /** Насколько житель склонен пойти к конкуренту с этим желанием прямо сейчас (0 — никак) */
+  private rivalChance(r: Resident, want: Want, entry: ScheduleEntry, minute: number): number {
+    const rival = this.rival;
+    if (!rival || !rival.isOpen(this.day, minute) || !rival.isOpen(this.day, minute + 10)) return 0;
+    const o = evaluate(r, want, rival.menu(this.day), r.pos, place(rival.placeId).front, place(entry.placeId).front, this.weather.kind);
+    // Конкурент — сетевой, о нём знают все; лояльность к нему не растёт
+    return o.item ? o.pPrice * o.pRoute * 0.8 : 0;
+  }
+
   private onArrive(r: Resident): void {
+    if (this.rival && r.rivalVisit && r.placeId === this.rival.placeId && r.rivalVisit.until === null) {
+      r.rivalVisit.until = this.time + Math.max(2, r.rivalVisit.dwell);
+      this.rival.servedToday += 1;
+      return;
+    }
     const v = r.visit;
     if (r.placeId !== this.shopId || v?.stage !== 'going') return;
     if (!this.cafe.isOpenAt(this.minute)) return this.dropVisit(r, 'closed');
@@ -696,6 +747,11 @@ export class Simulation {
     }
     this.flyersToday = this.marketing.flyers;
     this.cafe.today.awareCount = this.residents.filter((r) => r.aware).length;
+    if (this.rival && this.day >= this.rival.opensDay) {
+      this.cafe.today.rivalGuests = this.rival.servedToday;
+      this.cafe.today.rivalPromo = this.rival.promo(this.day);
+    }
+    if (this.rival) this.rival.servedToday = 0;
     const report = this.cafe.closeDay(nextDay);
     report.weekday = weekday(report.day);
     report.weather = this.weather;
@@ -710,6 +766,8 @@ export class Simulation {
     this.day = nextDay;
     this.applyDaySchedules();
     this.events.push({ type: 'day', report });
+    if (this.rival?.opensDay === nextDay) this.events.push({ type: 'rival', what: 'open' });
+    else if (this.rival && this.rival.promo(nextDay) && !this.rival.promo(nextDay - 1)) this.events.push({ type: 'rival', what: 'promo' });
 
     if (this.cafe.opened && this.cash < 0) this.daysInRed += 1;
     else this.daysInRed = 0;
@@ -729,6 +787,11 @@ export class Simulation {
 
   get weekday(): number {
     return weekday(this.day);
+  }
+
+  /** Текущий игровой день (1 — первый) */
+  get today(): number {
+    return this.day;
   }
 
   // ——— Движение ———

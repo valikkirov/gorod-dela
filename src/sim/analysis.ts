@@ -19,6 +19,7 @@ const ACTIONABLE: RejectReason[] = [
   'no-item',
   'off-route',
   'unaware',
+  'rival',
 ];
 
 const REASON_WHY: Record<RejectReason, string> = {
@@ -32,6 +33,7 @@ const REASON_WHY: Record<RejectReason, string> = {
   mood: `не${NB}сегодня`,
   'out-of-stock': 'кончились продукты',
   unaware: `не${NB}знали о${NB}кафе`,
+  rival: `ушли к${NB}конкуренту`,
 };
 
 /** Кому: «Студентам дорого» */
@@ -45,6 +47,19 @@ const KIND_DATIVE: Record<ResidentKind, string> = {
   nightworker: `Ночной${NB}смене`,
   passenger: 'Пассажирам',
   visitor: `Гостям${NB}района`,
+};
+
+/** «чаще всего офисные» */
+const KIND_GENITIVE_PL: Record<ResidentKind, string> = {
+  office: 'офисные',
+  student: 'студенты',
+  pensioner: 'пенсионеры',
+  shopkeeper: 'продавцы',
+  remote: 'фрилансеры',
+  youth: 'молодёжь',
+  nightworker: `ночная${NB}смена`,
+  passenger: 'пассажиры',
+  visitor: `гости${NB}района`,
 };
 
 /** «в прошлый понедельник», «в прошлую среду», «в прошлое воскресенье» */
@@ -278,6 +293,17 @@ function observations(r: DayReport): string[] {
   for (const [kind, reasons] of Object.entries(r.lostKind ?? {}) as [ResidentKind, Partial<Record<RejectReason, number>>][]) {
     const n = reasons.expensive ?? 0;
     if (n >= 4) out.push([n, `${KIND_DATIVE[kind]} дорого: ${n}${NB}отказов. Решай, твоя ли это аудитория — скидка для${NB}них снизит доход с${NB}остальных.`]);
+  }
+  // Конкурент: кто именно уходит к нему
+  const toRival = r.missed.rival ?? 0;
+  if (toRival >= 4) {
+    const kinds = (Object.entries(r.lostKind ?? {}) as [ResidentKind, Partial<Record<RejectReason, number>>][])
+      .map(([k, v]) => [k, v.rival ?? 0] as const)
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1]);
+    const who = kinds.length ? ` — чаще всего ${KIND_GENITIVE_PL[kinds[0][0]]}` : '';
+    const promo = r.rivalPromo ? ` У${NB}него шла акция.` : '';
+    out.push([toRival * 1.5, `К${NB}конкуренту ушли ${toRival}${NB}гостей${who}.${promo}`]);
   }
   const unaware = r.missed.unaware ?? 0;
   if (unaware >= 8) out.push([unaware * 0.8, `${unaware}${NB}раз хотели куда-нибудь зайти, но о${NB}кафе не${NB}знали.`]);

@@ -29,6 +29,7 @@ const REASON_SHORT: Record<RejectReason, string> = {
   mood: 'не сегодня',
   'out-of-stock': 'кончилось',
   unaware: 'не знает о кафе',
+  rival: 'к конкуренту',
 };
 
 const FONT = 'Inter, system-ui, sans-serif';
@@ -235,6 +236,9 @@ export class StreetScene extends Phaser.Scene {
         if (r.visible) this.float(r.pos.x, r.pos.y - 52, e.source === 'walk' ? 'заметил кафе' : 'узнал о кафе', '#2f6fb0', 16);
       } else if (e.type === 'day') {
         this.hooks.onDayEnd();
+      } else if (e.type === 'rival' && sim.rival) {
+        const c = place(sim.rival.placeId).rect;
+        this.float(c.x + c.w / 2, c.y + 40, e.what === 'open' ? 'Открылся конкурент' : 'У конкурента акция', '#c0392b', 22);
       } else if (e.type === 'bankrupt') {
         this.hooks.onBankrupt();
       }
@@ -278,14 +282,19 @@ export class StreetScene extends Phaser.Scene {
     const { cafe } = sim;
     const open = cafe.isOpenAt(sim.minute);
     const mineId = cafe.opened ? sim.shopId : null;
+    const rival = sim.rival && sim.cafe.opened && sim.today >= sim.rival.opensDay ? sim.rival : null;
     for (const shop of this.shops) {
       const art = PREMISES_ART[shop.place.id];
       const mine = shop.place.id === mineId;
-      shop.sprite.setFrame(mine ? art.open : art.rent);
-      // До открытия подписаны оба помещения; после — только своё
-      shop.name.setText(mine ? cafe.premises.mine : cafe.opened ? '' : 'Сдаётся').setVisible(mine || !cafe.opened);
-      shop.status.setText(mine ? (open ? 'открыто' : 'закрыто') : cafe.opened ? '' : shop.place.name).setVisible(mine || !cafe.opened);
-      shop.status.setColor(mine && open ? '#2e8b57' : '#6b7080');
+      const theirs = rival?.placeId === shop.place.id;
+      const theirsOpen = theirs && rival!.isOpen(sim.today, sim.minute);
+      shop.sprite.setFrame(mine || theirs ? art.open : art.rent);
+      // До открытия подписаны оба помещения; после — своё и конкурент
+      const name = mine ? cafe.premises.mine : theirs ? rival!.t.name : cafe.opened ? '' : 'Сдаётся';
+      const status = mine ? (open ? 'открыто' : 'закрыто') : theirs ? `конкурент · ${theirsOpen ? 'открыто' : 'закрыто'}` : cafe.opened ? '' : shop.place.name;
+      shop.name.setText(name).setVisible(name !== '');
+      shop.status.setText(status).setVisible(status !== '');
+      shop.status.setColor(mine && open ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');
     }
     this.menuBoard.setVisible(mineId === 'cafe');
 
@@ -334,7 +343,8 @@ export class StreetScene extends Phaser.Scene {
     const h = minute / 60;
     for (const { place: p, image } of this.windowLights) {
       let on = 0;
-      if (p.kind === 'cafe') on = sim.cafe.opened && p.id === sim.shopId && sim.cafe.isOpenAt(minute) ? 1 : 0;
+      if (p.kind === 'cafe')
+        on = sim.cafe.opened && p.id === sim.shopId ? (sim.cafe.isOpenAt(minute) ? 1 : 0) : sim.rival?.placeId === p.id && sim.rival.isOpen(sim.today, minute) ? 1 : 0;
       else if (p.kind === 'home') on = h >= 17 || h < 1 || (h >= 5 && h < 8) ? 1 : 0.15;
       else if (p.kind === 'office') on = h >= 7 && h < 21 ? 1 : 0.1;
       else if (p.kind === 'shop') on = h >= 8 && h < 22 ? 1 : 0;
