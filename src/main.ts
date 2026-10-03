@@ -3,6 +3,7 @@ import './style.css';
 import { Hud } from './game/hud';
 import { StreetScene, type SceneHooks } from './game/StreetScene';
 import { autosave, loadGame } from './game/save';
+import { showTutorial, tutorialDone } from './game/tutorial';
 import { Simulation } from './sim/simulation';
 import { WORLD } from './sim/world';
 
@@ -32,6 +33,9 @@ const hooks: SceneHooks = {
   onBankrupt: () => hud.onBankrupt(),
 };
 game.scene.add('street', scene, true, hooks);
+
+// Первый запуск — короткое обучение (с ?seed — для отладки — не показываем)
+if (!params.has('seed') && !tutorialDone()) showTutorial(hud);
 
 // Канвас подстраивается под место между верхней панелью и карточкой
 new ResizeObserver(() => game.scale.refresh()).observe(document.getElementById('game')!);

@@ -1,11 +1,11 @@
-import { Cafe, MAX_QUEUE, type CafeSave, type Contract, type DayReport, type RejectReason } from './cafe';
+import { Cafe, CATALOG, hours24, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason } from './cafe';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
-import { ECONOMY } from './economy';
+import { ECONOMY, formatMoney } from './economy';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
-import { INGREDIENTS, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
+import { INGREDIENTS, ingredient, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
 import { rollWeather, type Weather } from './weather';
 import {
   clampSidewalkY,
@@ -205,6 +205,7 @@ export class Simulation {
     if (this.cafe.opened || this.bankrupt || this.cash < ECONOMY.cafeOpeningCost) return false;
     this.cash -= ECONOMY.cafeOpeningCost;
     this.cafe.opened = true;
+    this.note('open', 'Кафе открыто', undefined, '');
     // О кафе сразу знают соседи по дому и продавцы напротив; остальным предстоит узнать
     for (const r of this.residents) {
       const neighbour = r.homeId === 'home-1' || r.homeId === 'home-2';
@@ -222,22 +223,36 @@ export class Simulation {
   }
 
   setPrice(itemId: string, price: number): void {
-    this.cafe.item(itemId).price = Math.max(ECONOMY.priceStep, Math.round(price / ECONOMY.priceStep) * ECONOMY.priceStep);
+    const it = this.cafe.item(itemId);
+    const from = it.price;
+    it.price = Math.max(ECONOMY.priceStep, Math.round(price / ECONOMY.priceStep) * ECONOMY.priceStep);
+    this.note(`price:${itemId}`, it.name, formatMoney(from), formatMoney(it.price));
   }
 
   /** closeAt может быть больше 24:00 (работа через полночь); openAt + 24 ч — круглосуточно */
   setHours(openAt: number, closeAt: number): void {
     if (closeAt <= openAt || closeAt - openAt > MINUTES_PER_DAY) return;
+    const from = hoursText(this.cafe.openAt, this.cafe.closeAt);
     this.cafe.openAt = openAt;
     this.cafe.closeAt = closeAt;
+    this.note('hours', 'Часы работы', from, hoursText(openAt, closeAt));
   }
 
   hireBarista(contract: Contract): boolean {
-    return this.cafe.hire(contract) !== null;
+    const b = this.cafe.hire(contract);
+    if (b) this.note(`staff:${b.id}`, 'Нанят бариста', undefined, contract === 'shift' ? 'на смену' : 'почасово');
+    return b !== null;
   }
 
   fireBarista(id: number): void {
+    const b = this.cafe.staff.find((x) => x.id === id);
+    if (!b) return;
     this.cafe.fire(id);
+    const list = this.cafe.today.changes ?? [];
+    const hired = list.findIndex((c) => c.key === `staff:${id}`);
+    // Нанял и уволил в тот же день — в истории ничего не было
+    if (hired >= 0) list.splice(hired, 1);
+    else this.note(`staff:${id}`, 'Уволен бариста', undefined, b.contract === 'shift' ? 'на смене' : 'почасовой');
   }
 
   setOnDuty(id: number, onDuty: boolean): void {
@@ -245,11 +260,59 @@ export class Simulation {
   }
 
   addMenuItem(id: string): boolean {
-    return this.cafe.addItem(id);
+    const ok = this.cafe.addItem(id);
+    if (ok) this.toggle(`menu:${id}`, `Меню: ${itemName(id)}`, 'добавлен', 'убран', true);
+    return ok;
   }
 
   removeMenuItem(id: string): boolean {
-    return this.cafe.removeItem(id);
+    const name = itemName(id);
+    const ok = this.cafe.removeItem(id);
+    if (ok) this.toggle(`menu:${id}`, `Меню: ${name}`, 'добавлен', 'убран', false);
+    return ok;
+  }
+
+  // ——— История изменений ———
+
+  /** Записать изменение. Повторные правки того же за день склеиваются, возврат к исходному — стирает запись. */
+  private note(key: string, text: string, from: string | undefined, to: string, when?: string): void {
+    const list = (this.cafe.today.changes ??= []);
+    const minute = Math.floor(this.minute);
+    const prev = list.find((c) => c.key === key);
+    if (prev) {
+      prev.to = to;
+      prev.minute = minute;
+      if (prev.from !== undefined && prev.from === to) list.splice(list.indexOf(prev), 1);
+      return;
+    }
+    if (from !== undefined && from === to) return;
+    const c: Change = { minute, key, text, to };
+    if (from !== undefined) c.from = from;
+    if (when) c.when = when;
+    list.push(c);
+  }
+
+  /** Вкл/выкл: включил и выключил в тот же день — записи нет */
+  private toggle(key: string, text: string, onWord: string, offWord: string, on: boolean, when?: string): void {
+    this.note(key, text, on ? offWord : onWord, on ? onWord : offWord, when);
+    // Для переключателей показываем только итог: «Меню: Раф — добавлен»
+    const c = this.cafe.today.changes?.find((x) => x.key === key);
+    if (c) c.toggle = true;
+  }
+
+  /** Сколько стоит день и на сколько дней хватит денег */
+  cashOutlook(): { daily: number; days: number; inRed: number; daysToBankrupt: number } {
+    const last = this.reports.at(-1);
+    const shiftWages = this.cafe.staff.filter((b) => b.contract === 'shift').length * ECONOMY.shiftWage;
+    const wages = last?.opened ? Math.max(last.wages, shiftWages) : shiftWages;
+    const daily =
+      ECONOMY.rentPerDay + ECONOMY.utilitiesPerDay + wages + (this.marketing.flyers ? MARKETING.flyersPerDay : 0);
+    return {
+      daily,
+      days: this.cash > 0 ? Math.floor(this.cash / daily) : 0,
+      inRed: this.daysInRed,
+      daysToBankrupt: ECONOMY.bankruptDays - this.daysInRed,
+    };
   }
 
   // ——— Время ———
@@ -484,12 +547,14 @@ export class Simulation {
   buySign(): boolean {
     if (this.marketing.sign || !this.cafe.opened) return false;
     this.marketing.sign = true;
+    this.note('sign', 'Повешена вывеска', undefined, formatMoney(MARKETING.signCost));
     this.cash -= MARKETING.signCost;
     this.cafe.today.marketing += MARKETING.signCost;
     return true;
   }
 
   setFlyers(on: boolean): void {
+    if (on !== this.marketing.flyers) this.toggle('flyers', 'Листовки у\u00a0метро', 'раздаём', 'остановлены', on);
     this.marketing.flyers = on;
     if (on) this.flyersToday = true;
   }
@@ -497,16 +562,20 @@ export class Simulation {
   launchSocial(): boolean {
     if (this.marketing.socialDaysLeft > 0 || !this.cafe.opened) return false;
     this.marketing.socialDaysLeft = MARKETING.socialDays;
+    this.note('social', 'Запущены соцсети', undefined, `${MARKETING.socialDays}\u00a0дней`, 'со\u00a0следующего утра');
     this.cash -= MARKETING.socialCampaign;
     this.cafe.today.marketing += MARKETING.socialCampaign;
     return true;
   }
 
   setHappyHours(h: HappyHours | null): void {
+    const from = happyText(this.marketing.happy);
     this.marketing.happy = h && h.to > h.from && h.discount > 0 ? h : null;
+    this.note('happy', 'Счастливые часы', from, happyText(this.marketing.happy));
   }
 
   setLoyaltyCard(on: boolean): void {
+    if (on !== this.marketing.loyaltyCard) this.toggle('card', 'Карта лояльности', 'включена', 'выключена', on);
     this.marketing.loyaltyCard = on;
   }
 
@@ -514,20 +583,39 @@ export class Simulation {
 
   orderIngredient(id: IngredientId, qty: number): void {
     this.cafe.stock.order(id, qty);
+    const total = this.cafe.stock.pending[id] ?? qty;
+    this.note(`order:${id}`, `Заказ: ${ingredient(id).name.toLowerCase()}`, undefined, `${total}\u00a0порц.`, 'привезут в\u00a06:00');
   }
 
   cancelOrder(id: IngredientId): void {
     this.cafe.stock.cancel(id);
+    const list = this.cafe.today.changes ?? [];
+    const i = list.findIndex((c) => c.key === `order:${id}`);
+    if (i >= 0) list.splice(i, 1);
   }
 
   setKeep(id: IngredientId, qty: number, weekend = false): void {
     const levels = weekend ? this.cafe.stock.keepWeekend : this.cafe.stock.keep;
+    const from = levels[id];
     levels[id] = Math.max(0, Math.round(qty));
+    this.note(
+      `keep:${id}:${weekend ? 'we' : 'wd'}`,
+      `Держать ${ingredient(id).name.toLowerCase()} (${weekend ? 'выходные' : 'будни'})`,
+      String(from),
+      String(levels[id]),
+      'автозаказ ночью',
+    );
   }
 
   private miss(r: Resident, reason: RejectReason): void {
-    const m = this.cafe.today.missed;
+    const t = this.cafe.today;
+    const m = t.missed;
     m[reason] = (m[reason] ?? 0) + 1;
+    // Для отчёта: в какой час и кто именно ушёл
+    const byHour = (t.lostHour ??= {});
+    (byHour[reason] ??= hours24())[Math.floor(this.minute / 60) % 24] += 1;
+    const byKind = ((t.lostKind ??= {})[r.kind] ??= {});
+    byKind[reason] = (byKind[reason] ?? 0) + 1;
     this.events.push({ type: 'reject', residentId: r.id, reason });
   }
 
@@ -670,4 +758,20 @@ export class Simulation {
     r.walking = false;
     r.visible = !p.indoor;
   }
+}
+
+const pad = (n: number): string => String(n).padStart(2, '0');
+const clockText = (m: number): string => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+
+function hoursText(openAt: number, closeAt: number): string {
+  if (closeAt - openAt >= MINUTES_PER_DAY) return 'круглосуточно';
+  return `${clockText(openAt)}–${clockText(closeAt)}`;
+}
+
+function happyText(h: HappyHours | null): string {
+  return h ? `${clockText(h.from)}–${clockText(h.to)}, −${Math.round(h.discount * 100)}\u00a0%` : 'выкл.';
+}
+
+function itemName(id: string): string {
+  return CATALOG.find((c) => c.id === id)?.name ?? id;
 }

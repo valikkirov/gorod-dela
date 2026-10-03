@@ -2,6 +2,7 @@ import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, type Currency } from './economy';
 import type { AwareSource } from './marketing';
 import { recipeCost, Stock, type IngredientId, type StockSave } from './stock';
+import type { ResidentKind } from './residents';
 import type { Weather } from './weather';
 
 export type ItemKind = 'coffee' | 'snack' | 'lunch' | 'tea' | 'bar';
@@ -83,7 +84,38 @@ export interface DayReport {
   weather?: Weather;
   /** Прогноз на завтра */
   forecast?: Weather;
+  // По часам 0–23. Необязательные — в старых сохранениях их нет.
+  /** Обслужено гостей */
+  servedHour?: number[];
+  /** Минут «мест за стойкой» и сколько из них было занято — загрузка */
+  capHour?: number[];
+  usedHour?: number[];
+  /** Минут работы бариста (без владельца) */
+  staffHour?: number[];
+  /** Ушедшие по причинам и часам */
+  lostHour?: Partial<Record<RejectReason, number[]>>;
+  /** Ушедшие по типам жителей и причинам */
+  lostKind?: Partial<Record<ResidentKind, Partial<Record<RejectReason, number>>>>;
+  /** Что игрок менял за этот день */
+  changes?: Change[];
 }
+
+/** Запись в истории изменений: «Капучино: 220 ₽ → 200 ₽» */
+export interface Change {
+  /** Минута дня, когда изменение сделано (последнее, если меняли несколько раз) */
+  minute: number;
+  /** По ключу повторные правки за день склеиваются: 220 → 210 → 200 становится 220 → 200 */
+  key: string;
+  text: string;
+  from?: string;
+  to: string;
+  /** Когда вступит в силу, если не сразу */
+  when?: string;
+  /** Переключатель: показывать только итог, без «было → стало» */
+  toggle?: boolean;
+}
+
+export const hours24 = (): number[] => new Array<number>(24).fill(0);
 
 /** Всё, что кафе может продавать. Цена — стартовая, игрок меняет её сам.
  *  Для ИП из алкоголя доступны только пиво и сидр; вино и крепкое — с лицензией ООО (позже). */
@@ -245,6 +277,13 @@ export class Cafe {
       missed: {},
       missingKinds: {},
       sold: {},
+      servedHour: hours24(),
+      capHour: hours24(),
+      usedHour: hours24(),
+      staffHour: hours24(),
+      lostHour: {},
+      lostKind: {},
+      changes: [],
     };
   }
 
@@ -360,6 +399,12 @@ export class Cafe {
       const q = this.queue.shift()!;
       this.slots.push({ ...q, left: this.serviceMinutes });
     }
+    // Загрузка стойки по часам — для отчёта «когда было тесно, а когда пусто»
+    const t = this.today;
+    const h = Math.floor(minute / 60) % 24;
+    (t.capHour ??= hours24())[h] += this.counters * dt;
+    (t.usedHour ??= hours24())[h] += Math.min(this.slots.length, this.counters) * dt;
+    (t.staffHour ??= hours24())[h] += this.baristas * dt;
     for (const s of this.slots) s.left -= dt;
     const done = this.slots.filter((s) => s.left <= 0);
     this.slots = this.slots.filter((s) => s.left > 0);
@@ -375,6 +420,7 @@ export class Cafe {
       this.today.revenue += price;
       this.today.cogs += it.cost;
       this.today.sold[it.id] = (this.today.sold[it.id] ?? 0) + 1;
+      (this.today.servedHour ??= hours24())[h] += 1;
       result.sales.push({ residentId: s.residentId, itemId: it.id, price });
     }
     return result;

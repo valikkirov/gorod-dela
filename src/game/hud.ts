@@ -3,6 +3,7 @@ import {
   KIND_TITLE,
   MAX_MENU,
   REJECT_LABEL,
+  type Change,
   type DayReport,
   type ItemKind,
   type RejectReason,
@@ -18,6 +19,7 @@ import {
   WEEKDAY_SHORT,
   weekday,
 } from '../sim/clock';
+import { analyzeDay, describeLost } from '../sim/analysis';
 import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { INGREDIENTS, orderPrice, RECIPES, type IngredientId } from '../sim/stock';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
@@ -28,6 +30,8 @@ import type { Simulation } from '../sim/simulation';
 import { place } from '../sim/world';
 import { RESIDENT_COLOR, toCss } from './palette';
 import { clearSave } from './save';
+import { openFeedback } from './feedback';
+import { showTutorial } from './tutorial';
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
 // и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.
@@ -234,6 +238,17 @@ export class Hud {
       case 'report':
         this.view = 'report';
         break;
+      case 'goto-tab':
+        this.view = 'cafe';
+        this.tab = item as CafeTab;
+        if (this.selected) this.onDeselect();
+        break;
+      case 'feedback':
+        openFeedback(this.sim);
+        return;
+      case 'tutorial':
+        showTutorial(this);
+        return;
       case 'back':
         this.view = 'cafe';
         if (this.selected) this.onDeselect();
@@ -431,6 +446,7 @@ export class Hud {
     if (this.tab === 'overview') {
       this.live['stock-warn'] = this.stockWarning();
       body = `
+      ${this.cashWarning()}
       <div class="kpis">
         <div><small>Гостей сегодня</small><b data-live="guests"></b></div>
         <div><small>Выручка</small><b data-live="revenue"></b></div>
@@ -542,7 +558,11 @@ export class Hud {
       ? `<div class="restart"><small>Кафе, деньги и${NB}весь прогресс сотрутся.</small>
           <div class="hire"><button class="small" data-action="restart-ask">Отмена</button>
           <button class="small danger" data-action="restart">Да, начать заново</button></div></div>`
-      : `<button class="link" data-action="restart-ask">Начать заново</button>
+      : `<div class="links">
+           <button class="link" data-action="feedback">Предложить идею</button>
+           <button class="link" data-action="tutorial">Как играть</button>
+           <button class="link" data-action="restart-ask">Начать заново</button>
+         </div>
          <small class="saved">Игра сохраняется автоматически в${NB}этом браузере</small>`;
   }
 
@@ -602,16 +622,71 @@ export class Hud {
       <ul class="menu stock">${rows}</ul>`;
   }
 
+  /** Касса на исходе или в минусе: сколько осталось и что можно сделать */
+  private cashWarning(): string {
+    const sim = this.sim;
+    if (!sim.cafe.opened || sim.bankrupt) return '';
+    const o = sim.cashOutlook();
+    let head: string;
+    if (sim.cash < 0) {
+      head =
+        o.inRed > 0
+          ? `Касса в${NB}минусе ${o.inRed}-й день. Если на${NB}${ECONOMY.bankruptDays}-й день не${NB}выйти в${NB}плюс — банкротство.`
+          : `Касса в${NB}минусе. Если к${NB}концу дня не${NB}выйти в${NB}плюс, пойдёт отсчёт: ${ECONOMY.bankruptDays}${NB}дня подряд — банкротство.`;
+    } else if (o.days <= 3) {
+      head = `Денег хватит примерно на${NB}${o.days}${NB}дн. постоянных расходов — ${money(o.daily)} в${NB}день.`;
+    } else return '';
+    const options: string[] = [];
+    if (sim.marketing.flyers) options.push(`<button class="small" data-action="flyers">Остановить листовки</button>`);
+    if (sim.cafe.staff.length) options.push(`<button class="small" data-action="goto-tab" data-item="staff">Персонал</button>`);
+    options.push(`<button class="small" data-action="goto-tab" data-item="stock">Снизить запасы</button>`);
+    options.push(`<button class="small" data-action="goto-tab" data-item="overview">Часы работы</button>`);
+    return `<div class="cash-warn"><b>${head}</b>
+      <small>Что можно сделать: меньше часов в${NB}пустое время, отпустить бариста, не${NB}держать лишний запас, остановить платную рекламу.</small>
+      <div class="hire">${options.join('')}</div></div>`;
+  }
+
+  private changeRow(c: Change): string {
+    const what = c.toggle || c.from === undefined ? `${c.text}${c.to ? ` — ${c.to}` : ''}` : `${c.text}: ${c.from} → ${c.to}`;
+    return `<li><span class="t">${fmtMinute(c.minute)}</span><div><span>${what}</span>${c.when ? `<small>${c.when}</small>` : ''}</div></li>`;
+  }
+
+  /** Гости и потери по часам: зелёное — обслужены, красное — ушли (без «не сегодня») */
+  private hourChart(r: DayReport): string {
+    const served = r.servedHour;
+    if (!served || !r.lostHour) return '';
+    const lost = new Array<number>(24).fill(0);
+    for (const [reason, hours] of Object.entries(r.lostHour) as [RejectReason, number[]][]) {
+      if (reason === 'mood' || (r.opened && reason === 'not-open')) continue;
+      hours.forEach((n, h) => (lost[h] += n));
+    }
+    const hours = Array.from({ length: 24 }, (_, i) => (i + 6) % 24); // с 06:00 до 05:00
+    const max = Math.max(1, ...hours.map((h) => served[h] + lost[h]));
+    const bars = hours
+      .map((h) => {
+        const g = Math.round((served[h] / max) * 56);
+        const l = Math.round((lost[h] / max) * 56);
+        const title = `${String(h).padStart(2, '0')}:00 — гостей ${served[h]}, ушли ${lost[h]}`;
+        return `<div class="bar" title="${title}"><i class="lost" style="height:${l}px"></i><i class="served" style="height:${g}px"></i>${
+          h % 3 === 0 ? `<span>${h}</span>` : ''
+        }</div>`;
+      })
+      .join('');
+    return `<div class="hours-chart">${bars}</div>
+      <div class="legend-line"><span><i class="served"></i>${r.opened ? 'обслужены' : ''}</span><span><i class="lost"></i>${r.opened ? 'ушли' : `хотели зайти`}</span></div>`;
+  }
+
   private reportView(r: DayReport): string {
     const row = (label: string, value: number, cls = '') =>
       `<tr class="${cls}"><td>${label}</td><td>${money(value)}</td></tr>`;
+    const a = analyzeDay(this.sim.reports, r);
     const missed = (Object.entries(r.missed) as [RejectReason, number][])
       .filter(([reason]) => r.opened || reason === 'not-open')
-      .sort((a, b) => b[1] - a[1])
+      .sort((x, y) => y[1] - x[1])
       .map(([reason, n]) => `<li><b>${n}</b><div><span>${REJECT_LABEL[reason]}</span><small>${REASON_HINT[reason]}</small></div></li>`)
       .join('');
     const missing = (Object.entries(r.missingKinds) as [ItemKind, number][])
-      .sort((a, b) => b[1] - a[1])
+      .sort((x, y) => y[1] - x[1])
       .map(([kind, n]) => `<li><span>${KIND_TITLE[kind]}</span><b>${n}</b></li>`)
       .join('');
     const sold = CATALOG
@@ -619,11 +694,19 @@ export class Hud {
       .map((m) => `<li><span>${m.name}</span><b>${r.sold[m.id]}</b></li>`)
       .join('');
     const learnedEntries = (Object.entries(r.newAware) as [AwareSource, number][]).filter(([src]) => src !== 'start');
-    const learnedTotal = learnedEntries.reduce((a, [, n]) => a + n, 0);
+    const learnedTotal = learnedEntries.reduce((x, [, n]) => x + n, 0);
     const learned = learnedEntries.map(([src, n]) => `<li><span>${AWARE_LABEL[src]}</span><b>${n}</b></li>`).join('');
     const spoiled = (Object.entries(r.writtenOffItems) as [IngredientId, number][])
       .map(([id, q]) => `${INGREDIENTS.find((i) => i.id === id)!.name.toLowerCase()} ${q}`)
       .join(', ');
+    const kinds = a.byKind
+      .slice(0, 5)
+      .map(
+        ([kind, n, reason]) =>
+          `<li><i style="background:${toCss(RESIDENT_COLOR[kind])}"></i><span>${KIND_LABEL[kind]}</span><small>${REJECT_LABEL[reason].toLowerCase()}</small><b>${n}</b></li>`,
+      )
+      .join('');
+    const changes = (r.changes ?? []).map((c) => this.changeRow(c)).join('');
     const next = r.day + 1;
     const forecast = r.forecast
       ? `<div class="forecast"><small>Завтра · ${WEEKDAY_FULL[weekday(next)]}</small>
@@ -632,21 +715,25 @@ export class Hud {
             isWeekend(next) ? `. Выходной: офисные не${NB}придут, зато больше гуляют` : ''
           }</span></div>`
       : '';
-    const warn =
-      this.sim.daysInRed > 0
-        ? `<p class="warn">Касса в${NB}минусе ${this.sim.daysInRed}${NB}дн. подряд. На${NB}${ECONOMY.bankruptDays}-й день — банкротство.</p>`
-        : '';
 
     return `
       <div class="card-head"><div><b>Итоги дня ${r.day}</b><small>${r.weekday !== undefined ? WEEKDAY_FULL[r.weekday] : ''}${
         r.weather ? ` · ${weatherShort(r.weather)} ${WEATHER_LABEL[r.weather.kind].toLowerCase()}` : ''
       } · ${r.guests} гостей из ${r.wanted}, кто хотел зайти</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button></div>
-      ${warn}
+      ${this.cashWarning()}
+      <div class="insight">
+        <b>${a.headline}</b>
+        ${a.factor ? `<p>${a.factor}</p>` : ''}
+      </div>
+      ${this.hourChart(r)}
+      ${a.lost ? `<p class="lost-line">${describeLost(a.lost)}</p>` : ''}
+      ${a.observations.length ? `<h4>Стоит проверить</h4><ul class="observations">${a.observations.map((o) => `<li>${o}</li>`).join('')}</ul>` : ''}
+      ${changes ? `<h4>Изменения за${NB}день</h4><ul class="changes">${changes}</ul>` : ''}
       ${forecast}
       ${
         r.opened
-          ? `<table class="pnl">
+          ? `<h4>Деньги</h4><table class="pnl">
         ${row('Выручка', r.revenue)}
         ${row('Закупка продуктов', -r.purchases)}
         ${row('Аренда', -r.rent)}
@@ -662,6 +749,7 @@ export class Hud {
       }</small>`
           : ''
       }
+      ${kinds ? `<h4>${r.opened ? `Кто не${NB}зашёл` : `Кто хотел зайти`}</h4><ul class="kinds">${kinds}</ul>` : ''}
       ${missed ? `<h4>Не${NB}зашли — почему</h4><ul class="reasons">${missed}</ul>` : ''}
       ${learned ? `<h4>Узнали о${NB}кафе: +${learnedTotal} · всего ${r.awareCount} из ${this.sim.residents.length}</h4><ul class="sold">${learned}</ul>` : ''}
       ${r.giveaways ? `<small>По${NB}карте лояльности подарено кофе на${NB}${money(r.giveaways)}</small>` : ''}
