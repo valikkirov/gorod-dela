@@ -30,3 +30,57 @@ export function formatMoney(amount: number, currency: Currency = CURRENCY): stri
     .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   return `${sign}${abs} ${currency === 'RUB' ? '₽' : currency}`;
 }
+
+export type PremisesId = 'cafe' | 'kiosk';
+
+/** Помещения под бизнес: формат начинается с места */
+export interface Premises {
+  id: PremisesId;
+  /** Место на карте */
+  placeId: string;
+  name: string;
+  /** «Твоё кафе», «Твой киоск» */
+  mine: string;
+  about: string;
+  rentPerDay: number;
+  /** Коммуналка: база в день плюс за каждый час работы — свет, отопление, вода */
+  utilitiesPerDay: number;
+  utilitiesPerHour: number;
+  openingCost: number;
+  /** Можно ли сидеть: без мест всё навынос, дозаказов нет */
+  seats: boolean;
+  /** Какие категории меню помещаются */
+  kinds: readonly ('coffee' | 'snack' | 'lunch' | 'tea' | 'bar')[];
+  maxBaristas: number;
+}
+
+export const PREMISES: Record<PremisesId, Premises> = {
+  cafe: {
+    id: 'cafe',
+    placeId: 'cafe',
+    name: 'Кафе',
+    mine: 'Твоё кафе',
+    about: '30\u00a0м² с\u00a0залом на\u00a0первой линии. Любое меню, гости сидят и\u00a0дозаказывают',
+    rentPerDay: ECONOMY.rentPerDay,
+    utilitiesPerDay: 200,
+    utilitiesPerHour: 30,
+    openingCost: ECONOMY.cafeOpeningCost,
+    seats: true,
+    kinds: ['coffee', 'snack', 'lunch', 'tea', 'bar'],
+    maxBaristas: ECONOMY.maxBaristas,
+  },
+  kiosk: {
+    id: 'kiosk',
+    placeId: 'kiosk',
+    name: 'Киоск у\u00a0метро',
+    mine: 'Твой киоск',
+    about: '8\u00a0м² прямо у\u00a0выхода из\u00a0метро. Только навынос: кофе, выпечка, чай, без\u00a0кухни и\u00a0бара',
+    rentPerDay: 1_500,
+    utilitiesPerDay: 100,
+    utilitiesPerHour: 15,
+    openingCost: 150_000,
+    seats: false,
+    kinds: ['coffee', 'snack', 'tea'],
+    maxBaristas: 1,
+  },
+};

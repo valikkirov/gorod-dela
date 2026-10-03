@@ -1,5 +1,5 @@
 import { hm, MINUTES_PER_DAY } from './clock';
-import { CURRENCY, ECONOMY, type Currency } from './economy';
+import { CURRENCY, ECONOMY, PREMISES, type Currency, type Premises, type PremisesId } from './economy';
 import type { AwareSource } from './marketing';
 import { recipeCost, Stock, type IngredientId, type StockSave } from './stock';
 import type { ResidentKind } from './residents';
@@ -98,6 +98,8 @@ export interface DayReport {
   lostKind?: Partial<Record<ResidentKind, Partial<Record<RejectReason, number>>>>;
   /** Что игрок менял за этот день */
   changes?: Change[];
+  /** Дозаказы сидящих гостей */
+  extras?: number;
 }
 
 /** Запись в истории изменений: «Капучино: 220 ₽ → 200 ₽» */
@@ -215,6 +217,7 @@ export interface TickResult {
 
 export interface CafeSave {
   opened: boolean;
+  premisesId?: PremisesId;
   menu: MenuItem[];
   openAt: number;
   closeAt: number;
@@ -232,6 +235,8 @@ export interface CafeSave {
 /** Состояние кафе игрока */
 export class Cafe {
   opened = false;
+  /** Где игрок открылся: формат начинается с помещения */
+  premisesId: PremisesId = 'cafe';
   menu: MenuItem[] = DEFAULT_MENU_IDS.map(catalogItem);
   openAt = hm(8);
   /** Может быть больше 24:00 — работа через полночь. openAt + 1440 = круглосуточно. */
@@ -259,6 +264,7 @@ export class Cafe {
   toJSON(): CafeSave {
     return {
       opened: this.opened,
+      premisesId: this.premisesId,
       menu: this.menu,
       openAt: this.openAt,
       closeAt: this.closeAt,
@@ -276,6 +282,7 @@ export class Cafe {
 
   load(d: CafeSave): void {
     this.opened = d.opened;
+    this.premisesId = d.premisesId ?? 'cafe';
     this.menu = d.menu;
     this.openAt = d.openAt;
     this.closeAt = d.closeAt;
@@ -333,6 +340,7 @@ export class Cafe {
       lostHour: {},
       lostKind: {},
       changes: [],
+      extras: 0,
     };
   }
 
@@ -354,12 +362,40 @@ export class Cafe {
     return it;
   }
 
+  /** Дозаказ гостя, который уже сидит: вторая кружка, выпечка к кофе. Гостем второй раз не считается. */
+  sellExtra(itemId: string, minute: number): number {
+    if (!this.hasItem(itemId) || !this.stock.canMake(itemId)) return 0;
+    const it = this.item(itemId);
+    this.stock.use(it.id);
+    const price = this.pricing(it.price, minute);
+    this.today.revenue += price;
+    this.today.cogs += it.cost;
+    this.today.sold[it.id] = (this.today.sold[it.id] ?? 0) + 1;
+    this.today.extras = (this.today.extras ?? 0) + 1;
+    return price;
+  }
+
+  /** Коммуналка за день при текущих часах работы */
+  get utilitiesPerDay(): number {
+    const hours = Math.min(MINUTES_PER_DAY, this.closeAt - this.openAt) / 60;
+    return Math.round(this.premises.utilitiesPerDay + this.premises.utilitiesPerHour * hours);
+  }
+
+  get premises(): Premises {
+    return PREMISES[this.premisesId];
+  }
+
+  /** Помещается ли позиция в это помещение (в киоске нет кухни и бара) */
+  fits(id: string): boolean {
+    return this.premises.kinds.includes(catalogItem(id).kind);
+  }
+
   hasItem(id: string): boolean {
     return this.menu.some((m) => m.id === id);
   }
 
   addItem(id: string): boolean {
-    if (this.hasItem(id) || this.menu.length >= MAX_MENU) return false;
+    if (this.hasItem(id) || this.menu.length >= MAX_MENU || !this.fits(id)) return false;
     const it = this.retired.get(id) ?? catalogItem(id);
     this.retired.delete(id);
     // Держим порядок каталога — так меню читается по категориям
@@ -379,7 +415,7 @@ export class Cafe {
   }
 
   hire(contract: Contract): Barista | null {
-    if (this.staff.length >= ECONOMY.maxBaristas) return null;
+    if (this.staff.length >= this.premises.maxBaristas) return null;
     // По умолчанию — каждый день; почасовой — на все часы работы кафе, игрок сужает окно до пиков
     const b: Barista = {
       id: this.nextStaffId++,
@@ -555,8 +591,8 @@ export class Cafe {
     const r = this.today;
     if (this.opened) {
       r.opened = true;
-      r.rent = ECONOMY.rentPerDay;
-      r.utilities = ECONOMY.utilitiesPerDay;
+      r.rent = this.premises.rentPerDay;
+      r.utilities = this.utilitiesPerDay;
       r.wages = Math.round(this.wagesToday);
       r.tax = Math.round(r.revenue * ECONOMY.taxRate);
     }

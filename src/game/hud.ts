@@ -25,7 +25,7 @@ import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { INGREDIENTS, orderPrice, RECIPES, type IngredientId } from '../sim/stock';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
-import { ECONOMY, formatMoney } from '../sim/economy';
+import { ECONOMY, formatMoney, PREMISES, type PremisesId } from '../sim/economy';
 import { ACTIVITY_LABEL, currentEntry, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import { place } from '../sim/world';
@@ -80,7 +80,7 @@ const REASON_HINT: Record<RejectReason, string> = {
   mood: `Цена и${NB}дорога устраивали, но${NB}не${NB}каждый день хочется в${NB}кафе. Постоянные гости заходят чаще`,
 };
 
-const OPEN_OPTIONS = Array.from({ length: 13 }, (_, i) => hm(6) + i * 30); // 06:00…12:00
+const OPEN_OPTIONS = Array.from({ length: 25 }, (_, i) => hm(6) + i * 30); // 06:00…18:00 — бар может открываться вечером
 // 14:00…04:00 следующего дня: после 24:00 — работа через полночь
 const CLOSE_OPTIONS = Array.from({ length: 15 }, (_, i) => hm(14) + i * 60);
 const ALL_DAY = 'all-day';
@@ -185,7 +185,8 @@ export class Hud {
     const sim = this.sim;
     switch (action) {
       case 'open-cafe':
-        sim.openCafe();
+        sim.openCafe((item as PremisesId) ?? 'cafe');
+        this.tab = 'overview';
         break;
       case 'price-up':
       case 'price-down': {
@@ -364,15 +365,20 @@ export class Hud {
     const today = cafe.today;
     if (!cafe.opened) {
       this.live.wanted = String(today.wanted);
-      const canAfford = this.sim.cash >= ECONOMY.cafeOpeningCost;
+      const card = (id: PremisesId) => {
+        const pr = PREMISES[id];
+        const canAfford = this.sim.cash >= pr.openingCost;
+        return `<li class="premises">
+          <div class="row"><b class="grow">${pr.name}</b><span class="badge">аренда ${money(pr.rentPerDay * 30)}/мес</span></div>
+          <small>${pr.about}. Коммуналка — за${NB}часы работы, налог 6${NB}% с${NB}выручки.</small>
+          <button class="primary" data-action="open-cafe" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>
+        </li>`;
+      };
       return `
-        <div class="row head"><b>Свободное помещение</b><span class="badge">Сдаётся</span></div>
-        <p>30${NB}м² на${NB}первой линии, рядом с${NB}метро и${NB}офисами. Аренда ${money(ECONOMY.rentPerDay * 30)} в${NB}месяц,
-        коммуналка и${NB}налог 6${NB}% с${NB}выручки.</p>
+        <div class="row head"><b>Свободные помещения</b><span class="badge">Сдаются</span></div>
         <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Посмотри, кто и${NB}когда, — нажми на${NB}жителя.</p>
-        <button class="primary" data-action="open-cafe" ${canAfford ? '' : 'disabled'}>
-          Открыть кафе · ${money(ECONOMY.cafeOpeningCost)}
-        </button>
+        <ul class="menu premises-list">${card('kiosk')}${card('cafe')}</ul>
+        <small>Формат начинается с${NB}места: у${NB}метро — поток пассажиров, в${NB}кафе с${NB}залом гости сидят и${NB}дозаказывают.</small>
         ${this.sim.time > hm(7) ? this.restartBlock() : ''}`;
     }
 
@@ -414,12 +420,15 @@ export class Hud {
             const rows = CATALOG.filter((c) => c.kind === kind)
               .map((c) => {
                 const inMenu = cafe.hasItem(c.id);
+                const fits = cafe.fits(c.id);
                 return `<li><div class="grow"><b>${c.name}</b>
                   <small>от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
                   ${
                     inMenu
                       ? '<span class="badge on">в меню</span>'
-                      : `<button class="small" data-action="add-item" data-item="${c.id}" ${full ? 'disabled' : ''}>Добавить</button>`
+                      : !fits
+                        ? `<span class="badge">не${NB}здесь</span>`
+                        : `<button class="small" data-action="add-item" data-item="${c.id}" ${full ? 'disabled' : ''}>Добавить</button>`
                   }</li>`;
               })
               .join('');
@@ -461,7 +470,7 @@ export class Hud {
       <div class="kpis">
         <div><small>Гостей сегодня</small><b data-live="guests"></b></div>
         <div><small>Выручка</small><b data-live="revenue"></b></div>
-        <div><small>В${NB}кафе сейчас</small><b data-live="queue"></b></div>
+        <div><small>Внутри сейчас</small><b data-live="queue"></b></div>
       </div>
       <p class="hint-line" data-live="stock-warn"></p>
       <h4>Часы работы</h4>
@@ -475,6 +484,7 @@ export class Hud {
     } else if (this.tab === 'menu') {
       body = `
       <h4>Меню и${NB}цены · ${cafe.menu.length}${NB}из${NB}${MAX_MENU}</h4>
+      <p class="hint-line">${this.focusLine()}</p>
       <ul class="menu">${items}</ul>
       <button class="secondary" data-action="toggle-catalog">${this.catalogOpen ? 'Скрыть каталог' : `Изменить меню${full ? ` — мест нет, сначала убери позицию` : ''}`}</button>
       <div class="catalog-wrap">${catalog}</div>`;
@@ -487,7 +497,7 @@ export class Hud {
       <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}4${NB}мин на${NB}гостя. С${NB}бариста — 2${NB}мин, и${NB}обслуживают параллельно.</small>
       <ul class="menu staff">${staffRows}</ul>
       ${
-        cafe.staff.length < ECONOMY.maxBaristas
+        cafe.staff.length < cafe.premises.maxBaristas
           ? `<div class="hire">
         <button class="small" data-action="hire-shift">На${NB}смену · ${money(ECONOMY.shiftWage)}</button>
         <button class="small" data-action="hire-hourly">Почасово · ${money(ECONOMY.baristaWagePerHour)}/ч</button>
@@ -499,9 +509,19 @@ export class Hud {
     }
 
     return `
-      <div class="row head"><b>Твоё кафе</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
+      <div class="row head"><b>${cafe.premises.mine}</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
       ${tabBar}
       ${body}`;
+  }
+
+  /** Понятность формата: узкое меню привлекает сильнее, «всё подряд» — слабее */
+  private focusLine(): string {
+    const n = new Set(this.sim.cafe.menu.map((m) => m.kind)).size;
+    const word = n === 1 ? 'категория' : n <= 4 ? 'категории' : 'категорий';
+    const deep = `Если в${NB}категории 3+${NB}позиции — к${NB}ней ещё +10${NB}%`;
+    if (n <= 2) return `Формат понятный: ${n}${NB}${word} — гости заходят охотнее (+10${NB}%). ${deep}`;
+    if (n === 3) return `Формат обычный: ${n}${NB}${word}. Узкое меню привлекает сильнее, «всё подряд» — слабее. ${deep}`;
+    return `Формат размытый: ${n}${NB}${word} — гости заходят реже (−${n === 4 ? 10 : 20}${NB}%). ${deep}`;
   }
 
   /** Бариста: статус, дни недели, для почасового — часы и разовый вызов */
@@ -807,7 +827,7 @@ export class Hud {
         ${row('Итог дня', r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
         ${row('В кассе', r.cashAfter, 'cash')}
       </table>
-      <small>Себестоимость проданного: ${money(r.cogs)}${
+      <small>Себестоимость проданного: ${money(r.cogs)}${r.extras ? ` · дозаказов: ${r.extras}` : ''}${
         r.writtenOff ? ` · списано (испортилось): ${money(r.writtenOff)} — ${spoiled}` : ''
       }</small>`
           : ''

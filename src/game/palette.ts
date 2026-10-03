@@ -20,6 +20,7 @@ export const PLACE_FILL: Record<PlaceKind, number> = {
   cafe: 0xf0a585,
   metro: 0xd85a5a,
   park: 0xbcd99c,
+  bus: 0x9aa4ae,
 };
 
 export const RESIDENT_COLOR: Record<ResidentKind, number> = {
@@ -30,6 +31,8 @@ export const RESIDENT_COLOR: Record<ResidentKind, number> = {
   remote: 0x16a085,
   youth: 0xd6336c,
   nightworker: 0x34495e,
+  passenger: 0x5d8a3a,
+  visitor: 0xc0882b,
 };
 
 export const toCss = (c: number): string => `#${c.toString(16).padStart(6, '0')}`;

@@ -2,11 +2,13 @@
 // npx tsx tools/balance.ts [дней=28] [seed-ов=6]
 import type { DayReport } from '../src/sim/cafe';
 import { hm, isWeekend, MINUTES_PER_DAY } from '../src/sim/clock';
+import type { PremisesId } from '../src/sim/economy';
 import { Simulation } from '../src/sim/simulation';
 import { INGREDIENTS, RECIPES, type IngredientId } from '../src/sim/stock';
 
 interface Format {
   name: string;
+  premises?: PremisesId;
   menu: string[];
   open: number;
   close: number;
@@ -25,17 +27,24 @@ const WD = [true, true, true, true, true, false, false];
 const ALL = [true, true, true, true, true, true, true];
 
 export const FORMATS: Format[] = [
-  { name: 'Кофе с собой', menu: ['americano', 'cappuccino', 'latte', 'croissant'], open: hm(7), close: hm(15), hourly: [WD, hm(7), hm(10)] },
+  { name: 'Киоск: кофе с собой', premises: 'kiosk', menu: ['americano', 'cappuccino', 'latte', 'croissant'], open: hm(7), close: hm(15), hourly: [WD, hm(7), hm(10)] },
   { name: 'Обеды', menu: ['americano', 'cappuccino', 'soup', 'lunch', 'sandwich', 'tea'], open: hm(8), close: hm(18), hourly: [WD, hm(11), hm(15)] },
   {
     name: 'Районная кофейня',
     menu: ['americano', 'cappuccino', 'latte', 'raf', 'croissant', 'syrniki', 'tea', 'lemonade'],
     open: hm(8),
     close: hm(21),
-    hourly: [ALL, hm(8), hm(10)],
     loyalty: true,
   },
-  { name: 'Вечерняя', menu: ['americano', 'cappuccino', 'sandwich', 'lemonade', 'beer', 'cider'], open: hm(12), close: hm(26), hourly: [ALL, hm(19), hm(25)] },
+  { name: 'Вечерняя', menu: ['sandwich', 'lemonade', 'beer', 'cider'], open: hm(12), close: hm(26), prices: { beer: 270, cider: 290 } },
+  {
+    name: 'Кофейня с баром',
+    menu: ['americano', 'cappuccino', 'latte', 'raf', 'croissant', 'beer', 'cider'],
+    open: hm(8),
+    close: hm(26),
+    hourly: [WD, hm(8), hm(10)],
+    prices: { beer: 280 },
+  },
   { name: 'Всё сразу', menu: ['americano', 'cappuccino', 'croissant', 'lunch', 'tea', 'beer'], open: hm(8), close: hm(26), hourly: [WD, hm(8), hm(14)] },
 ];
 
@@ -63,9 +72,11 @@ function tuneStock(sim: Simulation): void {
 
 export function play(f: Format, seed: number, days: number): DayReport[] {
   const sim = new Simulation(seed);
-  sim.openCafe();
-  for (const m of [...sim.cafe.menu]) if (!f.menu.includes(m.id)) sim.removeMenuItem(m.id);
+  sim.openCafe(f.premises ?? 'cafe');
+  // Сначала добавить нужное, потом убрать лишнее — последнюю позицию убрать нельзя
+  for (const m of [...sim.cafe.menu]) if (!f.menu.includes(m.id) && sim.cafe.menu.length > 4) sim.removeMenuItem(m.id);
   for (const id of f.menu) if (!sim.cafe.hasItem(id)) sim.addMenuItem(id);
+  for (const m of [...sim.cafe.menu]) if (!f.menu.includes(m.id)) sim.removeMenuItem(m.id);
   for (const m of sim.cafe.menu) if (f.priceMult) sim.setPrice(m.id, m.price * f.priceMult);
   for (const [id, p] of Object.entries(f.prices ?? {})) sim.setPrice(id, p);
   sim.setHours(f.open, f.close);

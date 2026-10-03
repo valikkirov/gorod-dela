@@ -10,7 +10,9 @@ export type ResidentKind =
   | 'shopkeeper'
   | 'remote'
   | 'youth'
-  | 'nightworker';
+  | 'nightworker'
+  | 'passenger'
+  | 'visitor';
 
 export const KIND_LABEL: Record<ResidentKind, string> = {
   office: 'Офисный сотрудник',
@@ -20,7 +22,12 @@ export const KIND_LABEL: Record<ResidentKind, string> = {
   remote: 'Фрилансер',
   youth: 'Молодёжь',
   nightworker: 'Ночная смена',
+  passenger: 'Пассажир',
+  visitor: 'Гость района',
 };
+
+/** Не живут и не работают на улице — только проходят или приезжают отдохнуть */
+export const OUTSIDERS: ResidentKind[] = ['passenger', 'visitor'];
 
 export type Activity = 'home' | 'work' | 'study' | 'lunch' | 'groceries' | 'walk' | 'night';
 
@@ -116,6 +123,9 @@ function makeName(rng: Rng): string {
 }
 
 const HOMES = ['home-1', 'home-2', 'home-3', 'home-4'];
+/** Сколько людей проходит через улицу и приезжает отдохнуть */
+export const PASSENGERS = 40;
+export const VISITORS = 36;
 const STREET_OFFICES = ['office-north', 'office-bc'];
 
 type Builder = (rng: Rng, homeId: string, workId: string) => ScheduleEntry[];
@@ -188,6 +198,17 @@ const SCHEDULES: Record<ResidentKind, Builder> = {
     }
     return out;
   },
+  passenger: (rng) => {
+    // Пересадка с метро на автобус: утром идут вниз по улице, вечером обратно
+    const morning = hm(7, 30) + rng.jitter(50);
+    return [e(0, 'metro', 'home'), e(morning, 'bus', 'work'), e(hm(18, 20) + rng.jitter(60), 'metro', 'home')];
+  },
+  visitor: (rng) => {
+    // В будни приезжают немногие — после работы посидеть вечером
+    if (!rng.chance(0.25)) return [e(0, 'metro', 'home')];
+    const evening = hm(19, 30) + rng.jitter(40);
+    return [e(0, 'metro', 'home'), e(evening, 'park', 'night'), e(evening + rng.int(120, 180), 'metro', 'home')];
+  },
   nightworker: (rng, home, work) => {
     // Охрана, курьеры, таксисты: работают ночью, ночной перекус около 2:00
     const snack = hm(2) + rng.jitter(30);
@@ -241,6 +262,22 @@ const WEEKEND: Partial<Record<ResidentKind, Builder>> = {
     e(hm(8, 30) + rng.jitter(10), 'shop', 'work'),
     e(hm(20, 15) + rng.jitter(10), home, 'home'),
   ],
+  // В выходные пересадок почти нет
+  passenger: (rng) => {
+    if (!rng.chance(0.2)) return [e(0, 'metro', 'home')];
+    const t = hm(12) + rng.jitter(120);
+    return [e(0, 'metro', 'home'), e(t, 'bus', 'work'), e(t + rng.int(240, 420), 'metro', 'home')];
+  },
+  // Гости района: днём гуляют в сквере, вечером остаются в баре
+  visitor: (rng) => {
+    const day = hm(13) + rng.jitter(90);
+    const out = [e(0, 'metro', 'home'), e(day, 'park', 'walk')];
+    if (rng.chance(0.6)) {
+      const evening = Math.max(day + 90, hm(19) + rng.jitter(60));
+      out.push(e(day + rng.int(60, 90), 'shop', 'groceries'), e(evening, 'park', 'night'), e(evening + rng.int(120, 200), 'metro', 'home'));
+    } else out.push(e(day + rng.int(90, 150), 'metro', 'home'));
+    return out;
+  },
 };
 
 /** Вкусы: какая позиция в категории нравится больше — зависит от типа жителя */
@@ -251,12 +288,15 @@ const TASTES: Record<WantKind, Partial<Record<ResidentKind, [string, number][]>>
     pensioner: [['americano', 5], ['cappuccino', 3], ['latte', 2]],
     student: [['cappuccino', 3], ['latte', 3], ['raf', 3], ['americano', 1]],
     youth: [['raf', 4], ['latte', 3], ['cappuccino', 2], ['americano', 1]],
+    passenger: [['americano', 3], ['cappuccino', 3], ['latte', 2]],
+    visitor: [['latte', 3], ['raf', 2], ['cappuccino', 2], ['americano', 1]],
   },
   snack: {
     any: [['croissant', 1], ['sandwich', 1], ['syrniki', 1]],
     office: [['sandwich', 3], ['croissant', 2], ['syrniki', 1]],
     pensioner: [['syrniki', 3], ['croissant', 2]],
     nightworker: [['sandwich', 4], ['croissant', 1]],
+    passenger: [['croissant', 3], ['sandwich', 2]],
   },
   lunch: {
     any: [['lunch', 1], ['soup', 1]],
@@ -301,13 +341,16 @@ export function generateResidents(rng: Rng): Resident[] {
     { kind: 'office', count: 6, home: fromStreet, work: () => rng.pick(STREET_OFFICES) },
     { kind: 'student', count: 8, home: fromStreet, work: () => 'metro' },
     { kind: 'pensioner', count: 8, home: fromStreet, work: () => 'metro' },
-    { kind: 'remote', count: 6, home: fromStreet, work: () => 'metro' },
+    { kind: 'remote', count: 12, home: fromStreet, work: () => 'metro' },
     // Приезжают на метро работать на улице
     { kind: 'office', count: 36, home: () => 'metro', work: () => rng.pick(STREET_OFFICES) },
     { kind: 'shopkeeper', count: 2, home: () => 'metro', work: () => 'shop' },
     // Ночная жизнь
     { kind: 'youth', count: 9, home: fromStreet, work: () => 'metro' },
     { kind: 'nightworker', count: 5, home: fromStreet, work: () => rng.pick([...STREET_OFFICES, 'metro']) },
+    // Не с улицы: пересаживаются с метро на автобус и приезжают отдохнуть
+    { kind: 'passenger', count: PASSENGERS, home: () => 'metro', work: () => 'bus' },
+    { kind: 'visitor', count: VISITORS, home: () => 'metro', work: () => 'metro' },
   ];
 
   const residents: Resident[] = [];
@@ -325,7 +368,7 @@ export function generateResidents(rng: Rng): Resident[] {
         name: makeName(rng),
         kind: t.kind,
         homeId,
-        workId: t.kind === 'pensioner' || t.kind === 'remote' || t.kind === 'youth' ? null : workId,
+        workId: t.kind === 'pensioner' || t.kind === 'remote' || t.kind === 'youth' || t.kind === 'visitor' ? null : workId,
         schedule,
         weekday: schedule,
         weekend,

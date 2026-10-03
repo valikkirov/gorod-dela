@@ -113,7 +113,7 @@ describe('Касса', () => {
     openKnown(sim);
     sim.hireBarista('shift');
     const o = sim.cashOutlook();
-    expect(o.daily).toBe(3000 + 500 + 2500);
+    expect(o.daily).toBe(3000 + 200 + 30 * 12 + 2500);
     expect(o.days).toBe(Math.floor(sim.cash / o.daily));
     sim.cash = -100;
     expect(sim.cashOutlook().days).toBe(0);

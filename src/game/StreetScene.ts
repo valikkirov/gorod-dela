@@ -51,6 +51,7 @@ const BUILDING_SPRITE: Record<string, string> = {
   metro: 'building-metro',
   'home-1': 'building-home-a-left',
   cafe: 'building-cafe-rent',
+  kiosk: 'building-kiosk-rent',
   'home-2': 'building-home-b-left',
   'office-north': 'building-office-left',
   'office-bc': 'building-bc-right',
@@ -85,7 +86,21 @@ const PROPS: [string, number, number][] = [
   ['prop-lamp', 330, 1100],
   ['prop-lamp', 392, 1100],
   ['prop-bin', 360, 1240],
+  ['prop-bus-stop', 520, 1040],
 ];
+
+/** Помещения под бизнес игрока: спрайты «сдаётся» и «открыто», окна, подписи */
+const PREMISES_ART: Record<string, { rent: string; open: string; lights: string; windows: { x: number; y: number; w: number; h: number }[]; labelX: number; labelY: number }> = {
+  cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', windows: [], labelX: 120, labelY: 32 },
+  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', windows: [{ x: 12, y: 46, w: 64, h: 14 }], labelX: -62, labelY: 22 },
+};
+
+interface Shop {
+  place: Place;
+  sprite: Phaser.GameObjects.Image;
+  name: Phaser.GameObjects.Text;
+  status: Phaser.GameObjects.Text;
+}
 
 /** Окна кафе в координатах спрайта: гости видны в витринах, ночью и вне часов работы — темно */
 const CAFE_WINDOWS = [
@@ -108,9 +123,7 @@ export class StreetScene extends Phaser.Scene {
   private guests!: Phaser.GameObjects.Graphics;
   private night!: Phaser.GameObjects.Graphics;
   private sky!: Phaser.GameObjects.Graphics;
-  private cafeSprite!: Phaser.GameObjects.Image;
-  private cafeName!: Phaser.GameObjects.Text;
-  private cafeStatus!: Phaser.GameObjects.Text;
+  private shops: Shop[] = [];
   private menuBoard!: Phaser.GameObjects.Image;
   private windowLights: { place: Place; image: Phaser.GameObjects.Image }[] = [];
   private walkers: Walker[] = [];
@@ -146,8 +159,13 @@ export class StreetScene extends Phaser.Scene {
     this.marks = this.add.graphics();
     this.night = this.add.graphics().setDepth(DEPTH.night);
     this.sky = this.add.graphics().setDepth(DEPTH.sky);
-    this.cafeName = this.label(c.rect.x + c.rect.w / 2, c.rect.y + 32, '', 20, true);
-    this.cafeStatus = this.label(c.rect.x + c.rect.w / 2, c.rect.y + 62, '', 16, false);
+    for (const shop of this.shops) {
+      const art = PREMISES_ART[shop.place.id];
+      const x = shop.place.rect.x + art.labelX;
+      const y = shop.place.rect.y + art.labelY;
+      shop.name = this.label(x, y, '', 20, true);
+      shop.status = this.label(x, y + 30, '', 16, false);
+    }
 
     this.walkers = this.hooks.sim.residents.map((r) => ({
       sprite: this.add
@@ -204,8 +222,8 @@ export class StreetScene extends Phaser.Scene {
     const sim = this.hooks.sim;
     for (const e of sim.drainEvents()) {
       if (e.type === 'sale') {
-        const c = place('cafe').rect;
-        this.float(c.x + c.w / 2, c.y + c.h - 70, `+${formatMoney(e.price)}`, '#2e8b57', 24);
+        const c = place(sim.shopId).rect;
+        this.float(c.x + c.w / 2, c.y + Math.min(c.h - 70, 30), `+${formatMoney(e.price)}`, '#2e8b57', 24);
       } else if (e.type === 'reject') {
         const r = sim.residents[e.residentId];
         if (!r.visible) continue;
@@ -256,30 +274,39 @@ export class StreetScene extends Phaser.Scene {
   }
 
   private drawCafe(): void {
-    const { cafe } = this.hooks.sim;
-    const open = cafe.isOpenAt(this.hooks.sim.minute);
-    this.cafeSprite.setFrame(cafe.opened ? 'building-cafe-open' : 'building-cafe-rent');
-    this.menuBoard.setVisible(cafe.opened);
-    this.cafeName.setText(cafe.opened ? 'Твоё кафе' : 'Сдаётся');
-    this.cafeStatus.setText(cafe.opened ? (open ? 'открыто' : 'закрыто') : 'свободное помещение');
-    this.cafeStatus.setColor(open ? '#2e8b57' : '#6b7080');
+    const sim = this.hooks.sim;
+    const { cafe } = sim;
+    const open = cafe.isOpenAt(sim.minute);
+    const mineId = cafe.opened ? sim.shopId : null;
+    for (const shop of this.shops) {
+      const art = PREMISES_ART[shop.place.id];
+      const mine = shop.place.id === mineId;
+      shop.sprite.setFrame(mine ? art.open : art.rent);
+      // До открытия подписаны оба помещения; после — только своё
+      shop.name.setText(mine ? cafe.premises.mine : cafe.opened ? '' : 'Сдаётся').setVisible(mine || !cafe.opened);
+      shop.status.setText(mine ? (open ? 'открыто' : 'закрыто') : cafe.opened ? '' : shop.place.name).setVisible(mine || !cafe.opened);
+      shop.status.setColor(mine && open ? '#2e8b57' : '#6b7080');
+    }
+    this.menuBoard.setVisible(mineId === 'cafe');
 
     // Гости в витринах; когда закрыто — свет в окнах погашен
     const g = this.guests;
     g.clear();
     this.guestSpots = [];
-    const r = place('cafe').rect;
-    if (!cafe.opened) return;
+    if (!mineId) return;
+    const r = place(mineId).rect;
     if (!open) {
       g.fillStyle(0x4a5563, 0.7);
-      for (const w of [...CAFE_WINDOWS, CAFE_DOOR_GLASS]) g.fillRect(r.x + w.x, r.y + w.y, w.w, w.h);
+      const windows = mineId === 'cafe' ? [...CAFE_WINDOWS, CAFE_DOOR_GLASS] : PREMISES_ART[mineId].windows;
+      for (const w of windows) g.fillRect(r.x + w.x, r.y + w.y, w.w, w.h);
       return;
     }
+    if (mineId !== 'cafe') return; // в киоске не сидят
     const spots: { x: number; y: number }[] = [];
     for (const w of CAFE_WINDOWS) for (let x = w.x + 8; x < w.x + w.w - 4; x += 12) spots.push({ x: r.x + x, y: r.y + w.y + 20 });
     let n = 0;
     for (const res of this.hooks.sim.residents) {
-      if (res.placeId !== 'cafe' || res.walking || n >= spots.length) continue;
+      if (res.placeId !== mineId || res.walking || n >= spots.length) continue;
       const { x, y } = spots[n++];
       g.fillStyle(RESIDENT_COLOR[res.kind], 1);
       g.fillRoundedRect(x - 5, y + 1, 10, 8, { tl: 4, tr: 4, bl: 0, br: 0 });
@@ -307,7 +334,7 @@ export class StreetScene extends Phaser.Scene {
     const h = minute / 60;
     for (const { place: p, image } of this.windowLights) {
       let on = 0;
-      if (p.kind === 'cafe') on = sim.cafe.opened && sim.cafe.isOpenAt(minute) ? 1 : 0;
+      if (p.kind === 'cafe') on = sim.cafe.opened && p.id === sim.shopId && sim.cafe.isOpenAt(minute) ? 1 : 0;
       else if (p.kind === 'home') on = h >= 17 || h < 1 || (h >= 5 && h < 8) ? 1 : 0.15;
       else if (p.kind === 'office') on = h >= 7 && h < 21 ? 1 : 0.1;
       else if (p.kind === 'shop') on = h >= 8 && h < 22 ? 1 : 0;
@@ -445,8 +472,9 @@ export class StreetScene extends Phaser.Scene {
         .setOrigin(0)
         .setScale(1 / ART_SCALE)
         .setDepth(base);
-      if (p.id === 'cafe') this.cafeSprite = img;
-      const lightFrame = p.id === 'cafe' ? 'building-cafe-lights' : `${sprite}-lights`;
+      const art = PREMISES_ART[p.id];
+      if (art) this.shops.push({ place: p, sprite: img } as Shop);
+      const lightFrame = art ? art.lights : `${sprite}-lights`;
       const light = this.add
         .image(p.rect.x, p.rect.y, 'lights', lightFrame)
         .setOrigin(0)

@@ -43,6 +43,8 @@ const KIND_DATIVE: Record<ResidentKind, string> = {
   remote: 'Фрилансерам',
   youth: 'Молодёжи',
   nightworker: `Ночной${NB}смене`,
+  passenger: 'Пассажирам',
+  visitor: `Гостям${NB}района`,
 };
 
 /** «в прошлый понедельник», «в прошлую среду», «в прошлое воскресенье» */

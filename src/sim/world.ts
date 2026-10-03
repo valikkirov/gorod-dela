@@ -13,7 +13,7 @@ export interface Rect {
   h: number;
 }
 
-export type PlaceKind = 'home' | 'office' | 'shop' | 'cafe' | 'metro' | 'park';
+export type PlaceKind = 'home' | 'office' | 'shop' | 'cafe' | 'metro' | 'park' | 'bus';
 export type Side = 'left' | 'right' | 'center';
 
 export interface Place {
@@ -92,6 +92,18 @@ export const PLACES: Place[] = [
     front: { x: ROAD_CENTER_X, y: 96 },
     indoor: true,
   },
+  {
+    // Киоск у выхода из метро — второе помещение под бизнес
+    id: 'kiosk',
+    kind: 'cafe',
+    name: 'Киоск у метро',
+    territoryId: TERRITORY,
+    side: 'left',
+    rect: { x: 140, y: 4, w: 120, h: 72 },
+    door: { x: 238, y: 90 },
+    front: { x: SIDEWALK.leftX, y: 90 },
+    indoor: true,
+  },
   building('home-1', 'home', 'Дом 1', 'left', 100, 268, 204),
   building('cafe', 'cafe', 'Твоё кафе', 'left', 308, 496, 204),
   building('home-2', 'home', 'Дом 2', 'left', 536, 704, 204),
@@ -100,6 +112,18 @@ export const PLACES: Place[] = [
   building('shop', 'shop', 'Продукты', 'right', 388, 526, 32),
   building('home-3', 'home', 'Дом 3', 'right', 566, 734, 36),
   building('home-4', 'home', 'Дом 4', 'right', 774, 942, 36),
+  {
+    // Остановка автобуса в конце улицы: сюда пересаживаются с метро
+    id: 'bus',
+    kind: 'bus',
+    name: 'Остановка',
+    territoryId: TERRITORY,
+    side: 'center',
+    rect: { x: 460, y: 1000, w: 120, h: 40 },
+    door: { x: 520, y: 1022 },
+    front: { x: 520, y: 1022 },
+    indoor: true,
+  },
   {
     id: 'park',
     kind: 'park',

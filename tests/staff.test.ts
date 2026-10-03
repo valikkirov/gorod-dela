@@ -105,3 +105,33 @@ describe('Промотка', () => {
     expect(sim.reports.length).toBe(2);
   });
 });
+
+describe('Помещения', () => {
+  it('киоск дешевле, без кухни и бара, всё навынос', () => {
+    const sim = new Simulation(4);
+    expect(sim.openCafe('kiosk')).toBe(true);
+    expect(sim.cash).toBe(ECONOMY.startCash - 150_000);
+    expect(sim.cafe.menu.every((m) => ['coffee', 'snack', 'tea'].includes(m.kind))).toBe(true);
+    expect(sim.addMenuItem('beer')).toBe(false);
+    expect(sim.addMenuItem('lunch')).toBe(false);
+    expect(sim.hireBarista('hourly')).toBe(true);
+    expect(sim.hireBarista('hourly')).toBe(false); // в киоске одна стойка
+    for (const r of sim.residents) r.aware = true;
+    sim.advance(DAY);
+    const r = sim.reports[0];
+    expect(r.rent).toBe(1_500);
+    expect(r.guests).toBeGreaterThan(10);
+    expect(r.extras).toBe(0); // сидеть негде — дозаказов нет
+  });
+
+  it('в кафе с залом сидящие гости дозаказывают', () => {
+    const sim = new Simulation(4);
+    sim.openCafe('cafe');
+    sim.addMenuItem('beer');
+    sim.setHours(hm(8), hm(26));
+    for (const r of sim.residents) r.aware = true;
+    sim.advance(DAY * 7);
+    const extras = sim.reports.reduce((a, r) => a + (r.extras ?? 0), 0);
+    expect(extras).toBeGreaterThan(10);
+  });
+});

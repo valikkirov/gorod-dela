@@ -34,6 +34,8 @@ export const BASE_BUDGET: Record<ResidentKind, Record<WantKind, number>> = {
   shopkeeper: { coffee: 150, lunch: 300, snack: 150, tea: 130, bar: 280 },
   youth: { coffee: 220, lunch: 320, snack: 200, tea: 170, bar: 360 },
   nightworker: { coffee: 170, lunch: 300, snack: 220, tea: 140, bar: 250 },
+  passenger: { coffee: 190, lunch: 350, snack: 170, tea: 150, bar: 300 },
+  visitor: { coffee: 240, lunch: 420, snack: 220, tea: 190, bar: 380 },
 };
 
 /** Какие позиции меню закрывают желание */
@@ -59,7 +61,7 @@ const RULES: WantRule[] = [
   {
     // Кофе по дороге на работу или учёбу
     test: (_r, e) => (e.activity === 'work' || e.activity === 'study') && e.start < MORNING_END,
-    chance: { office: 0.55, student: 0.35, shopkeeper: 0.4 },
+    chance: { office: 0.55, student: 0.35, shopkeeper: 0.4, passenger: 0.5 },
     want: { kind: 'coffee', mode: 'stopover', dwell: 0 },
   },
   {
@@ -77,7 +79,7 @@ const RULES: WantRule[] = [
   {
     // Вечер с друзьями — бар
     test: (_r, e) => e.activity === 'night',
-    chance: { youth: 0.75, student: 0.5 },
+    chance: { youth: 0.75, student: 0.5, visitor: 0.75 },
     want: { kind: 'bar', mode: 'replace', dwell: 60 },
   },
   {
@@ -88,20 +90,20 @@ const RULES: WantRule[] = [
   },
   {
     test: (_r, e) => e.activity === 'walk',
-    chance: { pensioner: 0.5 },
+    chance: { pensioner: 0.5, visitor: 0.15 },
     want: { kind: 'tea', mode: 'replace', dwell: 30 },
   },
   {
     // Посидеть с ноутбуком или с друзьями
     test: (_r, e) => e.activity === 'walk',
-    chance: { remote: 0.6, student: 0.3, youth: 0.5, office: 0.35 },
+    chance: { remote: 0.6, student: 0.3, youth: 0.5, office: 0.35, visitor: 0.6 },
     want: { kind: 'coffee', mode: 'replace', dwell: 40 },
   },
   {
     // Перекус по дороге домой
     test: (_r, e, prev) =>
       e.activity === 'home' && e.start >= EVENING_START && (prev?.activity === 'work' || prev?.activity === 'study'),
-    chance: { office: 0.2, student: 0.3 },
+    chance: { office: 0.2, student: 0.3, passenger: 0.25 },
     want: { kind: 'snack', mode: 'stopover', dwell: 0 },
   },
 ];
@@ -180,8 +182,19 @@ export function evaluate(
       ? manhattan(from, cafeDoor) + manhattan(cafeDoor, goalDoor) - manhattan(from, goalDoor)
       : manhattan(from, cafeDoor) - manhattan(from, goalDoor);
   const pRoute = clamp(1 - Math.max(0, detour) / 700, 0.15, 1);
-  const p = item ? pPrice * pRoute * (0.8 + r.loyalty) : 0;
+  const p = item ? pPrice * pRoute * (0.8 + r.loyalty) * focusFactor(menu, item.kind) : 0;
   return { item, pPrice, pRoute, p };
+}
+
+/**
+ * Понятный формат привлекает сильнее: «кофейня», «бар», «столовая» лучше, чем «всё подряд».
+ * Узкое меню (1–2 категории) — плюс, 4–5 категорий — минус; выбор внутри категории (3+ позиции) — плюс.
+ */
+export function focusFactor(menu: MenuItem[], kind: ItemKind): number {
+  const categories = new Set(menu.map((m) => m.kind)).size;
+  const depth = menu.filter((m) => m.kind === kind).length;
+  const breadth = categories <= 2 ? 1.1 : categories === 3 ? 1 : categories === 4 ? 0.9 : 0.8;
+  return breadth * (depth >= 3 ? 1.1 : 1);
 }
 
 /** Почему житель не зашёл — объясняем честно, без «дорого» при нормальной цене */

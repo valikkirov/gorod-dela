@@ -1021,3 +1021,14 @@ button.small.danger {
 #speeds button.skip {
   font-size: 14px;
 }
+
+/* ——— Выбор помещения ——— */
+.premises-list li.premises {
+  display: block;
+  padding: 10px 0 12px;
+}
+
+.premises-list .premises small {
+  display: block;
+  margin: 4px 0 8px;
+}

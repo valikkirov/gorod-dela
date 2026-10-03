@@ -1,7 +1,7 @@
 import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason } from './cafe';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
-import { ECONOMY, formatMoney } from './economy';
+import { ECONOMY, formatMoney, PREMISES, type PremisesId } from './economy';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
@@ -19,7 +19,7 @@ import {
 /** Шаг симуляции в игровых минутах. Мелкий — чтобы движение было плавным. */
 const STEP = 0.2;
 /** Меняется, когда сохранения старой версии больше нельзя загрузить */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export interface SaveData {
   version: number;
@@ -58,6 +58,9 @@ export interface SaveData {
 
 /** Когда поставщик привозит заказ */
 const DELIVERY_AT = hm(6);
+/** Шанс дозаказа у тех, кто сидит в кафе */
+export const EXTRA = { bar: 0.7, coffee: 0.4, tea: 0.35, lunch: 0.35 } as const;
+
 /** Дольше этого житель не ждёт заказ и уходит по делам */
 const PATIENCE = 30;
 
@@ -201,15 +204,22 @@ export class Simulation {
 
   // ——— Команды игрока ———
 
-  openCafe(): boolean {
-    if (this.cafe.opened || this.bankrupt || this.cash < ECONOMY.cafeOpeningCost) return false;
-    this.cash -= ECONOMY.cafeOpeningCost;
+  /** Открыть бизнес в выбранном помещении: кафе с залом или киоск у метро */
+  openCafe(premisesId: PremisesId = 'cafe'): boolean {
+    const pr = PREMISES[premisesId];
+    if (this.cafe.opened || this.bankrupt || this.cash < pr.openingCost) return false;
+    this.cash -= pr.openingCost;
+    this.cafe.premisesId = premisesId;
     this.cafe.opened = true;
-    this.note('open', 'Кафе открыто', undefined, '');
-    // О кафе сразу знают соседи по дому и продавцы напротив; остальным предстоит узнать
+    // В киоске нет кухни и бара — стартовое меню без них
+    for (const m of [...this.cafe.menu]) if (!this.cafe.fits(m.id)) this.cafe.removeItem(m.id);
+    if (!this.cafe.hasItem('croissant')) this.cafe.addItem('croissant');
+    this.note('open', `${pr.name}: открыто`, undefined, '');
+    // Сразу знают соседи и продавцы напротив; у киоска — те, кто ходит через метро
     for (const r of this.residents) {
-      const neighbour = r.homeId === 'home-1' || r.homeId === 'home-2';
-      const p = r.kind === 'shopkeeper' ? 1 : neighbour ? 0.7 : 0.1;
+      const neighbour =
+        premisesId === 'cafe' ? r.homeId === 'home-1' || r.homeId === 'home-2' : r.homeId === 'metro' && r.kind !== 'visitor';
+      const p = r.kind === 'shopkeeper' ? 1 : neighbour ? (premisesId === 'cafe' ? 0.7 : 0.35) : 0.1;
       if (this.rng.chance(p)) this.learn(r, 'start');
     }
     // Стартовая закупка входит в стоимость открытия; автозаказ включён на тех же уровнях
@@ -323,8 +333,9 @@ export class Simulation {
     const last = this.reports.at(-1);
     const shiftWages = this.cafe.staff.filter((b) => b.contract === 'shift').length * ECONOMY.shiftWage;
     const wages = last?.opened ? Math.max(last.wages, shiftWages) : shiftWages;
+    const pr = this.cafe.premises;
     const daily =
-      ECONOMY.rentPerDay + ECONOMY.utilitiesPerDay + wages + (this.marketing.flyers ? MARKETING.flyersPerDay : 0);
+      pr.rentPerDay + this.cafe.utilitiesPerDay + wages + (this.marketing.flyers ? MARKETING.flyersPerDay : 0);
     return {
       daily,
       days: this.cash > 0 ? Math.floor(this.cash / daily) : 0,
@@ -358,7 +369,12 @@ export class Simulation {
 
   /** Сколько гостей сейчас внутри кафе: в очереди и за столиками */
   get guestsInside(): number {
-    return this.residents.filter((r) => r.placeId === 'cafe' && !r.walking).length;
+    return this.residents.filter((r) => r.placeId === this.shopId && !r.walking).length;
+  }
+
+  /** Где на карте бизнес игрока */
+  get shopId(): string {
+    return this.cafe.premises.placeId;
   }
 
   get minute(): number {
@@ -407,7 +423,7 @@ export class Simulation {
 
     const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day));
     if (want && this.decide(r, want, entry)) {
-      this.goTo(r, 'cafe');
+      this.goTo(r, this.shopId);
       return;
     }
     // В дождь в сквер идут немногие — остаются дома
@@ -435,7 +451,7 @@ export class Simulation {
     else {
       // Житель видит цены с учётом счастливых часов
       const menu = cafe.menu.map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
-      const offer = evaluate(r, want, menu, r.pos, place('cafe').front, place(entry.placeId).front, this.weather.kind);
+      const offer = evaluate(r, want, menu, r.pos, place(this.shopId).front, place(entry.placeId).front, this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
       if (!offer.item || !this.rng.chance(offer.p)) reason = rejectReason(offer, r.budget[want.kind]);
@@ -451,13 +467,15 @@ export class Simulation {
       return false;
     }
     r.decision = { ...base, visited: true, itemId, price };
-    r.visit = { want, itemId: itemId!, stage: 'going', until: 0, since: this.time };
+    // Без зала всё навынос: купил и пошёл по своим делам
+    const visitWant = cafe.premises.seats ? want : { ...want, mode: 'stopover' as const, dwell: 0 };
+    r.visit = { want: visitWant, itemId: itemId!, stage: 'going', until: 0, since: this.time };
     return true;
   }
 
   private onArrive(r: Resident): void {
     const v = r.visit;
-    if (r.placeId !== 'cafe' || v?.stage !== 'going') return;
+    if (r.placeId !== this.shopId || v?.stage !== 'going') return;
     if (!this.cafe.isOpenAt(this.minute)) return this.dropVisit(r, 'closed');
     // Пришёл, а нужного нет: берёт замену, если есть, иначе уходит недовольным
     if (!this.cafe.stock.canMake(v.itemId)) {
@@ -500,6 +518,30 @@ export class Simulation {
       r.visit.until = this.time + r.visit.want.dwell;
     }
     this.events.push({ type: 'sale', residentId, price, itemId });
+    if (r.visit) this.extraOrder(r, itemId);
+  }
+
+  /** Кто сидит, тот заказывает ещё: вторую кружку в баре, выпечку к кофе, напиток к обеду */
+  private extraOrder(r: Resident, itemId: string): void {
+    const v = r.visit!;
+    if (v.want.mode !== 'replace' || v.want.dwell < 20) return;
+    const menu = this.cafe.menu;
+    const pick = (kinds: string[]): string | undefined => {
+      const fav = kinds.map((k) => r.favorites[k as keyof Resident['favorites']]).find((id) => this.cafe.hasItem(id));
+      return fav ?? menu.find((m) => kinds.includes(m.kind))?.id;
+    };
+    let extra: string | undefined;
+    let chance = 0;
+    if (v.want.kind === 'bar') [extra, chance] = [itemId, EXTRA.bar];
+    else if (v.want.kind === 'coffee') [extra, chance] = [pick(['snack']), EXTRA.coffee];
+    else if (v.want.kind === 'tea') [extra, chance] = [pick(['snack']), EXTRA.tea];
+    else if (v.want.kind === 'lunch') [extra, chance] = [pick(['coffee', 'tea']), EXTRA.lunch];
+    if (!extra || !this.rng.chance(chance)) return;
+    const price = this.cafe.sellExtra(extra, this.minute);
+    if (price > 0) {
+      this.cash += price;
+      this.events.push({ type: 'sale', residentId: r.id, price, itemId: extra });
+    }
   }
 
   private finishVisit(r: Resident): void {
@@ -520,7 +562,7 @@ export class Simulation {
       if (r.decision) r.decision = { ...r.decision, visited: false, reason };
       this.miss(r, reason);
     }
-    if (r.placeId === 'cafe' || r.walking) this.goTo(r, r.entry.placeId);
+    if (r.placeId === this.shopId || r.walking) this.goTo(r, r.entry.placeId);
   }
 
   /** Кончились продукты — гость уходит, доверие падает */
@@ -730,7 +772,7 @@ export class Simulation {
     }
     // Проходя мимо открытого кафе, можно его заметить — вывеска помогает
     if (this.cafe.opened && !r.aware && !r.noticed) {
-      const front = place('cafe').front;
+      const front = place(this.shopId).front;
       if (Math.abs(r.pos.x - front.x) < 45 && Math.abs(r.pos.y - front.y) < 60) {
         r.noticed = true;
         const p = this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase;
@@ -746,7 +788,8 @@ export class Simulation {
 
   /** Маршрут: к тротуару → вдоль улицы → переход → ко входу */
   private route(r: Resident, to: Place): Point[] {
-    const side = r.pos.x < ROAD_CENTER_X ? 'left' : 'right';
+    // Из метро и сквера (они посередине) кто-то идёт по левому тротуару, кто-то по правому
+    const side = r.pos.x === ROAD_CENTER_X ? (r.lane < 0 ? 'left' : 'right') : r.pos.x < ROAD_CENTER_X ? 'left' : 'right';
     const lane = (s: 'left' | 'right') => sidewalkX(s) + r.lane;
     const path: Point[] = [{ x: lane(side), y: clampSidewalkY(r.pos.y) }];
 
