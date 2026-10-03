@@ -3,6 +3,7 @@ import {
   KIND_TITLE,
   MAX_MENU,
   REJECT_LABEL,
+  type Barista,
   type Change,
   type DayReport,
   type ItemKind,
@@ -113,6 +114,18 @@ export class Hud {
       b.addEventListener('click', () => this.setSpeed(s));
       speeds.append(b);
     }
+    // Промотать до 6:00 утра: ночь и пустые часы не нужно ждать
+    const skip = document.createElement('button');
+    skip.textContent = '⏭';
+    skip.title = 'Промотать до 6:00 утра';
+    skip.setAttribute('aria-label', 'Промотать до утра');
+    skip.className = 'skip';
+    skip.addEventListener('click', () => {
+      if (this.sim.bankrupt) return;
+      this.sim.skipToMorning();
+      this.render(true);
+    });
+    speeds.append(skip);
     window.addEventListener('keydown', (ev) => {
       if (ev.target instanceof HTMLSelectElement) return;
       if (ev.code === 'Space') {
@@ -232,9 +245,21 @@ export class Hud {
         break;
       case 'duty': {
         const st = sim.cafe.staff.find((b) => b.id === Number(item));
-        if (st) sim.setOnDuty(st.id, !st.onDuty);
+        if (st) sim.setOnDuty(st.id, !sim.cafe.isWorking(st));
         break;
       }
+      case 'staff-day': {
+        const st = sim.cafe.staff.find((b) => b.id === Number(item));
+        if (!st) break;
+        const days = [...st.schedule.days];
+        const d = Number(btn.dataset.day);
+        days[d] = !days[d];
+        sim.setStaffSchedule(st.id, { ...st.schedule, days });
+        break;
+      }
+      case 'skip-morning':
+        sim.skipToMorning();
+        break;
       case 'report':
         this.view = 'report';
         break;
@@ -277,6 +302,18 @@ export class Hud {
       const val = (a: string) => Number(root.querySelector<HTMLSelectElement>(`select[data-action="${a}"]`)!.value);
       const discount = val('happy-disc');
       this.sim.setHappyHours(discount > 0 ? { from: val('happy-from'), to: val('happy-to'), discount } : null);
+    }
+    if (el.dataset.action === 'staff-from' || el.dataset.action === 'staff-to') {
+      const id = Number(el.dataset.item);
+      const st = cafe.staff.find((b) => b.id === id);
+      const get = (a: string) => Number(this.panel.querySelector<HTMLSelectElement>(`select[data-action="${a}"][data-item="${id}"]`)!.value);
+      if (st) {
+        let from = get('staff-from');
+        let to = get('staff-to');
+        if (to <= from) to = from + 60;
+        if (to - from > MINUTES_PER_DAY) from = to - MINUTES_PER_DAY;
+        this.sim.setStaffSchedule(id, { ...st.schedule, from, to });
+      }
     }
     if (el.dataset.action === 'close-at') {
       this.sim.setHours(cafe.openAt, el.value === ALL_DAY ? cafe.openAt + MINUTES_PER_DAY : Number(el.value));
@@ -402,33 +439,7 @@ export class Hud {
           return `<option value="${m}" ${!cafe.allDay && m === cafe.closeAt ? 'selected' : ''}>${label}</option>`;
         })
         .join('') + `<option value="${ALL_DAY}" ${cafe.allDay ? 'selected' : ''}>круглосуточно</option>`;
-    const staffRows = cafe.staff
-      .map((st, i) => {
-        let status: string;
-        if (st.contract === 'hourly') {
-          status = !st.onDuty ? 'отпущен' : open ? 'работает' : `выйдет к${NB}открытию`;
-        } else {
-          const left = ECONOMY.shiftHours * 60 - st.shiftMinutes;
-          status =
-            left <= 0
-              ? `смена окончена, выйдет к${NB}открытию`
-              : open
-                ? `на${NB}смене ещё ${Math.floor(left / 60)}${NB}ч ${left % 60}${NB}мин`
-                : `выйдет к${NB}открытию`;
-        }
-        this.live[`staff-${st.id}`] = status;
-        return `<li>
-          <div class="grow"><b>Бариста ${i + 1} · ${st.contract === 'shift' ? 'на смене' : 'почасово'}</b>
-            <small data-live="staff-${st.id}"></small></div>
-          ${
-            st.contract === 'hourly'
-              ? `<button class="small ${st.onDuty ? '' : 'ghost'}" data-action="duty" data-item="${st.id}">${st.onDuty ? 'Отпустить' : 'Вызвать'}</button>`
-              : ''
-          }
-          <button class="icon" data-action="fire" data-item="${st.id}" aria-label="Уволить">✕</button>
-        </li>`;
-      })
-      .join('');
+    const staffRows = cafe.staff.map((st, i) => this.staffRow(st, i, open)).join('');
     const last = this.sim.reports.at(-1);
 
     const tabs: [CafeTab, string][] = [
@@ -481,7 +492,7 @@ export class Hud {
         <button class="small" data-action="hire-shift">На${NB}смену · ${money(ECONOMY.shiftWage)}</button>
         <button class="small" data-action="hire-hourly">Почасово · ${money(ECONOMY.baristaWagePerHour)}/ч</button>
       </div>
-      <small>Смена — до${NB}${ECONOMY.shiftHours}${NB}часов с${NB}открытия, платишь всю сумму. Почасового вызываешь и${NB}отпускаешь сам.</small>`
+      <small>Смена — до${NB}${ECONOMY.shiftHours}${NB}часов с${NB}открытия, платишь всю сумму в${NB}дни по${NB}графику. Почасовой работает в${NB}окне графика — сузь его до${NB}пиков.</small>`
           : ''
       }
       <p class="wages">Сегодня на${NB}зарплату: <b data-live="wages"></b> <small>ночью (22:00–6:00) +20${NB}%</small></p>`;
@@ -491,6 +502,58 @@ export class Hud {
       <div class="row head"><b>Твоё кафе</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
       ${tabBar}
       ${body}`;
+  }
+
+  /** Бариста: статус, дни недели, для почасового — часы и разовый вызов */
+  private staffRow(st: Barista, i: number, open: boolean): string {
+    const cafe = this.sim.cafe;
+    const working = cafe.isWorking(st);
+    let status: string;
+    if (st.contract === 'hourly') {
+      const off = st.override && st.override.day === cafe.day;
+      status = working
+        ? open
+          ? 'за стойкой'
+          : `выйдет, когда кафе откроется`
+        : off
+          ? `отпущен до${NB}конца дня`
+          : st.schedule.days[cafe.weekday]
+            ? `по графику с${NB}${fmtMinute(st.schedule.from % MINUTES_PER_DAY)}`
+            : 'сегодня выходной';
+    } else {
+      const left = ECONOMY.shiftHours * 60 - st.shiftMinutes;
+      status = !st.shiftActive
+        ? 'сегодня выходной'
+        : left <= 0
+          ? `смена окончена`
+          : open
+            ? `на${NB}смене ещё ${Math.floor(left / 60)}${NB}ч ${left % 60}${NB}мин`
+            : `выйдет к${NB}открытию`;
+    }
+    this.live[`staff-${st.id}`] = status;
+    const days = WEEKDAY_SHORT.map(
+      (d, wd) =>
+        `<button class="chip ${st.schedule.days[wd] ? 'on' : ''} ${wd >= 5 ? 'we' : ''}" data-action="staff-day" data-item="${st.id}" data-day="${wd}" aria-pressed="${st.schedule.days[wd]}">${d}</button>`,
+    ).join('');
+    const hours = (list: number[], value: number, action: string) =>
+      `<select data-action="${action}" data-item="${st.id}" aria-label="${action === 'staff-from' ? 'С' : 'До'}">${list
+        .map((m) => `<option value="${m}" ${m === value ? 'selected' : ''}>${fmtMinute(m % MINUTES_PER_DAY)}${m >= MINUTES_PER_DAY ? ' ночи' : ''}</option>`)
+        .join('')}</select>`;
+    const fromList = Array.from({ length: 18 }, (_, k) => hm(6) + k * 60); // 06:00…23:00
+    const toList = Array.from({ length: 23 }, (_, k) => hm(7) + k * 60); // 07:00…05:00
+    const hourly =
+      st.contract === 'hourly'
+        ? `<div class="row hours staff-hours">${hours(fromList, st.schedule.from, 'staff-from')}<span>—</span>${hours(toList, st.schedule.to, 'staff-to')}</div>
+           <div class="row"><small class="grow">Разовый вызов — только на${NB}сегодня, график не${NB}меняется</small>
+           <button class="small ${working ? 'ghost' : ''}" data-action="duty" data-item="${st.id}">${working ? 'Отпустить сейчас' : 'Вызвать сейчас'}</button></div>`
+        : '';
+    return `<li class="staff-card">
+      <div class="row"><div class="grow"><b>Бариста ${i + 1} · ${st.contract === 'shift' ? 'на смене' : 'почасово'}</b>
+        <small data-live="staff-${st.id}"></small></div>
+        <button class="icon" data-action="fire" data-item="${st.id}" aria-label="Уволить">✕</button></div>
+      <div class="chips">${days}</div>
+      ${hourly}
+    </li>`;
   }
 
   private marketingTab(): string {

@@ -144,7 +144,7 @@ function factor(r: DayReport, c: Comparison | null): string {
   }
   if (!c) {
     const costs: [string, number][] = [
-      ['аренда и${NB}коммуналка', r.rent + r.utilities],
+      [`аренда и${NB}коммуналка`, r.rent + r.utilities],
       ['закупка', r.purchases],
       ['зарплата', r.wages],
       ['маркетинг', r.marketing],

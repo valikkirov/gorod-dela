@@ -1,4 +1,4 @@
-import { Cafe, CATALOG, hours24, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason } from './cafe';
+import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason } from './cafe';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY, formatMoney } from './economy';
@@ -255,8 +255,26 @@ export class Simulation {
     else this.note(`staff:${id}`, 'Уволен бариста', undefined, b.contract === 'shift' ? 'на смене' : 'почасовой');
   }
 
+  /** Разово вызвать или отпустить почасового бариста — только на сегодня */
   setOnDuty(id: number, onDuty: boolean): void {
     this.cafe.setOnDuty(id, onDuty);
+  }
+
+  /** График бариста: дни недели и (для почасового) часы. Действует сразу */
+  setStaffSchedule(id: number, schedule: StaffSchedule): void {
+    const b = this.cafe.staff.find((x) => x.id === id);
+    if (!b) return;
+    if (schedule.to <= schedule.from || schedule.to - schedule.from > MINUTES_PER_DAY) return;
+    const from = scheduleText(b);
+    this.cafe.setSchedule(id, schedule);
+    const n = this.cafe.staff.indexOf(b) + 1;
+    this.note(`schedule:${id}`, `График бариста ${n}`, from, scheduleText(b));
+  }
+
+  /** Промотать до 6:00 следующего утра (если сейчас раньше 6:00 — до сегодняшних 6:00) */
+  skipToMorning(): void {
+    const left = (hm(6) - this.minute + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+    this.advance(left < 1 ? MINUTES_PER_DAY : left);
   }
 
   addMenuItem(id: string): boolean {
@@ -661,6 +679,8 @@ export class Simulation {
 
   /** Будни или выходные: каждому жителю — расписание на сегодня */
   private applyDaySchedules(): void {
+    this.cafe.day = this.day;
+    this.cafe.weekday = weekday(this.day);
     const weekend = isWeekend(this.day);
     for (const r of this.residents) r.schedule = weekend ? r.weekend : r.weekday;
   }

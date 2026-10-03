@@ -150,16 +150,49 @@ export const isNightMinute = (m: number): boolean => m >= hm(22) || m < hm(6);
 
 export type Contract = 'shift' | 'hourly';
 
-/** Бариста: на смене (фикс за до 12 часов) или почасово (вызываешь и отпускаешь сам) */
+/** График бариста: дни недели (0 — понедельник) и, для почасового, окно в течение дня */
+export interface StaffSchedule {
+  days: boolean[];
+  /** Минута дня начала и конца окна. to может быть больше 24:00 — работа через полночь */
+  from: number;
+  to: number;
+}
+
+/** Бариста: на смене (фикс за до 12 часов с открытия) или почасово (платим за часы в окне графика) */
 export interface Barista {
   id: number;
   contract: Contract;
-  /** Почасовой: сейчас на работе или отпущен */
-  onDuty: boolean;
+  schedule: StaffSchedule;
+  /** Разовое «вызвать/отпустить» — только на один календарный день */
+  override: { day: number; on: boolean } | null;
+  /** Сменный: выходит ли он в текущую смену (по графику на день её начала) */
+  shiftActive: boolean;
   /** Сменный: сколько минут отработано в текущей смене */
   shiftMinutes: number;
   /** Сменный: оплачена ли текущая смена */
   shiftPaid: boolean;
+}
+
+export const ALL_DAYS = (): boolean[] => new Array<boolean>(7).fill(true);
+
+const DAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const clock = (m: number): string =>
+  `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+/** «каждый день», «Пн–Пт», «Сб–Вс», «Пн, Ср, Пт», «не выходит» */
+export function daysText(days: boolean[]): string {
+  const on = days.map((d, i) => (d ? i : -1)).filter((i) => i >= 0);
+  if (on.length === 7) return 'каждый день';
+  if (on.length === 0) return 'не выходит';
+  const run = on.every((d, i) => i === 0 || d === on[i - 1] + 1);
+  if (run && on.length >= 3) return `${DAY_SHORT[on[0]]}–${DAY_SHORT[on.at(-1)!]}`;
+  return on.map((i) => DAY_SHORT[i]).join(', ');
+}
+
+export function scheduleText(b: Barista): string {
+  const days = daysText(b.schedule.days);
+  if (b.contract === 'shift') return days;
+  return `${days}, ${clock(b.schedule.from)}–${clock(b.schedule.to)}`;
 }
 
 interface Slot {
@@ -208,6 +241,11 @@ export class Cafe {
   /** Цена в момент продажи (счастливые часы) — подставляет симуляция */
   pricing: (price: number, minute: number) => number = (p) => p;
   private nextStaffId = 1;
+  /** Календарный день и день недели — их выставляет симуляция */
+  day = 1;
+  weekday = 0;
+  /** Текущая минута дня — для «кто сейчас за стойкой» */
+  private nowMinute = 0;
   readonly queue: { residentId: number; itemId: string }[] = [];
   private slots: Slot[] = [];
   /** Цены позиций, убранных из меню, — чтобы дообслужить уже сделанные заказы */
@@ -241,7 +279,18 @@ export class Cafe {
     this.menu = d.menu;
     this.openAt = d.openAt;
     this.closeAt = d.closeAt;
-    this.staff = d.staff;
+    // Сохранения до графиков: почасовой работал, пока его не отпустят
+    this.staff = d.staff.map((raw) => {
+      const b = raw as Barista & { onDuty?: boolean };
+      if (!b.schedule) {
+        const on = b.onDuty !== false;
+        b.schedule = { days: new Array<boolean>(7).fill(b.contract === 'shift' || on), from: d.openAt, to: d.closeAt };
+        b.override = null;
+        b.shiftActive = true;
+      }
+      delete b.onDuty;
+      return b;
+    });
     this.nextStaffId = d.nextStaffId;
     this.queue.splice(0, this.queue.length, ...d.queue);
     this.slots = d.slots;
@@ -331,23 +380,54 @@ export class Cafe {
 
   hire(contract: Contract): Barista | null {
     if (this.staff.length >= ECONOMY.maxBaristas) return null;
-    const b: Barista = { id: this.nextStaffId++, contract, onDuty: true, shiftMinutes: 0, shiftPaid: false };
+    // По умолчанию — каждый день; почасовой — на все часы работы кафе, игрок сужает окно до пиков
+    const b: Barista = {
+      id: this.nextStaffId++,
+      contract,
+      schedule: { days: ALL_DAYS(), from: this.openAt, to: this.closeAt },
+      override: null,
+      shiftActive: true,
+      shiftMinutes: 0,
+      shiftPaid: false,
+    };
     this.staff.push(b);
     return b;
+  }
+
+  setSchedule(id: number, schedule: StaffSchedule): void {
+    const b = this.staff.find((s) => s.id === id);
+    if (!b) return;
+    b.schedule = { days: [...schedule.days], from: schedule.from, to: schedule.to };
+    // Сменный, которому сегодня выходной по новому графику, на смену не выходит (если ещё не начал)
+    if (b.contract === 'shift' && !b.shiftPaid) b.shiftActive = b.schedule.days[this.weekday];
+  }
+
+  /** По графику ли бариста сейчас (без учёта разового вызова) */
+  scheduledNow(b: Barista, minute = this.nowMinute): boolean {
+    const { days, from, to } = b.schedule;
+    const m = Math.floor(minute);
+    if (days[this.weekday] && m >= from && m < Math.min(to, MINUTES_PER_DAY)) return true;
+    // Хвост окна после полуночи — по графику вчерашнего дня
+    const yesterday = (this.weekday + 6) % 7;
+    return to > MINUTES_PER_DAY && days[yesterday] && m < to - MINUTES_PER_DAY;
   }
 
   fire(id: number): void {
     this.staff = this.staff.filter((b) => b.id !== id);
   }
 
+  /** Разово вызвать или отпустить почасового — до конца календарного дня, график не меняется */
   setOnDuty(id: number, onDuty: boolean): void {
     const b = this.staff.find((s) => s.id === id);
-    if (b?.contract === 'hourly') b.onDuty = onDuty;
+    if (b?.contract !== 'hourly') return;
+    b.override = onDuty === this.scheduledNow(b) ? null : { day: this.day, on: onDuty };
   }
 
   /** Работает ли бариста прямо сейчас (при открытом кафе) */
   isWorking(b: Barista): boolean {
-    return b.contract === 'hourly' ? b.onDuty : b.shiftMinutes < ECONOMY.shiftHours * 60;
+    if (b.contract === 'shift') return b.shiftActive && b.shiftMinutes < ECONOMY.shiftHours * 60;
+    if (b.override && b.override.day === this.day) return b.override.on;
+    return this.scheduledNow(b);
   }
 
   /** Сколько бариста сейчас за стойкой */
@@ -392,6 +472,7 @@ export class Cafe {
   /** Обслуживание и зарплата за dt минут. Возвращает продажи и сорванные заказы. */
   tick(dt: number, minute: number): TickResult {
     const result: TickResult = { sales: [], failed: [] };
+    this.nowMinute = minute;
     if (!this.isOpenAt(minute)) return result;
     this.payStaff(minute);
 
@@ -436,6 +517,7 @@ export class Cafe {
       for (const b of this.staff) {
         b.shiftMinutes = 0;
         b.shiftPaid = false;
+        b.shiftActive = b.schedule.days[this.weekday];
       }
     }
     const night = isNightMinute(whole) ? ECONOMY.nightBonus : 0;
