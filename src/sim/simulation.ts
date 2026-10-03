@@ -354,7 +354,7 @@ export class Simulation {
     else {
       // Житель видит цены с учётом счастливых часов
       const menu = cafe.menu.map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
-      const offer = evaluate(r, want, menu, r.pos, place('cafe').door, place(entry.placeId).door, this.weather.kind);
+      const offer = evaluate(r, want, menu, r.pos, place('cafe').front, place(entry.placeId).front, this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
       if (!offer.item || !this.rng.chance(offer.p)) reason = rejectReason(offer, r.budget[want.kind]);
@@ -622,8 +622,8 @@ export class Simulation {
     }
     // Проходя мимо открытого кафе, можно его заметить — вывеска помогает
     if (this.cafe.opened && !r.aware && !r.noticed) {
-      const door = place('cafe').door;
-      if (Math.abs(r.pos.x - door.x) < 45 && Math.abs(r.pos.y - door.y) < 60) {
+      const front = place('cafe').front;
+      if (Math.abs(r.pos.x - front.x) < 45 && Math.abs(r.pos.y - front.y) < 60) {
         r.noticed = true;
         const p = this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase;
         if (this.rng.chance(p)) this.learn(r, 'walk');

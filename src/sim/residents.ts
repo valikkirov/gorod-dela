@@ -356,7 +356,7 @@ export function generateResidents(rng: Rng): Resident[] {
         path: [],
         walking: false,
         visible: false,
-        speed: 22 * rng.range(0.85, 1.15),
+        speed: 25 * rng.range(0.85, 1.15),
         lane: rng.jitter(9),
       });
     }

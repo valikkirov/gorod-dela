@@ -1,0 +1,14 @@
+# Как обновить графику в игре
+
+Исходник графики — Figma-файл «Город дела — графика»
+(https://www.figma.com/design/iR0qD6EPxPVMz7Z8ZFWi0j). Каждый ассет — компонент с именем вида
+`resident-office-down-walk-2`, `building-cafe-open`, `tile-road-marking`.
+
+1. На странице «Экспорт для игры» лежат четыре атласа: `atlas-people`, `atlas-ground`,
+   `atlas-buildings`, `atlas-lights`. В них экземпляры компонентов, поэтому правки в компонентах
+   попадают туда сами. Новый ассет нужно добавить в атлас и в `src/game/atlas.ts`.
+2. Каждый атлас снимается в 2× дважды: на белом и на чёрном фоне (Figma отдаёт снимки без
+   прозрачности).
+3. `python3 scripts/matte.py белый.png чёрный.png src/game/art/<атлас>.png` восстанавливает
+   прозрачность.
+4. Координаты кадров в `src/game/atlas.ts` — в единицах 1×, как в Figma.
