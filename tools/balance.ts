@@ -3,6 +3,7 @@
 import type { DayReport } from '../src/sim/cafe';
 import { hm, isWeekend, MINUTES_PER_DAY } from '../src/sim/clock';
 import type { PremisesId } from '../src/sim/economy';
+import { MILESTONES } from '../src/sim/milestones';
 import { Simulation } from '../src/sim/simulation';
 import { INGREDIENTS, RECIPES, type IngredientId } from '../src/sim/stock';
 
@@ -114,6 +115,7 @@ const isMain = process.argv[1]?.includes('balance');
 if (isMain) {
   const days = Number(process.argv[2] ?? 28);
   const seeds = Number(process.argv[3] ?? 6);
+  const showMilestones = process.argv.includes('--milestones');
   console.log(`${days} дней × ${seeds} seed. Итог за неделю 1 · средняя неделя 2+ · день: будни / выходные · гостей в день`);
   for (const f of FORMATS) {
     const runs = Array.from({ length: seeds }, (_, i) => play(f, i + 1, days));
@@ -127,6 +129,12 @@ if (isMain) {
     console.log(
       `${f.name.padEnd(18)} ${k(w1).padStart(7)} · ${k(later).padStart(7)} (худший ${k(worst)}) · ${k(wd)} / ${k(we)} · ${guests.toFixed(0)}${bankrupt ? ` · банкротств ${bankrupt}` : ''}`,
     );
+    // Вехи: в какой день в среднем и у скольких запусков из всех
+    const ms = MILESTONES.map((m) => {
+      const hit = runs.map((r) => r.find((x) => x.milestones?.includes(m.id))?.day).filter((d): d is number => d !== undefined);
+      return `${m.id} ${hit.length ? `д${Math.round(avg(hit))}` : '—'}${hit.length < runs.length ? ` (${hit.length}/${runs.length})` : ''}`;
+    });
+    if (showMilestones) console.log(`${''.padEnd(18)} ${ms.join(' · ')}`);
   }
 }
 

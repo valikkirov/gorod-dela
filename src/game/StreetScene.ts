@@ -121,6 +121,8 @@ interface Walker {
 export class StreetScene extends Phaser.Scene {
   private hooks!: SceneHooks;
   private marks!: Phaser.GameObjects.Graphics;
+  /** Звёздочки над знакомыми лицами */
+  private faces!: Phaser.GameObjects.Graphics;
   private guests!: Phaser.GameObjects.Graphics;
   private night!: Phaser.GameObjects.Graphics;
   private sky!: Phaser.GameObjects.Graphics;
@@ -158,6 +160,7 @@ export class StreetScene extends Phaser.Scene {
 
     this.guests = this.add.graphics().setDepth(c.rect.y + c.rect.h + 0.5);
     this.marks = this.add.graphics();
+    this.faces = this.add.graphics().setDepth(DEPTH.labels);
     this.night = this.add.graphics().setDepth(DEPTH.night);
     this.sky = this.add.graphics().setDepth(DEPTH.sky);
     for (const shop of this.shops) {
@@ -428,6 +431,15 @@ export class StreetScene extends Phaser.Scene {
         .setDepth(r.pos.y);
     });
 
+    // Знакомые лица: звёздочка над головой — золотая у постоянных
+    const f = this.faces;
+    f.clear();
+    for (const reg of sim.regulars) {
+      const r = sim.residents[reg.residentId];
+      if (!r.visible) continue;
+      drawStar(f, r.pos.x, r.pos.y - 56, reg.status === 'regular' ? 0xf2b33d : 0xffffff);
+    }
+
     // Выбранный житель: кольцо у ног и маршрут
     const g = this.marks;
     g.clear();
@@ -516,4 +528,18 @@ function groundTile(x: number, y: number): string {
   if (x === ROAD.right) return 'tile-sidewalk-curb-right';
   if (x < GRID.offsetX || x >= WORLD.width - GRID.offsetX) return 'tile-grass';
   return 'tile-sidewalk';
+}
+
+/** Пятиконечная звёздочка с контуром, ~12 px */
+function drawStar(g: Phaser.GameObjects.Graphics, x: number, y: number, color: number): void {
+  const pts: Phaser.Math.Vector2[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rad = i % 2 === 0 ? 11 : 5;
+    pts.push(new Phaser.Math.Vector2(x + Math.cos(a) * rad, y + Math.sin(a) * rad));
+  }
+  g.fillStyle(color, 1);
+  g.fillPoints(pts, true);
+  g.lineStyle(2, COLORS.outline, 1);
+  g.strokePoints(pts, true);
 }

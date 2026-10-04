@@ -12,7 +12,11 @@ const params = new URLSearchParams(location.search);
 const sim = (params.has('seed') ? null : loadGame()) ?? new Simulation(Number(params.get('seed') ?? 1));
 autosave(sim);
 const scene = new StreetScene();
-const hud = new Hud(sim, () => scene.select(null));
+const hud = new Hud(
+  sim,
+  () => scene.select(null),
+  (r) => scene.select(r),
+);
 
 const game = new Phaser.Game({
   type: Phaser.AUTO,

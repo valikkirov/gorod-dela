@@ -109,6 +109,8 @@ export class Stock {
   keep: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0 };
   /** Отдельный уровень на выходные: в субботу ланчей не будет */
   keepWeekend: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0 };
+  /** На сколько дней дольше хранится скоропорт (холодильная витрина). Выставляет кафе, не сохраняется отдельно. */
+  shelfBonus = 0;
 
   toJSON(): StockSave {
     const batches: StockSave['batches'] = {};
@@ -130,6 +132,17 @@ export class Stock {
     this.pending = { ...d.pending };
     this.keep = { ...this.keep, ...d.keep };
     this.keepWeekend = { ...this.keepWeekend, ...d.keepWeekend };
+  }
+
+  /** Последний день годности партии, привезённой в day. Холодильная витрина продлевает скоропорт. */
+  private lastDayFor(ing: Ingredient, day: number): number {
+    return ing.shelfDays === null ? Number.POSITIVE_INFINITY : day + ing.shelfDays + this.shelfBonus - 1;
+  }
+
+  /** Купили витрину: то, что уже лежит, тоже хранится дольше */
+  extendShelf(days: number): void {
+    this.shelfBonus += days;
+    for (const list of this.batches.values()) for (const b of list) b.lastDay += days;
   }
 
   qty(id: IngredientId): number {
@@ -184,7 +197,7 @@ export class Stock {
       const list = this.batches.get(id) ?? [];
       list.push({
         qty,
-        lastDay: ing.shelfDays === null ? Number.POSITIVE_INFINITY : day + ing.shelfDays - 1,
+        lastDay: this.lastDayFor(ing, day),
         unitPaid: cost / qty,
       });
       this.batches.set(id, list);
@@ -228,7 +241,7 @@ export class Stock {
   addNow(id: IngredientId, qty: number, day: number, unitPaid: number): void {
     const ing = ingredient(id);
     const list = this.batches.get(id) ?? [];
-    list.push({ qty, lastDay: ing.shelfDays === null ? Number.POSITIVE_INFINITY : day + ing.shelfDays - 1, unitPaid });
+    list.push({ qty, lastDay: this.lastDayFor(ing, day), unitPaid });
     this.batches.set(id, list);
   }
 }

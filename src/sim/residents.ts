@@ -75,6 +75,8 @@ export interface Resident {
   noticed: boolean;
   /** Сколько кофе купил — для карты лояльности */
   coffeeCount: number;
+  /** День последней покупки (0 — не покупал) */
+  lastVisit: number;
 
   // Состояние симуляции
   pos: Point;
@@ -117,6 +119,11 @@ const FEMALE = new Set([
   'Анна', 'Вера', 'Дарья', 'Жанна', 'Ксения', 'Мария', 'Ольга', 'Светлана', 'Ульяна', 'Юлия',
   'Яна', 'Полина', 'Алиса', 'Нина', 'Софья',
 ]);
+
+/** Для согласования глаголов: «зашла» или «зашёл» */
+export function isFemale(name: string): boolean {
+  return FEMALE.has(name.split(' ')[0]);
+}
 
 function makeName(rng: Rng): string {
   const first = rng.pick(FIRST_NAMES);
@@ -393,6 +400,7 @@ export function generateResidents(rng: Rng): Resident[] {
         aware: false,
         noticed: false,
         coffeeCount: 0,
+        lastVisit: 0,
         pos: { x: 0, y: 0 },
         entry: schedule[0],
         placeId: homeId,

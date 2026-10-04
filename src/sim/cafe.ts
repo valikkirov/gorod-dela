@@ -1,6 +1,7 @@
 import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, PREMISES, type Currency, type Premises, type PremisesId } from './economy';
 import type { AwareSource } from './marketing';
+import { UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
 import { recipeCost, Stock, type IngredientId, type StockSave } from './stock';
 import type { ResidentKind } from './residents';
 import type { Weather } from './weather';
@@ -105,6 +106,12 @@ export interface DayReport {
   /** Сколько гостей было у конкурента и шла ли у него акция */
   rivalGuests?: number;
   rivalPromo?: boolean;
+  /** Новости о знакомых лицах: «Анна теперь в постоянных гостях» */
+  news?: string[];
+  /** Вехи, достигнутые в этот день */
+  milestones?: MilestoneId[];
+  /** Потрачено на улучшения — вложение, в прибыль дня не входит */
+  invested?: number;
 }
 
 /** Запись в истории изменений: «Капучино: 220 ₽ → 200 ₽» */
@@ -235,6 +242,7 @@ export interface CafeSave {
   wagesToday: number;
   lastPaidMinute: number;
   stock: StockSave;
+  upgrades?: UpgradeId[];
 }
 
 /** Состояние кафе игрока */
@@ -248,6 +256,8 @@ export class Cafe {
   closeAt = hm(20);
   staff: Barista[] = [];
   readonly stock = new Stock();
+  /** Купленные улучшения */
+  upgrades: UpgradeId[] = [];
   /** Цена в момент продажи (счастливые часы) — подставляет симуляция */
   pricing: (price: number, minute: number) => number = (p) => p;
   private nextStaffId = 1;
@@ -282,6 +292,7 @@ export class Cafe {
       wagesToday: this.wagesToday,
       lastPaidMinute: this.lastPaidMinute,
       stock: this.stock.toJSON(),
+      upgrades: this.upgrades,
     };
   }
 
@@ -311,6 +322,12 @@ export class Cafe {
     this.wagesToday = d.wagesToday;
     this.lastPaidMinute = d.lastPaidMinute;
     this.stock.load(d.stock);
+    this.upgrades = [...(d.upgrades ?? [])];
+    this.stock.shelfBonus = this.has('showcase') ? UPGRADE_EFFECT.showcaseShelfDays : 0;
+  }
+
+  has(id: UpgradeId): boolean {
+    return this.upgrades.includes(id);
   }
 
   static emptyDay(day: number): DayReport {
@@ -478,7 +495,8 @@ export class Cafe {
 
   /** Минут на одного гостя у одного «места за стойкой» */
   get serviceMinutes(): number {
-    return this.baristas > 0 ? 2 : 4;
+    const base = this.baristas > 0 ? 2 : 4;
+    return this.has('machine') ? base * UPGRADE_EFFECT.machineService : base;
   }
 
   get counters(): number {

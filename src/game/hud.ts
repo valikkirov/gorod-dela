@@ -26,7 +26,9 @@ import { INGREDIENTS, orderPrice, RECIPES, type IngredientId } from '../sim/stoc
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
 import { ECONOMY, formatMoney, PREMISES, type PremisesId } from '../sim/economy';
-import { ACTIVITY_LABEL, currentEntry, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
+import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
+import { statusText, type Regular } from '../sim/regulars';
+import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
 import type { Simulation } from '../sim/simulation';
 import { place } from '../sim/world';
 import { RESIDENT_COLOR, toCss } from './palette';
@@ -41,7 +43,7 @@ const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
 
 type View = 'cafe' | 'resident' | 'report';
-type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'marketing';
+type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'guests' | 'growth';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -64,8 +66,8 @@ const WANT_VISIT: Record<WantKind, string> = {
   bar: 'выпить',
 };
 
-/** Фамилии в генераторе женского рода оканчиваются на «а» */
-const isFemale = (r: Resident): boolean => r.name.endsWith('а');
+const isFemale = (r: Resident): boolean => femaleName(r.name);
+const itemName = (id: string): string => CATALOG.find((c) => c.id === id)?.name ?? id;
 
 const REASON_HINT: Record<RejectReason, string> = {
   'not-open': 'Хотели зайти, но кафе ещё не работает',
@@ -75,10 +77,18 @@ const REASON_HINT: Record<RejectReason, string> = {
   'no-item': `Не${NB}нашли нужного в${NB}меню`,
   queue: `Не${NB}стали стоять в${NB}очереди — нужен бариста`,
   'no-time': `Не${NB}дождались заказа и${NB}ушли`,
-  unaware: `Хотели зайти куда-нибудь, но о${NB}твоём кафе не${NB}знают. Помогут вывеска, листовки и${NB}соцсети — вкладка «Маркетинг»`,
+  unaware: `Хотели зайти куда-нибудь, но о${NB}твоём кафе не${NB}знают. Помогут вывеска, листовки и${NB}соцсети — вкладка «Гости»`,
   'out-of-stock': `Позиция закончилась на${NB}складе. Гость ушёл недовольным — закажи больше или подними автозаказ`,
   mood: `Цена и${NB}дорога устраивали, но${NB}не${NB}каждый день хочется в${NB}кафе. Постоянные гости заходят чаще`,
   rival: `Готовы были зайти, но${NB}выбрали конкурента: у${NB}него дешевле, ближе по${NB}пути или нужная позиция`,
+};
+
+const USUAL: Record<WantKind, string> = {
+  coffee: 'кофе',
+  lunch: 'обед',
+  tea: 'чай',
+  snack: 'перекус',
+  bar: `пиво или${NB}сидр`,
 };
 
 const OPEN_OPTIONS = Array.from({ length: 25 }, (_, i) => hm(6) + i * 30); // 06:00…18:00 — бар может открываться вечером
@@ -105,6 +115,7 @@ export class Hud {
   constructor(
     private readonly sim: Simulation,
     private readonly onDeselect: () => void,
+    private readonly selectInScene: (r: Resident) => void = () => {},
   ) {
     const speeds = $('#speeds');
     for (const s of SPEEDS) {
@@ -259,6 +270,12 @@ export class Hud {
         sim.setStaffSchedule(st.id, { ...st.schedule, days });
         break;
       }
+      case 'face':
+        this.selectInScene(sim.residents[Number(item)]);
+        return;
+      case 'buy-upgrade':
+        sim.buyUpgrade(item as UpgradeId);
+        break;
       case 'skip-morning':
         sim.skipToMorning();
         break;
@@ -457,7 +474,8 @@ export class Hud {
       ['menu', 'Меню'],
       ['stock', 'Склад'],
       ['staff', 'Персонал'],
-      ['marketing', 'Маркетинг'],
+      ['guests', 'Гости'],
+      ['growth', 'Развитие'],
     ];
     const tabBar = `<nav class="tabs">${tabs
       .map(([id, label]) => `<button data-action="tab" data-item="${id}" class="${this.tab === id ? 'active' : ''}">${label}</button>`)
@@ -492,11 +510,13 @@ export class Hud {
       <div class="catalog-wrap">${catalog}</div>`;
     } else if (this.tab === 'stock') {
       body = this.stockTab();
-    } else if (this.tab === 'marketing') {
-      body = this.marketingTab();
+    } else if (this.tab === 'guests') {
+      body = this.facesBlock() + this.marketingTab();
+    } else if (this.tab === 'growth') {
+      body = this.growthTab();
     } else {
       body = `
-      <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}4${NB}мин на${NB}гостя. С${NB}бариста — 2${NB}мин, и${NB}обслуживают параллельно.</small>
+      <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}${cafe.has('machine') ? '3' : '4'}${NB}мин на${NB}гостя. С${NB}бариста — ${cafe.has('machine') ? '1,5' : '2'}${NB}мин, и${NB}обслуживают параллельно.</small>
       <ul class="menu staff">${staffRows}</ul>
       ${
         cafe.staff.length < cafe.premises.maxBaristas
@@ -599,6 +619,107 @@ export class Hud {
       <div class="chips">${days}</div>
       ${hourly}
     </li>`;
+  }
+
+  /** Знакомые лица: кто они, ходят ли к тебе, что любят */
+  private facesBlock(): string {
+    const sim = this.sim;
+    const rows = sim.regulars
+      .map((g) => {
+        const r = sim.residents[g.residentId];
+        const fav = itemName(r.favorites[g.usual]);
+        const cls = g.status === 'regular' ? 'on' : g.status === 'lost' ? 'neg' : '';
+        return `<li class="face" data-action="face" data-item="${r.id}">
+          <i style="background:${toCss(RESIDENT_COLOR[r.kind])}"></i>
+          <div class="grow"><b>${r.name}</b><small>${g.trait} · любит: ${fav.toLowerCase()}</small></div>
+          <span class="badge ${cls}">${statusText(g.status, r.name)}</span>
+        </li>`;
+      })
+      .join('');
+    return `<h4>Знакомые лица</h4>
+      <small>Шесть жителей, за${NB}которыми видно, как к${NB}тебе привыкают. На${NB}карте — со${NB}звёздочкой, золотой у${NB}постоянных.</small>
+      <ul class="menu faces">${rows}</ul>
+      <h4>Маркетинг</h4>`;
+  }
+
+  /** Вехи первой точки и улучшения, которые они открывают */
+  private growthTab(): string {
+    const sim = this.sim;
+    const ctx = (id: (typeof MILESTONES)[number]['id']) => sim.milestoneProgress(id);
+    const ms = MILESTONES.map((m) => {
+      const reached = sim.milestones[m.id];
+      const [done, target] = ctx(m.id);
+      const now = m.now?.({
+        reports: sim.reports,
+        loyal: sim.loyalCount,
+        aware: sim.awareCount,
+        population: sim.residents.length,
+        cash: sim.cash,
+        startCash: ECONOMY.startCash,
+      });
+      const opens = UPGRADES.find((u) => u.unlock === m.id && u.premises.includes(sim.cafe.premisesId));
+      const progress =
+        reached !== undefined
+          ? `<span class="badge on">день ${reached}</span>`
+          : target > 1
+            ? `<span class="badge">${m.id === 'cushion' ? `${Math.round((done / target) * 100)}${NB}%` : `${Math.min(done, target)}${NB}из${NB}${target}`}</span>`
+            : '';
+      const bar =
+        reached === undefined && target > 1
+          ? `<div class="meter"><i style="width:${Math.min(100, Math.round((done / target) * 100))}%"></i></div>`
+          : '';
+      return `<li class="milestone ${reached !== undefined ? 'done' : ''}">
+        <div class="row"><b class="grow">${reached !== undefined ? '✓ ' : ''}${m.title}</b>${progress}</div>
+        <small>${m.hint}${now && reached === undefined ? ` · ${now}` : ''}${opens ? ` · открывает: ${opens.name.toLowerCase()}` : ''}</small>
+        ${bar}
+      </li>`;
+    }).join('');
+    const ups = UPGRADES.map((u) => {
+      const st = sim.upgradeState(u.id);
+      if (st === 'premises') return '';
+      const badge = st === 'owned' ? '<span class="badge on">куплено</span>' : `<span class="badge">${money(u.cost)}</span>`;
+      const control =
+        st === 'owned'
+          ? ''
+          : st === 'locked'
+            ? `<small class="lock">Откроется после вехи «${milestone(u.unlock).title}»</small>`
+            : `<button class="small" data-action="buy-upgrade" data-item="${u.id}" ${st === 'money' ? 'disabled' : ''}>${
+                st === 'money' ? `Не${NB}хватает денег` : `Купить за${NB}${money(u.cost)}`
+              }</button>`;
+      return `<li class="upgrade"><div class="row"><b class="grow">${u.name}</b>${badge}</div><small>${u.effect}</small>${control}</li>`;
+    }).join('');
+    const count = Object.keys(sim.milestones).length;
+    return `
+      <h4>Вехи первой точки · ${count}${NB}из${NB}${MILESTONES.length}</h4>
+      <ul class="menu milestones">${ms}</ul>
+      <h4>Улучшения</h4>
+      <small>Покупаются один раз и${NB}меняют возможности заведения. Это вложение: в${NB}прибыль дня не${NB}входит, но${NB}из${NB}кассы уходит.</small>
+      <ul class="menu upgrades">${ups}</ul>`;
+  }
+
+  /** История знакомого лица для карточки жителя */
+  private faceCard(g: Regular, r: Resident): string {
+    const f = isFemale(r);
+    const today = dayNumber(this.sim.time);
+    const notes = g.history
+      .slice(-6)
+      .reverse()
+      .map((n) => {
+        const when = `${n.day === today ? 'сегодня' : `день ${n.day}`}, ${fmtMinute(n.minute)}`;
+        const what = n.ok
+          ? `${n.itemId ? itemName(n.itemId) : ''}`
+          : `не${NB}${f ? 'зашла' : 'зашёл'}: ${REJECT_LABEL[n.reason!].toLowerCase()}`;
+        return `<li class="${n.ok ? 'ok' : 'no'}"><span>${when}</span>${what}</li>`;
+      })
+      .join('');
+    const fav = itemName(r.favorites[g.usual]);
+    return `<div class="face-card">
+        <div class="row"><b class="grow">★ ${g.trait}</b><span class="badge ${g.status === 'regular' ? 'on' : g.status === 'lost' ? 'neg' : ''}">${statusText(g.status, r.name)}</span></div>
+        <small>Обычно берёт ${USUAL[g.usual]}, любимое — ${fav.toLowerCase()}.${
+          g.status === 'lost' && g.lostReason ? ` Перестал${f ? 'а' : ''} заходить: ${REJECT_LABEL[g.lostReason].toLowerCase()}.` : ''
+        }</small>
+        ${notes ? `<ul class="history">${notes}</ul>` : `<small>${r.aware ? `Ещё ни${NB}разу не${NB}${f ? 'хотела' : 'хотел'} зайти` : `О${NB}кафе пока не${NB}знает`}</small>`}
+      </div>`;
   }
 
   private marketingTab(): string {
@@ -834,6 +955,12 @@ export class Hud {
         <b>${a.headline}</b>
         ${a.factor ? `<p>${a.factor}</p>` : ''}
       </div>
+      ${(r.milestones ?? []).map((id) => `<div class="milestone-hit">Веха: <b>${milestone(id).title}</b>${
+        UPGRADES.some((u) => u.unlock === id && u.premises.includes(this.sim.cafe.premisesId))
+          ? ` · <button class="link" data-action="goto-tab" data-item="growth">открыто улучшение</button>`
+          : ''
+      }</div>`).join('')}
+      ${r.news?.length ? `<h4>Знакомые лица</h4><ul class="news">${r.news.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
       ${this.hourChart(r)}
       ${r.rivalGuests !== undefined ? `<p class="rival-line">У${NB}конкурента сегодня гостей: <b>${r.rivalGuests}</b>${r.rivalPromo ? ` (шла акция)` : ''}${r.missed.rival ? ` · ушли к${NB}нему от${NB}тебя: <b>${r.missed.rival}</b>` : ''}</p>` : ''}
       ${a.lost ? `<p class="lost-line">${describeLost(a.lost)}</p>` : ''}
@@ -851,6 +978,7 @@ export class Hud {
         ${row(`Налог 6${NB}%`, -r.tax)}
         ${r.marketing ? row('Маркетинг', -r.marketing) : ''}
         ${row('Итог дня', r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
+        ${r.invested ? row('Вложено в улучшения', -r.invested) : ''}
         ${row('В кассе', r.cashAfter, 'cash')}
       </table>
       <small>Себестоимость проданного: ${money(r.cogs)}${r.extras ? ` · дозаказов: ${r.extras}` : ''}${
@@ -912,6 +1040,7 @@ export class Hud {
           }</div>`;
     }
 
+    const reg = this.sim.regularOf(r.id);
     const rows = r.schedule
       .map(
         (s) =>
@@ -925,6 +1054,7 @@ export class Hud {
         <button data-action="back" aria-label="Закрыть">✕</button>
       </div>
       <div class="status">${status}</div>
+      ${reg ? this.faceCard(reg, r) : ''}
       ${decision}
       <div class="facts"><div>${home}</div>${work}<div>${r.aware ? `Знает о${NB}твоём кафе` : `<b class="oos">Не${NB}знает о${NB}твоём кафе</b>`}</div><div>${f ? 'Готова' : 'Готов'} платить: ${budget}</div></div>
       <ul class="schedule">${rows}</ul>`;

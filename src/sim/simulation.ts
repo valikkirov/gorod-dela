@@ -7,6 +7,8 @@ import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marke
 import { Rng } from './rng';
 import { INGREDIENTS, ingredient, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
 import { Rival, RIVAL, type RivalSave } from './rival';
+import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type Regular } from './regulars';
+import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
 import { rollWeather, type Weather } from './weather';
 import {
   clampSidewalkY,
@@ -40,6 +42,8 @@ export interface SaveData {
   flyersToday: boolean;
   cafe: CafeSave;
   rival?: RivalSave | null;
+  regulars?: Pick<Regular, 'residentId' | 'history' | 'status' | 'lostReason'>[];
+  milestones?: Partial<Record<MilestoneId, number>>;
   residents: {
     pos: Point;
     placeId: string;
@@ -56,6 +60,7 @@ export interface SaveData {
     aware: boolean;
     noticed: boolean;
     coffeeCount: number;
+    lastVisit?: number;
   }[];
 }
 
@@ -74,7 +79,8 @@ export type SimEvent =
   | { type: 'delivery'; cost: number }
   | { type: 'aware'; residentId: number; source: AwareSource }
   | { type: 'bankrupt' }
-  | { type: 'rival'; what: 'open' | 'promo' };
+  | { type: 'rival'; what: 'open' | 'promo' }
+  | { type: 'milestone'; id: MilestoneId };
 
 /** Ядро симуляции. Не знает ничего об отрисовке — этот же код
  *  на этапе 2 переедет на сервер. */
@@ -86,6 +92,11 @@ export class Simulation {
   readonly marketing = new Marketing();
   /** Конкурент в соседнем помещении — появляется после открытия игрока */
   rival: Rival | null = null;
+  /** Знакомые лица — шесть жителей, за которыми видна история */
+  readonly regulars: Regular[];
+  private readonly regularById = new Map<number, Regular>();
+  /** Достигнутые вехи: id → день */
+  readonly milestones: Partial<Record<MilestoneId, number>> = {};
   private flyersToday = false;
   cash: number = ECONOMY.startCash;
   daysInRed = 0;
@@ -113,6 +124,8 @@ export class Simulation {
     this.weather = { kind: 'sunny', temp: 21 };
     this.forecast = rollWeather(this.skyRng, this.weather);
     this.residents = generateResidents(this.rng);
+    this.regulars = pickRegulars(this.residents);
+    for (const g of this.regulars) this.regularById.set(g.residentId, g);
     this.cafe.pricing = (price, minute) => this.marketing.priceAt(price, minute);
     this.applyDaySchedules();
     // Каждого ставим туда, где он должен быть в стартовую минуту
@@ -146,6 +159,8 @@ export class Simulation {
       flyersToday: this.flyersToday,
       cafe: this.cafe.toJSON(),
       rival: this.rival?.toJSON() ?? null,
+      regulars: this.regulars.map((g) => ({ residentId: g.residentId, history: g.history, status: g.status, lostReason: g.lostReason })),
+      milestones: { ...this.milestones },
       residents: this.residents.map((r) => {
         const weekend = r.weekend.includes(r.entry);
         return {
@@ -163,6 +178,7 @@ export class Simulation {
           aware: r.aware,
           noticed: r.noticed,
           coffeeCount: r.coffeeCount,
+          lastVisit: r.lastVisit,
         };
       }),
     };
@@ -189,6 +205,11 @@ export class Simulation {
     sim.cafe.load(d.cafe);
     // Сохранения до конкурента: он появится через несколько дней, как у новой игры
     sim.rival = d.rival ? Rival.load(d.rival) : d.cafe.opened ? new Rival(sim.cafe.premisesId, d.day + RIVAL.delayDays) : null;
+    for (const s of d.regulars ?? []) {
+      const g = sim.regularById.get(s.residentId);
+      if (g) Object.assign(g, { history: s.history, status: s.status, lostReason: s.lostReason });
+    }
+    Object.assign(sim.milestones, d.milestones ?? {});
     sim.applyDaySchedules();
     d.residents.forEach((s, i) => {
       const r = sim.residents[i];
@@ -208,6 +229,7 @@ export class Simulation {
         aware: s.aware,
         noticed: s.noticed,
         coffeeCount: s.coffeeCount,
+        lastVisit: s.lastVisit ?? 0,
       });
     });
     return sim;
@@ -500,6 +522,7 @@ export class Simulation {
 
     if (reason) {
       r.decision = { ...base, visited: false, reason, itemId, price };
+      if (reason !== 'not-open' && reason !== 'unaware') this.noteRegular(r, false, reason, itemId);
       this.miss(r, reason);
       return false;
     }
@@ -547,7 +570,10 @@ export class Simulation {
     const r = this.residents[residentId];
     this.cash += price; // продукты уже оплачены при закупке
     const card = this.marketing.loyaltyCard;
-    r.loyalty = Math.min(card ? 0.5 : 0.4, r.loyalty + (card ? 0.15 : 0.1));
+    const cozy = this.cafe.has('interior') ? UPGRADE_EFFECT.interiorLoyalty : 0;
+    r.loyalty = Math.min(card ? 0.5 : 0.4, r.loyalty + (card ? 0.15 : 0.1) + cozy);
+    r.lastVisit = this.day;
+    this.noteRegular(r, true, undefined, itemId);
     // Карта лояльности: каждый N-й кофе — в подарок
     if (card && this.cafe.item(itemId).kind === 'coffee') {
       r.coffeeCount += 1;
@@ -587,6 +613,7 @@ export class Simulation {
     else if (v.want.kind === 'coffee') [extra, chance] = [pick(['snack']), EXTRA.coffee];
     else if (v.want.kind === 'tea') [extra, chance] = [pick(['snack']), EXTRA.tea];
     else if (v.want.kind === 'lunch') [extra, chance] = [pick(['coffee', 'tea']), EXTRA.lunch];
+    if (this.cafe.has('interior')) chance = Math.min(0.95, chance * UPGRADE_EFFECT.interiorExtra);
     if (!extra || !this.rng.chance(chance)) return;
     const price = this.cafe.sellExtra(extra, this.minute);
     if (price > 0) {
@@ -611,6 +638,7 @@ export class Simulation {
     r.visit = null;
     if (!served) {
       if (r.decision) r.decision = { ...r.decision, visited: false, reason };
+      this.noteRegular(r, false, reason, v.itemId);
       this.miss(r, reason);
     }
     if (r.placeId === this.shopId || r.walking) this.goTo(r, r.entry.placeId);
@@ -752,6 +780,8 @@ export class Simulation {
       this.cafe.today.rivalPromo = this.rival.promo(this.day);
     }
     if (this.rival) this.rival.servedToday = 0;
+    const news = this.updateRegulars();
+    if (news.length) this.cafe.today.news = news;
     const report = this.cafe.closeDay(nextDay);
     report.weekday = weekday(report.day);
     report.weather = this.weather;
@@ -763,9 +793,12 @@ export class Simulation {
     this.cash -= report.rent + report.utilities + report.wages + report.tax;
     report.cashAfter = this.cash;
     this.reports.push(report);
+    const reached = this.checkMilestones(report.day);
+    if (reached.length) report.milestones = reached;
     this.day = nextDay;
     this.applyDaySchedules();
     this.events.push({ type: 'day', report });
+    for (const id of reached) this.events.push({ type: 'milestone', id });
     if (this.rival?.opensDay === nextDay) this.events.push({ type: 'rival', what: 'open' });
     else if (this.rival && this.rival.promo(nextDay) && !this.rival.promo(nextDay - 1)) this.events.push({ type: 'rival', what: 'promo' });
 
@@ -775,6 +808,89 @@ export class Simulation {
       this.bankrupt = true;
       this.events.push({ type: 'bankrupt' });
     }
+  }
+
+  // ——— Знакомые лица и вехи ———
+
+  /** Запись в историю знакомого лица (остальных жителей не касается) */
+  private noteRegular(r: Resident, ok: boolean, reason?: RejectReason, itemId?: string): void {
+    const g = this.regularById.get(r.id);
+    if (!g) return;
+    const note: Parameters<typeof addNote>[1] = { day: this.day, minute: Math.floor(this.minute), ok };
+    if (reason) note.reason = reason;
+    if (itemId) note.itemId = itemId;
+    addNote(g, note);
+  }
+
+  /** Конец дня: новые статусы знакомых лиц и строки для отчёта */
+  private updateRegulars(): string[] {
+    const news: string[] = [];
+    for (const g of this.regulars) {
+      const r = this.residents[g.residentId];
+      const { status, reason } = statusOf(g, r, this.day);
+      const line = status !== g.status ? newsLine(r.name, g.status, status, reason) : null;
+      if (line) news.push(line);
+      g.status = status;
+      g.lostReason = reason;
+    }
+    return news;
+  }
+
+  regularOf(residentId: number): Regular | undefined {
+    return this.regularById.get(residentId);
+  }
+
+  /** Сколько жителей уже «свои»: привыкли к вам и были на этой неделе */
+  get loyalCount(): number {
+    return this.residents.filter((r) => r.loyalty >= LOYAL - 1e-9 && r.lastVisit > this.day - STATUS_WINDOW).length;
+  }
+
+  /** Прогресс вехи сейчас */
+  milestoneProgress(id: MilestoneId): [number, number] {
+    const m = MILESTONES.find((x) => x.id === id)!;
+    return m.progress({
+      reports: this.reports,
+      loyal: this.loyalCount,
+      aware: this.awareCount,
+      population: this.residents.length,
+      cash: this.cash,
+      startCash: ECONOMY.startCash,
+    });
+  }
+
+  private checkMilestones(day: number): MilestoneId[] {
+    if (!this.cafe.opened) return [];
+    const out: MilestoneId[] = [];
+    for (const m of MILESTONES) {
+      if (this.milestones[m.id] !== undefined) continue;
+      const [done, target] = this.milestoneProgress(m.id);
+      if (done >= target) {
+        this.milestones[m.id] = day;
+        out.push(m.id);
+      }
+    }
+    return out;
+  }
+
+  /** Можно ли купить улучшение и почему нет */
+  upgradeState(id: UpgradeId): 'owned' | 'locked' | 'premises' | 'money' | 'ok' {
+    const u = upgrade(id);
+    if (this.cafe.has(id)) return 'owned';
+    if (!u.premises.includes(this.cafe.premisesId)) return 'premises';
+    if (this.milestones[u.unlock] === undefined) return 'locked';
+    if (this.cash < u.cost) return 'money';
+    return 'ok';
+  }
+
+  buyUpgrade(id: UpgradeId): boolean {
+    if (!this.cafe.opened || this.upgradeState(id) !== 'ok') return false;
+    const u = upgrade(id);
+    this.cash -= u.cost;
+    this.cafe.upgrades.push(id);
+    if (id === 'showcase') this.cafe.stock.extendShelf(UPGRADE_EFFECT.showcaseShelfDays);
+    this.cafe.today.invested = (this.cafe.today.invested ?? 0) + u.cost;
+    this.note(`upgrade:${id}`, u.name, undefined, `куплено за ${formatMoney(u.cost)}`);
+    return true;
   }
 
   /** Будни или выходные: каждому жителю — расписание на сегодня */
