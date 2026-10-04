@@ -3,8 +3,8 @@ import { dayNumber, formatClock, WEEKDAY_SHORT, weekday } from '../sim/clock';
 import { formatMoney } from '../sim/economy';
 import type { Simulation } from '../sim/simulation';
 
-/** Ссылка на Telegram-группу игры. Пока пусто — кнопка просто копирует текст. */
-export const FEEDBACK_URL = '';
+/** Telegram-группа игры «Зинаида Петровна · Город дела». Пусто — кнопка просто копирует текст. */
+export const FEEDBACK_URL = 'https://t.me/+u-malhj9mupkNGNi';
 
 const NB = ' ';
 
@@ -57,7 +57,9 @@ export function openFeedback(sim: Simulation): void {
     }
     if (FEEDBACK_URL) {
       window.open(FEEDBACK_URL, '_blank', 'noopener');
-      done.textContent = copied ? `Текст скопирован — вставь его в${NB}группе.` : `Скопируй текст выше и${NB}вставь в${NB}группе.`;
+      done.textContent = copied
+        ? `Текст скопирован${NB}— вставь его в${NB}группе, в${NB}тему «Идеи» или «Что-то сломалось».`
+        : `Скопируй текст выше и${NB}вставь в${NB}группе, в${NB}тему «Идеи» или «Что-то сломалось».`;
     } else {
       done.textContent = copied
         ? `Текст скопирован. Группа игры скоро появится — пока перешли его разработчику.`
