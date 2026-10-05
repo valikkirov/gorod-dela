@@ -815,7 +815,8 @@ export class Simulation {
   /** Запись в историю знакомого лица (остальных жителей не касается) */
   private noteRegular(r: Resident, ok: boolean, reason?: RejectReason, itemId?: string): void {
     const g = this.regularById.get(r.id);
-    if (!g) return;
+    // Кто не знает о кафе, тот к нему и не собирался — в историю не пишем
+    if (!g || !r.aware) return;
     const note: Parameters<typeof addNote>[1] = { day: this.day, minute: Math.floor(this.minute), ok };
     if (reason) note.reason = reason;
     if (itemId) note.itemId = itemId;
