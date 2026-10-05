@@ -190,7 +190,10 @@ function factor(r: DayReport, c: Comparison | null): string {
   const describe = ([key, delta]: [string, number]): string => {
     const up = delta > 0;
     const amount = money(Math.abs(delta));
-    if (key === 'revenue') return `выручка ${up ? 'выше' : 'ниже'} на${NB}${amount}, гостей ${r.guests} против ${p.guests}`;
+    if (key === 'revenue') {
+      const guests = r.guests === p.guests ? `при${NB}том же числе гостей (${r.guests}), значит, дело в${NB}среднем чеке` : `гостей ${r.guests} против ${p.guests}`;
+      return `выручка ${up ? 'выше' : 'ниже'} на${NB}${amount}, ${guests}`;
+    }
     if (key === 'purchases') return `закупка ${up ? 'меньше' : 'больше'} на${NB}${amount}`;
     if (key === 'wages') return `зарплата ${up ? 'меньше' : 'больше'} на${NB}${amount}`;
     return up ? `на${NB}маркетинг ушло меньше на${NB}${amount}` : `маркетинг ${money(r.marketing)}`;
