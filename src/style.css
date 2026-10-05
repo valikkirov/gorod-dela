@@ -1192,3 +1192,71 @@ button.small.danger {
   padding: 0;
   font-size: 14px;
 }
+
+/* События-дилеммы */
+.event-card .event-icon {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.event-options {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.event-option {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.event-option span {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.event-option small {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.event-option:hover,
+.event-option:focus-visible {
+  border-color: var(--accent);
+}
+
+.event-card .actions {
+  justify-content: space-between;
+}
+
+.event-card .actions small {
+  margin: 0;
+}
+
+.event-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fdf3df;
+}
+
+.event-banner > span {
+  font-size: 24px;
+}
+
+.event-banner small {
+  display: block;
+  color: var(--muted);
+}

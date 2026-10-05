@@ -35,6 +35,8 @@ import { RESIDENT_COLOR, toCss } from './palette';
 import { clearSave } from './save';
 import { openFeedback } from './feedback';
 import { showTutorial } from './tutorial';
+import { showEventCard } from './eventCard';
+import { card } from '../sim/events';
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
 // и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.
@@ -111,6 +113,8 @@ export class Hud {
   private catalogOpen = false;
   private confirmRestart = false;
   private tab: CafeTab = 'overview';
+  /** Какое событие уже показали карточкой — второй раз сама не всплывает */
+  private eventShown = '';
 
   constructor(
     private readonly sim: Simulation,
@@ -185,6 +189,12 @@ export class Hud {
     if (this.clock.innerHTML !== clock) this.clock.innerHTML = clock;
     this.cash.textContent = money(this.sim.cash);
     this.cash.classList.toggle('neg', this.sim.cash < 0);
+    const e = this.sim.pendingEvent;
+    const key = e ? `${e.id}:${e.day}` : '';
+    if (e && key !== this.eventShown && !document.querySelector('.overlay')) {
+      this.eventShown = key;
+      showEventCard(this.sim, this, () => this.render(true));
+    }
     this.render();
   }
 
@@ -287,6 +297,9 @@ export class Hud {
         this.tab = item as CafeTab;
         if (this.selected) this.onDeselect();
         break;
+      case 'event':
+        showEventCard(sim, this, () => this.render(true));
+        return;
       case 'feedback':
         openFeedback(this.sim);
         return;
@@ -486,6 +499,7 @@ export class Hud {
       this.live['stock-warn'] = this.stockWarning();
       body = `
       ${this.cashWarning()}
+      ${this.eventBanner()}
       <div class="kpis">
         <div><small>Гостей сегодня</small><b data-live="guests"></b></div>
         <div><small>Выручка</small><b data-live="revenue"></b></div>
@@ -619,6 +633,15 @@ export class Hud {
       <div class="chips">${days}</div>
       ${hourly}
     </li>`;
+  }
+
+  /** Событие ждёт решения — напоминание на обзоре */
+  private eventBanner(): string {
+    const e = this.sim.pendingEvent;
+    if (!e) return '';
+    const c = card(e);
+    return `<div class="event-banner"><span>${c.icon}</span><div class="grow"><b>${c.title}</b><small>Ждёт решения до${NB}конца дня</small></div>
+      <button class="small" data-action="event">Решить</button></div>`;
   }
 
   /** Знакомые лица: кто они, ходят ли к тебе, что любят */
@@ -960,6 +983,7 @@ export class Hud {
           ? ` · <button class="link" data-action="goto-tab" data-item="growth">открыто улучшение</button>`
           : ''
       }</div>`).join('')}
+      ${r.events?.length ? `<h4>События дня</h4><ul class="news">${r.events.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
       ${r.news?.length ? `<h4>Знакомые лица</h4><ul class="news">${r.news.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
       ${this.hourChart(r)}
       ${r.rivalGuests !== undefined ? `<p class="rival-line">У${NB}конкурента сегодня гостей: <b>${r.rivalGuests}</b>${r.rivalPromo ? ` (шла акция)` : ''}${r.missed.rival ? ` · ушли к${NB}нему от${NB}тебя: <b>${r.missed.rival}</b>` : ''}</p>` : ''}
@@ -977,6 +1001,7 @@ export class Hud {
         ${r.wages ? row('Зарплата', -r.wages) : ''}
         ${row(`Налог 6${NB}%`, -r.tax)}
         ${r.marketing ? row('Маркетинг', -r.marketing) : ''}
+        ${r.other ? row('События', -r.other) : ''}
         ${row('Итог дня', r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
         ${r.invested ? row('Вложено в улучшения', -r.invested) : ''}
         ${row('В кассе', r.cashAfter, 'cash')}

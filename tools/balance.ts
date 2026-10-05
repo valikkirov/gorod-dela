@@ -71,6 +71,25 @@ function tuneStock(sim: Simulation): void {
   }
 }
 
+/** «Разумный игрок» на событиях: чинит срочно, если кофе — главное, берёт заказ, если есть обеды */
+function decide(sim: Simulation): void {
+  const e = sim.pendingEvent;
+  if (!e) return;
+  const pick: Record<string, string> = {
+    breakdown: 'urgent',
+    festival: 'stall',
+    supplier: 'decline',
+    'office-order': 'accept',
+    blogger: 'treat',
+    'day-off': 'let',
+  };
+  // Заказ офиса без бариста — потерять обед; с бариста — выгодно
+  if (e.id === 'office-order' && sim.cafe.staff.length === 0) pick['office-order'] = 'decline';
+  // Столик на празднике в сквере — только если сам сидишь у сквера, а не в киоске у метро
+  if (e.id === 'festival' && sim.cafe.premisesId === 'kiosk') pick.festival = 'skip';
+  sim.chooseEvent(pick[e.id]);
+}
+
 export function play(f: Format, seed: number, days: number): DayReport[] {
   const sim = new Simulation(seed);
   sim.openCafe(f.premises ?? 'cafe');
@@ -98,7 +117,9 @@ export function play(f: Format, seed: number, days: number): DayReport[] {
   sim.setFlyers(true);
   sim.launchSocial();
   for (let d = 0; d < days; d++) {
-    sim.advance(hm(17)); // 06:00 → 23:00
+    sim.advance(5); // события приходят в 6:00 — решаем сразу
+    decide(sim);
+    sim.advance(hm(17) - 5); // → 23:00
     if (d === 6) sim.setFlyers(false); // листовки — только первая неделя
     tuneStock(sim);
     sim.advance(MINUTES_PER_DAY - hm(17));

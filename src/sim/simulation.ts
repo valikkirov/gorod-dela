@@ -5,10 +5,11 @@ import { ECONOMY, formatMoney, PREMISES, type PremisesId } from './economy';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
-import { INGREDIENTS, ingredient, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
+import { INGREDIENTS, ingredient, RECIPES, recipeCost, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
 import { Rival, RIVAL, type RivalSave } from './rival';
 import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type Regular } from './regulars';
 import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
+import { card, EVENTS, resultLine, supplierPrice, type EventId, type PendingEvent } from './events';
 import { rollWeather, type Weather } from './weather';
 import {
   clampSidewalkY,
@@ -43,6 +44,10 @@ export interface SaveData {
   cafe: CafeSave;
   rival?: RivalSave | null;
   regulars?: Pick<Regular, 'residentId' | 'history' | 'status' | 'lostReason'>[];
+  pendingEvent?: PendingEvent | null;
+  effects?: Effect[];
+  lastEvent?: Partial<Record<EventId, number>>;
+  eventRng?: number;
   milestones?: Partial<Record<MilestoneId, number>>;
   residents: {
     pos: Point;
@@ -80,7 +85,19 @@ export type SimEvent =
   | { type: 'aware'; residentId: number; source: AwareSource }
   | { type: 'bankrupt' }
   | { type: 'rival'; what: 'open' | 'promo' }
-  | { type: 'milestone'; id: MilestoneId };
+  | { type: 'milestone'; id: MilestoneId }
+  | { type: 'event'; id: EventId };
+
+/** Последствия событий, которые длятся какое-то время */
+export type Effect =
+  /** Сломалась кофемашина: без кофе (или медленнее, если есть вторая) до этого времени */
+  | { type: 'broken'; until: number; slow: boolean }
+  /** Праздник: гости охотнее заходят весь день */
+  | { type: 'boost'; day: number; factor: number }
+  /** Заказ офиса: в этот день и минуту забирают qty порций itemId */
+  | { type: 'order'; day: number; minute: number; itemId: string; qty: number; pay: number }
+  /** Блогер: на этот день выйдет обзор (или не выйдет) */
+  | { type: 'blogger'; day: number; success: boolean };
 
 /** Ядро симуляции. Не знает ничего об отрисовке — этот же код
  *  на этапе 2 переедет на сервер. */
@@ -97,6 +114,13 @@ export class Simulation {
   private readonly regularById = new Map<number, Regular>();
   /** Достигнутые вехи: id → день */
   readonly milestones: Partial<Record<MilestoneId, number>> = {};
+  /** Событие, по которому ждём решения игрока */
+  pendingEvent: PendingEvent | null = null;
+  effects: Effect[] = [];
+  /** Когда какое событие было в последний раз — чтобы не повторялись подряд */
+  private lastEvent: Partial<Record<EventId, number>> = {};
+  /** Свой генератор для событий: они не сдвигают жизнь жителей */
+  private readonly eventRng: Rng;
   private flyersToday = false;
   cash: number = ECONOMY.startCash;
   daysInRed = 0;
@@ -117,6 +141,7 @@ export class Simulation {
     this.seed = seed;
     this.rng = new Rng(seed);
     this.skyRng = new Rng(seed * 7919 + 13);
+    this.eventRng = new Rng(seed * 104729 + 7);
     this.time = startTime;
     this.day = dayNumber(startTime);
     this.cafe.today = Cafe.emptyDay(this.day);
@@ -161,6 +186,10 @@ export class Simulation {
       rival: this.rival?.toJSON() ?? null,
       regulars: this.regulars.map((g) => ({ residentId: g.residentId, history: g.history, status: g.status, lostReason: g.lostReason })),
       milestones: { ...this.milestones },
+      pendingEvent: this.pendingEvent,
+      effects: this.effects,
+      lastEvent: { ...this.lastEvent },
+      eventRng: this.eventRng.snapshot,
       residents: this.residents.map((r) => {
         const weekend = r.weekend.includes(r.entry);
         return {
@@ -210,6 +239,10 @@ export class Simulation {
       if (g) Object.assign(g, { history: s.history, status: s.status, lostReason: s.lostReason });
     }
     Object.assign(sim.milestones, d.milestones ?? {});
+    sim.pendingEvent = d.pendingEvent ?? null;
+    sim.effects = d.effects ?? [];
+    sim.lastEvent = { ...(d.lastEvent ?? {}) };
+    if (d.eventRng !== undefined) sim.eventRng.snapshot = d.eventRng;
     sim.applyDaySchedules();
     d.residents.forEach((s, i) => {
       const r = sim.residents[i];
@@ -446,6 +479,8 @@ export class Simulation {
       if (r.walking) this.walk(r, dt);
     }
 
+    this.cafe.serviceFactor = this.effects.some((e) => e.type === 'broken' && e.slow && this.time < e.until) ? 1.5 : 1;
+    this.fulfilOrders(minute);
     const { sales, failed } = this.cafe.tick(dt, minute);
     for (const sale of sales) this.onSale(sale.residentId, sale.price, sale.itemId);
     for (const id of failed) this.runOut(this.residents[id]);
@@ -493,11 +528,11 @@ export class Simulation {
     else if (!r.aware) reason = 'unaware';
     else {
       // Житель видит цены с учётом счастливых часов
-      const menu = cafe.menu.map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
+      const menu = cafe.menu.filter((m) => !this.blocked(m.kind)).map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
       const offer = evaluate(r, want, menu, r.pos, place(this.shopId).front, place(entry.placeId).front, this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
-      const pP = offer.item ? offer.p : 0;
+      const pP = offer.item ? Math.min(1, offer.p * this.boost) : 0;
       const pR = this.rivalChance(r, want, entry, minute);
       if (!offer.item) reason = 'no-item';
       else if (pR <= 0) {
@@ -552,8 +587,8 @@ export class Simulation {
     if (r.placeId !== this.shopId || v?.stage !== 'going') return;
     if (!this.cafe.isOpenAt(this.minute)) return this.dropVisit(r, 'closed');
     // Пришёл, а нужного нет: берёт замену, если есть, иначе уходит недовольным
-    if (!this.cafe.stock.canMake(v.itemId)) {
-      const available = this.cafe.menu.filter((m) => this.cafe.stock.canMake(m.id));
+    if (!this.cafe.stock.canMake(v.itemId) || this.blocked(this.cafe.item(v.itemId).kind)) {
+      const available = this.cafe.menu.filter((m) => this.cafe.stock.canMake(m.id) && !this.blocked(m.kind));
       const alt = evaluate(r, v.want, available, r.pos, r.pos, r.pos, this.weather.kind).item;
       if (!alt) return this.runOut(r);
       v.itemId = alt.id;
@@ -615,6 +650,7 @@ export class Simulation {
     else if (v.want.kind === 'lunch') [extra, chance] = [pick(['coffee', 'tea']), EXTRA.lunch];
     if (this.cafe.has('interior')) chance = Math.min(0.95, chance * UPGRADE_EFFECT.interiorExtra);
     if (!extra || !this.rng.chance(chance)) return;
+    if (this.blocked(this.cafe.item(extra).kind)) return;
     const price = this.cafe.sellExtra(extra, this.minute);
     if (price > 0) {
       this.cash += price;
@@ -663,10 +699,13 @@ export class Simulation {
       }
     }
     if (this.marketing.flyers) this.flyersToday = true;
-    if (d.cost === 0) return;
-    this.cash -= d.cost;
-    this.cafe.today.purchases += d.cost;
-    this.events.push({ type: 'delivery', cost: d.cost });
+    if (d.cost > 0) {
+      this.cash -= d.cost;
+      this.cafe.today.purchases += d.cost;
+      this.events.push({ type: 'delivery', cost: d.cost });
+    }
+    this.resolveBlogger();
+    this.rollEvent();
   }
 
   private learn(r: Resident, source: AwareSource): void {
@@ -780,6 +819,9 @@ export class Simulation {
       this.cafe.today.rivalPromo = this.rival.promo(this.day);
     }
     if (this.rival) this.rival.servedToday = 0;
+    // Не успели решить — срабатывает вариант по умолчанию
+    if (this.pendingEvent) this.applyChoice(card(this.pendingEvent).fallback, true);
+    this.effects = this.effects.filter((e) => !(e.type === 'boost' && e.day <= this.day) && !(e.type === 'broken' && e.until <= nextDay * MINUTES_PER_DAY - MINUTES_PER_DAY));
     const news = this.updateRegulars();
     if (news.length) this.cafe.today.news = news;
     const report = this.cafe.closeDay(nextDay);
@@ -807,6 +849,179 @@ export class Simulation {
     if (this.daysInRed >= ECONOMY.bankruptDays) {
       this.bankrupt = true;
       this.events.push({ type: 'bankrupt' });
+    }
+  }
+
+  // ——— События ———
+
+  /** Кофе не варится: сломалась единственная кофемашина */
+  private blocked(kind: string): boolean {
+    return kind === 'coffee' && this.effects.some((e) => e.type === 'broken' && !e.slow && this.time < e.until);
+  }
+
+  /** Множитель «захотели зайти» на сегодня (праздник) */
+  private get boost(): number {
+    const e = this.effects.find((x) => x.type === 'boost' && x.day === this.day);
+    return e && e.type === 'boost' ? e.factor : 1;
+  }
+
+  /** День открытия — от него считаем, когда начинаются события */
+  private get openedDay(): number {
+    return this.rival ? this.rival.opensDay - RIVAL.delayDays : this.day;
+  }
+
+  private rollEvent(): void {
+    if (!this.cafe.opened || this.pendingEvent || this.day < this.openedDay + EVENTS.fromDay) return;
+    if (!this.eventRng.chance(EVENTS.chance)) return;
+    const options = this.eligibleEvents().filter((e) => (this.lastEvent[e.id] ?? -99) <= this.day - EVENTS.cooldownDays);
+    if (options.length === 0) return;
+    // Взвешенный выбор: поломка реже остальных
+    const weights = options.map((e) => EVENTS.weight[e.id] ?? 1);
+    let roll = this.eventRng.next() * weights.reduce((a, b) => a + b, 0);
+    let chosen = options[options.length - 1];
+    for (let i = 0; i < options.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) {
+        chosen = options[i];
+        break;
+      }
+    }
+    this.startEvent(chosen);
+  }
+
+  /** Начать событие (вызывается и из тестов, и из отладки) */
+  startEvent(e: PendingEvent): void {
+    this.pendingEvent = e;
+    this.lastEvent[e.id] = this.day;
+    // Поломка и отгул случаются сразу — от выбора зависит только, как долго и за сколько
+    if (e.id === 'breakdown') this.effects.push({ type: 'broken', until: e.day * MINUTES_PER_DAY, slow: !!e.spareMachine });
+    if (e.id === 'day-off') {
+      const b = this.cafe.staff.find((x) => x.id === e.baristaId);
+      if (b) b.override = { day: e.day, on: false };
+    }
+    this.events.push({ type: 'event', id: e.id });
+  }
+
+  /** Какие события возможны сегодня — с подставленными подробностями */
+  eligibleEvents(): PendingEvent[] {
+    const cafe = this.cafe;
+    const day = this.day;
+    const wd = weekday(day);
+    const out: PendingEvent[] = [];
+    if (cafe.menu.some((m) => m.kind === 'coffee')) out.push({ id: 'breakdown', day, spareMachine: cafe.has('machine') });
+    if (wd === 5) out.push({ id: 'festival', day });
+    const perishable = (['milk', 'bakery', 'kitchen'] as IngredientId[]).filter((id) =>
+      cafe.menu.some((m) => Object.keys(RECIPES[m.id] ?? {}).includes(id)),
+    );
+    if (perishable.length) out.push({ id: 'supplier', day, ingredientId: perishable[day % perishable.length] });
+    const lunch = cafe.menu.find((m) => m.id === 'lunch') ?? cafe.menu.find((m) => m.kind === 'lunch');
+    if (lunch && wd <= 3) {
+      const pay = Math.round((lunch.price * EVENTS.order.qty * (1 - EVENTS.order.discount)) / 10) * 10;
+      const ingredientCost = Math.round(recipeCost(lunch.id) * EVENTS.order.qty);
+      out.push({ id: 'office-order', day, itemId: lunch.id, itemName: lunch.name, pay, ingredientCost });
+    }
+    if (this.awareCount < this.residents.length * 0.9) out.push({ id: 'blogger', day });
+    const shift = cafe.staff.find((b) => b.contract === 'shift' && b.schedule.days[wd]);
+    if (shift) out.push({ id: 'day-off', day, baristaId: shift.id });
+    return out;
+  }
+
+  /** Игрок выбрал вариант. false — если события нет или вариант неизвестен */
+  chooseEvent(optionId: string): boolean {
+    if (!this.pendingEvent) return false;
+    if (!card(this.pendingEvent).options.some((o) => o.id === optionId)) return false;
+    this.applyChoice(optionId, false);
+    return true;
+  }
+
+  private spend(amount: number): void {
+    this.cash -= amount;
+    this.cafe.today.other = (this.cafe.today.other ?? 0) + amount;
+  }
+
+  private applyChoice(optionId: string, auto: boolean): void {
+    const e = this.pendingEvent!;
+    this.pendingEvent = null;
+    const t = this.cafe.today;
+    (t.events ??= []).push(resultLine(e, optionId, auto));
+    switch (`${e.id}:${optionId}`) {
+      case 'breakdown:urgent':
+        this.spend(EVENTS.breakdown.urgentCost);
+        for (const x of this.effects) if (x.type === 'broken') x.until = Math.min(x.until, this.time + EVENTS.breakdown.urgentMinutes);
+        break;
+      case 'breakdown:later':
+        this.spend(EVENTS.breakdown.laterCost);
+        break;
+      case 'festival:stall':
+        this.spend(EVENTS.festival.cost);
+        this.effects.push({ type: 'boost', day: e.day, factor: EVENTS.festival.boost });
+        // Все, кто сегодня собирается в сквер, видят столик
+        for (const r of this.residents) if (r.schedule.some((s) => s.placeId === 'park')) this.learn(r, 'walk');
+        break;
+      case 'supplier:take': {
+        const p = supplierPrice(e.ingredientId!);
+        this.cafe.stock.addNow(e.ingredientId!, EVENTS.supplier.qty, this.day, p.sale / EVENTS.supplier.qty);
+        this.cash -= p.sale;
+        t.purchases += p.sale;
+        break;
+      }
+      case 'office-order:accept':
+        // Продукты под заказ покупаются отдельно и в склад не попадают
+        this.cash -= e.ingredientCost!;
+        t.purchases += e.ingredientCost!;
+        this.effects.push({ type: 'order', day: e.day + 1, minute: EVENTS.order.minute, itemId: e.itemId!, qty: EVENTS.order.qty, pay: e.pay! });
+        break;
+      case 'blogger:treat':
+        this.spend(EVENTS.blogger.cost);
+        this.effects.push({ type: 'blogger', day: e.day + 1, success: this.eventRng.chance(EVENTS.blogger.success) });
+        break;
+      case 'day-off:let':
+        break;
+      case 'day-off:ask': {
+        this.spend(Math.round(ECONOMY.shiftWage * EVENTS.dayOff.extra));
+        const b = this.cafe.staff.find((x) => x.id === e.baristaId);
+        if (b) b.override = null;
+        break;
+      }
+    }
+  }
+
+  /** Заказ офиса: в назначенное время стойка готовит весь заказ — новых гостей в это время не обслуживают */
+  private fulfilOrders(minute: number): void {
+    for (const e of [...this.effects]) {
+      if (e.type !== 'order' || e.day !== this.day || minute < e.minute) continue;
+      this.effects.splice(this.effects.indexOf(e), 1);
+      const cafe = this.cafe;
+      // Обеды для заказа готовят партией — вдвое быстрее, чем по одному
+      const prep = Math.ceil((e.qty * cafe.serviceMinutes * 0.5) / cafe.counters);
+      cafe.prepUntil = Math.floor(minute) + prep;
+      const t = cafe.today;
+      const name = CATALOG.find((c) => c.id === e.itemId)?.name ?? e.itemId;
+      this.cash += e.pay;
+      t.revenue += e.pay;
+      t.sold[e.itemId] = (t.sold[e.itemId] ?? 0) + e.qty;
+      (t.events ??= []).push(`🏢 Заказ офиса: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`);
+    }
+  }
+
+  /** Утром выходит (или не выходит) обзор блогера */
+  private resolveBlogger(): void {
+    for (const e of [...this.effects]) {
+      if (e.type !== 'blogger' || e.day > this.day) continue;
+      this.effects.splice(this.effects.indexOf(e), 1);
+      const t = this.cafe.today;
+      if (!e.success) {
+        (t.events ??= []).push('📱 Обзор блогера так и\u00a0не\u00a0вышел');
+        continue;
+      }
+      const fans = this.residents.filter((r) => !r.aware && (r.kind === 'youth' || r.kind === 'student' || r.kind === 'visitor'));
+      let n = 0;
+      for (const r of fans) {
+        if (n >= EVENTS.blogger.reach) break;
+        this.learn(r, 'social');
+        n += 1;
+      }
+      (t.events ??= []).push(`📱 Вышел обзор блогера: о\u00a0вас узнали ${n}\u00a0человек`);
     }
   }
 

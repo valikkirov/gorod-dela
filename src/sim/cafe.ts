@@ -112,6 +112,10 @@ export interface DayReport {
   milestones?: MilestoneId[];
   /** Потрачено на улучшения — вложение, в прибыль дня не входит */
   invested?: number;
+  /** Расходы на события: мастер, столик на празднике, угощение блогеру, доплата бариста */
+  other?: number;
+  /** Что случилось за день и что выбрали */
+  events?: string[];
 }
 
 /** Запись в истории изменений: «Капучино: 220 ₽ → 200 ₽» */
@@ -243,6 +247,7 @@ export interface CafeSave {
   lastPaidMinute: number;
   stock: StockSave;
   upgrades?: UpgradeId[];
+  prepUntil?: number;
 }
 
 /** Состояние кафе игрока */
@@ -258,6 +263,10 @@ export class Cafe {
   readonly stock = new Stock();
   /** Купленные улучшения */
   upgrades: UpgradeId[] = [];
+  /** Временное замедление (сломалась одна из двух кофемашин) — выставляет симуляция */
+  serviceFactor = 1;
+  /** До этой минуты дня стойка занята большим заказом и новых гостей не берёт */
+  prepUntil = -1;
   /** Цена в момент продажи (счастливые часы) — подставляет симуляция */
   pricing: (price: number, minute: number) => number = (p) => p;
   private nextStaffId = 1;
@@ -293,6 +302,7 @@ export class Cafe {
       lastPaidMinute: this.lastPaidMinute,
       stock: this.stock.toJSON(),
       upgrades: this.upgrades,
+      prepUntil: this.prepUntil,
     };
   }
 
@@ -323,6 +333,7 @@ export class Cafe {
     this.lastPaidMinute = d.lastPaidMinute;
     this.stock.load(d.stock);
     this.upgrades = [...(d.upgrades ?? [])];
+    this.prepUntil = d.prepUntil ?? -1;
     this.stock.shelfBonus = this.has('showcase') ? UPGRADE_EFFECT.showcaseShelfDays : 0;
   }
 
@@ -483,6 +494,8 @@ export class Cafe {
 
   /** Работает ли бариста прямо сейчас (при открытом кафе) */
   isWorking(b: Barista): boolean {
+    // Разовое решение на сегодня — вызвать почасового или отпустить любого (отгул)
+    if (b.override && b.override.day === this.day && !b.override.on) return false;
     if (b.contract === 'shift') return b.shiftActive && b.shiftMinutes < ECONOMY.shiftHours * 60;
     if (b.override && b.override.day === this.day) return b.override.on;
     return this.scheduledNow(b);
@@ -496,7 +509,7 @@ export class Cafe {
   /** Минут на одного гостя у одного «места за стойкой» */
   get serviceMinutes(): number {
     const base = this.baristas > 0 ? 2 : 4;
-    return this.has('machine') ? base * UPGRADE_EFFECT.machineService : base;
+    return (this.has('machine') ? base * UPGRADE_EFFECT.machineService : base) * this.serviceFactor;
   }
 
   get counters(): number {
@@ -535,7 +548,7 @@ export class Cafe {
     if (!this.isOpenAt(minute)) return result;
     this.payStaff(minute);
 
-    while (this.slots.length < this.counters && this.queue.length > 0) {
+    while (minute >= this.prepUntil && this.slots.length < this.counters && this.queue.length > 0) {
       const q = this.queue.shift()!;
       this.slots.push({ ...q, left: this.serviceMinutes });
     }
@@ -619,9 +632,10 @@ export class Cafe {
       r.wages = Math.round(this.wagesToday);
       r.tax = Math.round(r.revenue * ECONOMY.taxRate);
     }
-    r.profit = r.revenue - r.purchases - r.rent - r.utilities - r.wages - r.tax - r.marketing;
+    r.profit = r.revenue - r.purchases - r.rent - r.utilities - r.wages - r.tax - r.marketing - (r.other ?? 0);
     this.today = Cafe.emptyDay(nextDay);
     this.wagesToday = 0;
+    this.prepUntil = -1;
     return r;
   }
 }
