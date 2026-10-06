@@ -1260,3 +1260,11 @@ button.small.danger {
   display: block;
   color: var(--muted);
 }
+
+.insight .first-week {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}

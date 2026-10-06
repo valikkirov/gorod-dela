@@ -635,6 +635,13 @@ export class Hud {
     </li>`;
   }
 
+  /** Первая неделя почти всегда в минусе — говорим об этом, чтобы не бросали на третий день */
+  private firstWeekNote(r: DayReport): string {
+    const first = this.sim.reports.find((x) => x.opened);
+    if (!first || !r.opened || r.profit >= 0 || r.day - first.day >= 7) return '';
+    return `<p class="first-week">Первая неделя почти всегда в${NB}минусе: вывеска, реклама и${NB}стартовые закупки${NB}— это вложения в${NB}известность. Смотри не${NB}на${NB}итог, а${NB}растёт ли число гостей и${NB}тех, кто о${NB}тебе знает.</p>`;
+  }
+
   /** Событие ждёт решения — напоминание на обзоре */
   private eventBanner(): string {
     const e = this.sim.pendingEvent;
@@ -977,6 +984,7 @@ export class Hud {
       <div class="insight">
         <b>${a.headline}</b>
         ${a.factor ? `<p>${a.factor}</p>` : ''}
+        ${this.firstWeekNote(r)}
       </div>
       ${(r.milestones ?? []).map((id) => `<div class="milestone-hit">Веха: <b>${milestone(id).title}</b>${
         UPGRADES.some((u) => u.unlock === id && u.premises.includes(this.sim.cafe.premisesId))
