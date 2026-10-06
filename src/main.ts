@@ -5,6 +5,9 @@ import { StreetScene, type SceneHooks } from './game/StreetScene';
 import { autosave, loadGame } from './game/save';
 import { showTutorial, tutorialDone } from './game/tutorial';
 import { Simulation } from './sim/simulation';
+import { initMetrika } from './game/metrika';
+
+initMetrika();
 import { WORLD } from './sim/world';
 
 const params = new URLSearchParams(location.search);

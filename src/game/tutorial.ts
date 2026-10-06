@@ -1,4 +1,6 @@
-// Обучение на 30 секунд: четыре карточки при первом запуске. Повторить — «Как играть» внизу панели.
+import { goal } from './metrika';
+
+// Обучение на 30 секунд: пять карточек при первом запуске. Повторить — «Как играть» внизу панели.
 const KEY = 'gorod-dela:tutorial-done-2';
 const NB = ' ';
 
@@ -77,9 +79,15 @@ export function showTutorial(hud: SpeedControl): void {
   };
   root.addEventListener('click', (ev) => {
     const t = (ev.target as HTMLElement).closest<HTMLElement>('[data-t]')?.dataset.t;
-    if (t === 'skip') close();
+    if (t === 'skip') {
+      goal('tutorial_skip', { step: step + 1 });
+      close();
+    }
     if (t === 'next') {
-      if (step === STEPS.length - 1) close();
+      if (step === STEPS.length - 1) {
+        goal('tutorial_done');
+        close();
+      }
       else {
         step += 1;
         render();

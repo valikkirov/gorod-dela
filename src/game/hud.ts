@@ -36,6 +36,7 @@ import { clearSave } from './save';
 import { openFeedback } from './feedback';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
+import { goal } from './metrika';
 import { card } from '../sim/events';
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
@@ -171,11 +172,16 @@ export class Hud {
   }
 
   onDayEnd(): void {
+    // Сколько дней прожило заведение — главный показатель удержания
+    const opened = this.sim.reports.filter((r) => r.opened).length;
+    if ([1, 3, 7, 14, 28].includes(opened)) goal(`day_${opened}`, { premises: this.sim.cafe.premisesId });
+    for (const id of this.sim.reports.at(-1)?.milestones ?? []) goal('milestone', { id });
     if (this.view !== 'resident') this.view = 'report';
     this.render(true);
   }
 
   onBankrupt(): void {
+    goal('bankrupt', { day: this.sim.today, premises: this.sim.cafe.premisesId });
     this.setSpeed(0);
     this.render(true);
   }
@@ -207,7 +213,7 @@ export class Hud {
     const sim = this.sim;
     switch (action) {
       case 'open-cafe':
-        sim.openCafe((item as PremisesId) ?? 'cafe');
+        if (sim.openCafe((item as PremisesId) ?? 'cafe')) goal('open', { premises: item });
         this.tab = 'overview';
         break;
       case 'price-up':
@@ -284,7 +290,7 @@ export class Hud {
         this.selectInScene(sim.residents[Number(item)]);
         return;
       case 'buy-upgrade':
-        sim.buyUpgrade(item as UpgradeId);
+        if (sim.buyUpgrade(item as UpgradeId)) goal('upgrade', { id: item });
         break;
       case 'skip-morning':
         sim.skipToMorning();
@@ -301,6 +307,7 @@ export class Hud {
         showEventCard(sim, this, () => this.render(true));
         return;
       case 'feedback':
+        goal('feedback');
         openFeedback(this.sim);
         return;
       case 'tutorial':
@@ -355,6 +362,7 @@ export class Hud {
 
   /** Новая игра: стереть сохранение и перезапустить */
   private restart(): void {
+    goal('restart', { day: this.sim.today });
     window.dispatchEvent(new Event('gorod-dela:reset'));
     clearSave();
     location.href = location.pathname;

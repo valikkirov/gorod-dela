@@ -2,6 +2,7 @@
 // напоминание останется на вкладке «Обзор»; не решил до конца дня — сработает вариант по умолчанию.
 import { card } from '../sim/events';
 import type { Simulation } from '../sim/simulation';
+import { goal } from './metrika';
 
 const NB = ' ';
 
@@ -48,7 +49,7 @@ export function showEventCard(sim: Simulation, hud: SpeedControl, onDone: () => 
   root.addEventListener('click', (ev) => {
     const id = (ev.target as HTMLElement).closest<HTMLElement>('[data-choice]')?.dataset.choice;
     if (!id) return;
-    if (id !== 'later') sim.chooseEvent(id);
+    if (id !== 'later' && sim.chooseEvent(id)) goal('event', { id: e.id, choice: id });
     close();
   });
 }
