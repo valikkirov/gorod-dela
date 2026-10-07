@@ -9,6 +9,7 @@ import { initMetrika } from './game/metrika';
 import { CHALLENGE, isChallenge, saveKeyFor } from './game/challenge';
 import { Drawer, isWide } from './game/drawer';
 import { sound } from './game/sound';
+import { initSoundPanel } from './game/soundPanel';
 
 initMetrika();
 
@@ -78,18 +79,9 @@ if (!params.has('seed') && !tutorialDone()) showTutorial(hud);
 // Канвас подстраивается под место между верхней панелью и карточкой
 new ResizeObserver(() => game.scale.resize(Math.max(1, gameEl.clientWidth * DPR), Math.max(1, gameEl.clientHeight * DPR))).observe(gameEl);
 
-// Звук: кнопка в шапке; щелчки по кнопкам интерфейса
+// Звук: кнопка над масштабом открывает настройки; щелчки по кнопкам интерфейса
+initSoundPanel();
 const soundBtn = document.getElementById('sound')!;
-const showSound = () => {
-  soundBtn.textContent = sound.enabled ? '🔊' : '🔇';
-  soundBtn.setAttribute('aria-label', sound.enabled ? 'Выключить звук' : 'Включить звук');
-  soundBtn.classList.toggle('active', sound.enabled);
-};
-showSound();
-soundBtn.addEventListener('click', () => {
-  sound.toggle();
-  showSound();
-});
 // Браузер разрешает звук только после жеста: включённый в прошлый раз звук стартует с первого нажатия
 window.addEventListener('pointerdown', () => sound.resumeIfEnabled(), { once: true, capture: true });
 document.addEventListener('click', (ev) => {

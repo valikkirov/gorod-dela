@@ -7,10 +7,15 @@ const URLS = import.meta.glob('./sound/*.mp3', { eager: true, query: '?url', imp
 const url = (name: string): string => URLS[`./sound/${name}.mp3`];
 
 const KEY = 'gorod-dela:sound';
+const MIX_KEY = 'gorod-dela:sound-mix';
 
 /** Громкость групп: фон улицы, музыка, короткие звуки */
 const BUS = { amb: 0.55, music: 0.28, sfx: 0.75 } as const;
-type Bus = keyof typeof BUS;
+export type Bus = keyof typeof BUS;
+
+/** Громкость, которую выставил игрок: 0–1 для каждой группы */
+export type Mix = Record<Bus, number>;
+export const BUS_LABEL: Record<Bus, string> = { amb: 'Звуки города', music: 'Музыка', sfx: 'Эффекты' };
 
 /** Сколько миллисекунд звук не повторяется — чтобы на ×4 касса не трещала */
 const THROTTLE: Record<string, number> = {
@@ -38,6 +43,7 @@ interface Loop {
 
 class SoundSystem {
   enabled = readEnabled();
+  mix: Mix = readMix();
   private ctx: AudioContext | null = null;
   private buses = {} as Record<Bus, GainNode>;
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
@@ -70,6 +76,19 @@ class SoundSystem {
     return this.enabled;
   }
 
+  /** Громкость группы; на нуле её петли останавливаются и не грузятся */
+  setLevel(bus: Bus, level: number): void {
+    this.mix[bus] = Math.min(1, Math.max(0, level));
+    try {
+      localStorage.setItem(MIX_KEY, JSON.stringify(this.mix));
+    } catch {
+      /* без хранилища — до перезагрузки */
+    }
+    const g = this.buses[bus];
+    if (g && this.ctx) g.gain.setTargetAtTime(BUS[bus] * this.mix[bus], this.ctx.currentTime, 0.05);
+    this.lastScene = 0;
+  }
+
   /** Первый жест на странице: если звук был включён в прошлый раз — запускаем */
   resumeIfEnabled(): void {
     if (this.enabled) this.start();
@@ -82,7 +101,7 @@ class SoundSystem {
       this.ctx = new Ctx();
       for (const bus of Object.keys(BUS) as Bus[]) {
         const g = this.ctx.createGain();
-        g.gain.value = BUS[bus];
+        g.gain.value = BUS[bus] * this.mix[bus];
         g.connect(this.ctx.destination);
         this.buses[bus] = g;
       }
@@ -111,7 +130,7 @@ class SoundSystem {
 
   /** Короткий звук. volume — доля от громкости группы */
   play(name: string, volume = 1): void {
-    if (!this.enabled || !this.ctx || this.ctx.state !== 'running') return;
+    if (!this.enabled || !this.ctx || this.ctx.state !== 'running' || this.mix.sfx === 0) return;
     const key = name.replace(/-\d$/, '');
     const now = performance.now();
     if (now - (this.last.get(key) ?? -1e9) < (THROTTLE[key] ?? 0)) return;
@@ -140,10 +159,11 @@ class SoundSystem {
     if (now - this.lastScene < 1000) return;
     this.lastScene = now;
     const s = scenery(minute);
-    this.setLoop('amb', s.amb, 'amb', 1);
-    this.setLoop('music', s.music, 'music', 1);
-    this.setLoop('rain', rain ? 'amb-rain' : null, 'amb', 0.9);
-    this.setLoop('festival', festival ? 'sfx-festival' : null, 'amb', 0.7);
+    const amb = this.mix.amb > 0;
+    this.setLoop('amb', amb ? s.amb : null, 'amb', 1);
+    this.setLoop('music', this.mix.music > 0 ? s.music : null, 'music', 1);
+    this.setLoop('rain', amb && rain ? 'amb-rain' : null, 'amb', 0.9);
+    this.setLoop('festival', amb && festival ? 'sfx-festival' : null, 'amb', 0.7);
   }
 
   private setLoop(slot: string, name: string | null, bus: Bus, volume: number): void {
@@ -179,6 +199,17 @@ class SoundSystem {
       /* петля ещё не успела загрузиться и не стартовала */
     }
   }
+}
+
+function readMix(): Mix {
+  const mix: Mix = { amb: 1, music: 1, sfx: 1 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(MIX_KEY) ?? '{}') as Partial<Mix>;
+    for (const k of Object.keys(mix) as Bus[]) if (typeof saved[k] === 'number') mix[k] = Math.min(1, Math.max(0, saved[k]!));
+  } catch {
+    /* по умолчанию всё на максимуме */
+  }
+  return mix;
 }
 
 function readEnabled(): boolean {
