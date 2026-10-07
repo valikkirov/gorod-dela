@@ -40,6 +40,10 @@ import { showEventCard } from './eventCard';
 import { goal } from './metrika';
 import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
 import { card } from '../sim/events';
+import cardKiosk from './art/cards/card-kiosk.webp';
+import cardCafe from './art/cards/card-cafe.webp';
+
+const PREMISES_PIC: Record<PremisesId, string> = { kiosk: cardKiosk, cafe: cardCafe };
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
 // и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.
@@ -531,6 +535,7 @@ export class Hud {
     const pr = PREMISES[id];
     const canAfford = this.sim.cash >= pr.openingCost;
     return `<li class="premises">
+      <img class="premises-pic" src="${PREMISES_PIC[id]}" alt="" width="320" height="160" />
       <div class="row"><b class="grow">${pr.name}</b><span class="badge">аренда ${money(pr.rentPerDay * 30)}/мес</span></div>
       <small>${pr.about}. Коммуналка — за${NB}часы работы, налог 6${NB}% с${NB}выручки.</small>
       <button class="primary" data-action="open-cafe" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>

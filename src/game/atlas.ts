@@ -2,6 +2,7 @@
 // Координаты кадров — в единицах 1× (как в Figma), PNG выгружены в 2×.
 // Как обновить арт: см. scripts/README.md.
 import buildingsUrl from './art/buildings.png';
+import extraUrl from './art/extra.png';
 import groundUrl from './art/ground.png';
 import lightsUrl from './art/lights.png';
 import peopleUrl from './art/people.png';
@@ -27,6 +28,39 @@ const FACINGS: Facing[] = ['down', 'up', 'right'];
 type Frames = Record<string, [x: number, y: number, w: number, h: number]>;
 
 export const ATLASES: Record<string, { url: string; frames: Frames }> = {
+  // Второй набор (октябрь): конкуренты, новые дома, транспорт, свет, улучшения и события
+  extra: {
+    url: extraUrl,
+    frames: {
+      'building-cafe-rival': [4, 4, 240, 200],
+      'building-cafe-rival-lights': [248, 4, 240, 200],
+      'building-home-c-left': [736, 4, 240, 180],
+      'building-home-c-left-lights': [736, 208, 240, 180],
+      'building-home-c-right': [4, 208, 240, 180],
+      'building-home-c-right-lights': [4, 392, 240, 180],
+      'building-home-d-left': [248, 208, 240, 180],
+      'building-home-d-left-lights': [248, 392, 240, 180],
+      'building-home-d-right': [492, 208, 240, 180],
+      'building-home-d-right-lights': [492, 392, 240, 180],
+      'building-kiosk-rival': [740, 576, 120, 84],
+      'building-kiosk-rival-lights': [864, 576, 120, 84],
+      'bus-down': [652, 576, 40, 110],
+      'bus-up': [696, 576, 40, 110],
+      'car-a-down': [232, 740, 32, 56],
+      'car-a-up': [268, 740, 32, 56],
+      'car-b-down': [304, 740, 32, 56],
+      'car-b-up': [340, 740, 32, 56],
+      'car-c-down': [376, 740, 32, 56],
+      'car-c-up': [412, 740, 32, 56],
+      'light-lamp-pool': [4, 740, 120, 80],
+      'light-shop-spill': [448, 740, 200, 40],
+      'overlay-cafe-interior': [492, 4, 240, 200],
+      'overlay-cafe-showcase': [652, 740, 94, 32],
+      'prop-cafe-terrace': [794, 740, 180, 24],
+      'prop-festival-tent': [128, 740, 100, 80],
+      'prop-sign-no-coffee': [750, 740, 40, 30],
+    },
+  },
   ground: {
     url: groundUrl,
     frames: {
@@ -99,4 +133,14 @@ function peopleFrames(): Frames {
     });
   });
   return frames;
+}
+
+/** В каком атласе лежит кадр — спрайты из разных наборов можно смешивать */
+const FRAME_TEXTURE = new Map<string, string>();
+for (const [key, atlas] of Object.entries(ATLASES)) for (const name of Object.keys(atlas.frames)) FRAME_TEXTURE.set(name, key);
+
+export function textureOf(frame: string): string {
+  const key = FRAME_TEXTURE.get(frame);
+  if (!key) throw new Error(`Нет кадра ${frame} в атласах`);
+  return key;
 }
