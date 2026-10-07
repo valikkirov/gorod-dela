@@ -1747,3 +1747,13 @@ button.small.danger {
   border-radius: 10px;
   object-fit: cover;
 }
+
+/* Кнопка звука — в стопке кнопок карты, отделена от масштаба */
+#zoom #sound {
+  margin-bottom: 6px;
+  font-size: 17px;
+}
+
+#zoom #sound.active {
+  border-color: var(--ink);
+}

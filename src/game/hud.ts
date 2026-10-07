@@ -38,6 +38,7 @@ import { openFeedback } from './feedback';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
 import { goal } from './metrika';
+import { sound } from './sound';
 import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
 import { card } from '../sim/events';
 import cardKiosk from './art/cards/card-kiosk.webp';
@@ -150,6 +151,7 @@ export class Hud {
   private view: View = 'cafe';
   private selected: Resident | null = null;
   private selectedPlace: Place | null = null;
+  private wasNegative = false;
   private lastRender = 0;
   private lastHtml = '';
   private lastView = '';
@@ -246,6 +248,8 @@ export class Hud {
     const opened = this.sim.reports.filter((r) => r.opened).length;
     if ([1, 3, 7, 14, 28].includes(opened)) goal(`day_${opened}`, { premises: this.sim.cafe.premisesId });
     for (const id of this.sim.reports.at(-1)?.milestones ?? []) goal('milestone', { id });
+    sound.play('ui-day-end', 0.8);
+    if (this.sim.reports.at(-1)?.milestones?.length) setTimeout(() => sound.play('ui-milestone'), 900);
     if (this.view !== 'resident') this.view = 'report';
     this.render(true);
   }
@@ -260,6 +264,7 @@ export class Hud {
   onBankrupt(): void {
     this.checkChallenge();
     goal('bankrupt', { day: this.sim.today, premises: this.sim.cafe.premisesId });
+    sound.play('ui-bankrupt');
     this.setSpeed(0);
     this.render(true);
   }
@@ -281,7 +286,12 @@ export class Hud {
     if (e && key !== this.eventShown && !document.querySelector('.overlay')) {
       this.eventShown = key;
       showEventCard(this.sim, this, () => this.render(true));
+      sound.play('ui-event');
     }
+    // Касса ушла в минус — тихое предупреждение
+    const negative = this.sim.cash < 0;
+    if (negative && !this.wasNegative) sound.play('ui-money-low');
+    this.wasNegative = negative;
     this.render();
   }
 
@@ -403,7 +413,10 @@ export class Hud {
         this.selectInScene(sim.residents[Number(item)]);
         return;
       case 'buy-upgrade':
-        if (sim.buyUpgrade(item as UpgradeId)) goal('upgrade', { id: item });
+        if (sim.buyUpgrade(item as UpgradeId)) {
+          goal('upgrade', { id: item });
+          sound.play('ui-upgrade');
+        }
         break;
       case 'skip-morning':
         sim.skipToMorning();

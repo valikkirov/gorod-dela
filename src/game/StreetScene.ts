@@ -8,6 +8,7 @@ import { PARK_TOP, place, PLACES, ROAD, WORLD, GRID, type Place } from '../sim/w
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Facing } from './atlas';
 import { Traffic } from './traffic';
+import { sound } from './sound';
 import type { RejectReason } from '../sim/cafe';
 
 export interface SceneHooks {
@@ -421,6 +422,7 @@ export class StreetScene extends Phaser.Scene {
     this.drawSky(time);
     this.drawPeople(time);
     this.traffic.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
+    this.updateSound();
     this.hooks.onFrame();
   }
 
@@ -486,6 +488,8 @@ export class StreetScene extends Phaser.Scene {
     const sim = this.hooks.sim;
     for (const e of sim.drainEvents()) {
       if (e.type === 'sale') {
+        sound.sale();
+        if (sim.cafe.menu.find((m) => m.id === e.itemId)?.kind === 'coffee' && Math.random() < 0.3) sound.play('sfx-coffee', 0.6);
         const c = place(sim.shopId).rect;
         this.float(c.x + c.w / 2, c.y + Math.min(c.h - 70, 30), `+${formatMoney(e.price)}`, '#2e8b57', 24);
       } else if (e.type === 'reject') {
@@ -506,6 +510,21 @@ export class StreetScene extends Phaser.Scene {
         this.hooks.onBankrupt();
       }
     }
+  }
+
+  private wasOpen = false;
+  private wasBroken = false;
+
+  /** Звук улицы по времени суток и погоде; дверь утром и поломка — по смене состояния */
+  private updateSound(): void {
+    const sim = this.hooks.sim;
+    sound.update(sim.minute, sim.weather.kind === 'rain', sim.effects.some((e) => e.type === 'boost' && e.day === sim.today));
+    const open = sim.cafe.opened && sim.cafe.isOpenAt(sim.minute);
+    if (open && !this.wasOpen) sound.play('sfx-door', 0.7);
+    this.wasOpen = open;
+    const broken = sim.effects.some((e) => e.type === 'broken' && sim.time < e.until);
+    if (broken && !this.wasBroken) sound.play('sfx-broken', 0.8);
+    this.wasBroken = broken;
   }
 
   /** Всплывающая подпись: поднимается и тает за ~1,5 с реального времени */

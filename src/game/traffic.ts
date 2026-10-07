@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import type { Simulation } from '../sim/simulation';
 import { ROAD } from '../sim/world';
 import { ART_SCALE, textureOf } from './atlas';
+import { sound } from './sound';
 
 type Lane = 'down' | 'up';
 
@@ -70,6 +71,7 @@ export class Traffic {
     const startY = lane === 'down' ? TOP - 20 : ROAD.bottom + 20;
     if (this.cars.some((v) => v.lane === lane && Math.abs(v.y - startY) < 90)) return;
     const frame = bus ? `bus-${lane}` : `${CARS[Math.floor(Math.random() * CARS.length)]}-${lane}`;
+    if (!bus) sound.play('sfx-car-pass', 0.3);
     const sprite = this.scene.add
       .image(LANE_X[lane], startY, textureOf(frame), frame)
       .setScale(1 / ART_SCALE)
@@ -112,6 +114,7 @@ export class Traffic {
     }
     // Автобус стоит на остановке
     if (v.bus && v.wait > 0 && v.y <= BUS.stopY + 2) {
+      if (v.wait === BUS.waitSeconds) sound.play('sfx-bus', 0.45);
       v.wait -= dt;
       blocked = true;
     }
