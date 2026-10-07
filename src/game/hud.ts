@@ -1,4 +1,5 @@
 import {
+  CAFE_NAME_MAX,
   CATALOG,
   KIND_TITLE,
   MAX_MENU,
@@ -55,6 +56,46 @@ const $ = <T extends HTMLElement>(sel: string): T => {
   return el;
 };
 
+/** Подсказка под картой: что сейчас происходит на улице в это время суток */
+function streetNote(minute: number, weekend: boolean): string {
+  const h = minute / 60;
+  const [title, text] =
+    h < 6
+      ? ['Ночь', `Почти все спят. Ночью работать дорого: +20${NB}% к${NB}зарплате.`]
+      : h < 7
+        ? ['Город просыпается', `Первые жители идут к${NB}метро.`]
+        : weekend && h < 15
+          ? ['Выходной', `Офисы закрыты, у${NB}метро тише. Жители гуляют и${NB}не${NB}спешат.`]
+          : h < 10
+            ? ['Утренний поток', `Офисные и${NB}студенты спешат: очередь их отпугивает.`]
+            : h < 12
+              ? ['Затишье', `На${NB}улице пенсионеры и${NB}фрилансеры, им не${NB}к${NB}спеху.`]
+              : h < 15
+                ? ['Обед', `Офисы выходят поесть: нужна еда, а${NB}не${NB}только кофе.`]
+                : h < 18
+                  ? ['После обеда', `Студенты возвращаются, молодёжь гуляет в${NB}сквере.`]
+                  : h < 21
+                    ? ['Вечер', `Все идут домой, молодёжь${NB}— гулять и${NB}в${NB}бар.`]
+                    : ['Поздний вечер', `Улица пустеет: остаются ночные смены и${NB}молодёжь.`];
+  return `<b>${title}</b> <span>${text}</span>`;
+}
+
+/** 1 гость, 2 гостя, 5 гостей */
+const plural = (n: number, one: string, few: string, many: string): string => {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return many;
+  if (b === 1) return one;
+  if (b >= 2 && b <= 4) return few;
+  return many;
+};
+
+/** Маленькие числа словом — «два гостя», остальные цифрами */
+const numWord = (n: number): string => ({ 2: 'два', 3: 'три', 4: 'четыре' })[n] ?? String(n);
+
+const escapeHtml = (s: string): string =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
 const fmtMinute = (m: number): string =>
   `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.floor(m) % 60).padStart(2, '0')}`;
 
@@ -110,10 +151,16 @@ export class Hud {
   private lastView = '';
   private live: Record<string, string> = {};
   private liveWidth: Record<string, string> = {};
+  private liveClass: Record<string, string> = {};
   private readonly clock = $('#clock');
   private readonly cash = $('#cash');
   private readonly panel = $('#panel');
+  private readonly note = $('#street-note');
   private catalogOpen = false;
+  /** Игрок вводит название заведения; на это время игра на паузе */
+  private renaming: { resume: number } | null = null;
+  /** Развернуть нижний лист на телефоне — подставляет main */
+  onExpand: () => void = () => {};
   private confirmRestart = false;
   private tab: CafeTab = 'overview';
   /** Какое событие уже показали карточкой — второй раз сама не всплывает */
@@ -147,7 +194,7 @@ export class Hud {
     });
     speeds.append(skip);
     window.addEventListener('keydown', (ev) => {
-      if (ev.target instanceof HTMLSelectElement) return;
+      if (ev.target instanceof HTMLSelectElement || ev.target instanceof HTMLInputElement) return;
       if (ev.code === 'Space') {
         ev.preventDefault();
         this.setSpeed(this.speed === 0 ? 1 : 0);
@@ -157,6 +204,12 @@ export class Hud {
     });
     this.panel.addEventListener('click', (ev) => this.onClick(ev));
     this.panel.addEventListener('change', (ev) => this.onChange(ev));
+    this.panel.addEventListener('keydown', (ev) => {
+      const t = ev.target as HTMLElement;
+      if (t.dataset.action !== 'rename-input') return;
+      if (ev.key === 'Enter') this.finishRename(true);
+      if (ev.key === 'Escape') this.finishRename(false);
+    });
     this.setSpeed(1);
     this.render(true);
   }
@@ -216,6 +269,8 @@ export class Hud {
     const clock = `<b>${WEEKDAY_SHORT[weekday(day)]} · ${formatClock(this.sim.time)}</b><small>${dayText} · ${weatherShort(this.sim.weather)}</small>`;
     if (this.clock.innerHTML !== clock) this.clock.innerHTML = clock;
     this.cash.textContent = money(this.sim.cash);
+    const note = streetNote(this.sim.minute, isWeekend(day));
+    if (this.note.innerHTML !== note) this.note.innerHTML = note;
     this.cash.classList.toggle('neg', this.sim.cash < 0);
     const e = this.sim.pendingEvent;
     const key = e ? `${e.id}:${e.day}` : '';
@@ -228,6 +283,16 @@ export class Hud {
 
   // ——— Действия ———
 
+  private finishRename(save: boolean): void {
+    if (!this.renaming) return;
+    const input = this.panel.querySelector<HTMLInputElement>('input[data-action="rename-input"]');
+    if (save && input) this.sim.cafe.rename(input.value);
+    const resume = this.renaming.resume;
+    this.renaming = null;
+    this.setSpeed(resume || 1);
+    this.render(true);
+  }
+
   private onClick(ev: Event): void {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
     if (!btn || btn.tagName === 'SELECT') return;
@@ -237,6 +302,7 @@ export class Hud {
       case 'open-cafe':
         if (sim.openCafe((item as PremisesId) ?? 'cafe')) goal('open', { premises: item });
         this.tab = 'overview';
+        this.panel.scrollTop = 0;
         break;
       case 'price-up':
       case 'price-down': {
@@ -257,6 +323,27 @@ export class Hud {
       case 'tab':
         this.tab = item as CafeTab;
         this.panel.scrollTop = 0;
+        break;
+      case 'expand':
+        this.onExpand();
+        return;
+      case 'rename':
+        this.renaming = { resume: this.speed };
+        this.setSpeed(0);
+        this.render(true);
+        this.panel.querySelector<HTMLInputElement>('input[data-action="rename-input"]')?.focus();
+        return;
+      case 'rename-save':
+        this.finishRename(true);
+        return;
+      case 'rename-cancel':
+        this.finishRename(false);
+        return;
+      case 'insight':
+        // Кнопка под «Что происходит»: открыть нужный раздел управления
+        this.tab = item as CafeTab;
+        this.panel.scrollTop = 0;
+        this.onExpand();
         break;
       case 'order':
         sim.orderIngredient(item as IngredientId, Number(btn.dataset.qty));
@@ -407,6 +494,7 @@ export class Hud {
   private render(force = false): void {
     this.live = {};
     this.liveWidth = {};
+    this.liveClass = {};
     const html = this.sim.bankrupt
       ? this.bankruptView()
       : this.view === 'resident' && this.selected
@@ -421,7 +509,7 @@ export class Hud {
     if (force || html !== this.lastHtml) {
       this.lastHtml = html;
       this.panel.innerHTML = html;
-      const viewKey = this.sim.bankrupt ? 'bankrupt' : `${this.view}:${this.selected?.id ?? ''}:${this.selectedPlace?.id ?? ''}`;
+      const viewKey = this.sim.bankrupt ? 'bankrupt' : `${this.sim.cafe.opened}:${this.view}:${this.selected?.id ?? ''}:${this.selectedPlace?.id ?? ''}`;
       if (viewKey !== this.lastView) this.panel.scrollTop = 0;
       this.lastView = viewKey;
     }
@@ -432,6 +520,10 @@ export class Hud {
     for (const [key, value] of Object.entries(this.live)) {
       const el = this.panel.querySelector(`[data-live="${key}"]`);
       if (el && el.textContent !== value) el.textContent = value;
+    }
+    for (const [key, value] of Object.entries(this.liveClass)) {
+      const el = this.panel.querySelector<HTMLElement>(`[data-live="${key}"]`);
+      if (el && el.dataset.tone !== value) el.dataset.tone = value;
     }
   }
 
@@ -478,7 +570,7 @@ export class Hud {
       const rival = sim.rival && sim.cafe.opened && sim.rival.placeId === p.id ? sim.rival : null;
       if (mine) {
         const open = sim.cafe.isOpenAt(sim.minute);
-        return `${head(sim.cafe.premises.mine, open ? 'открыто' : 'закрыто')}
+        return `${head(sim.cafe.title, open ? 'открыто' : 'закрыто')}
           <div class="facts"><div>Гостей сегодня: ${sim.cafe.today.guests} · выручка ${money(sim.cafe.today.revenue)}</div></div>
           ${people(inside, 'Сейчас внутри')}
           <button class="primary" data-action="back">К${NB}управлению кафе</button>`;
@@ -621,6 +713,7 @@ export class Hud {
       body = `
       ${this.cashWarning()}
       ${this.eventBanner()}
+      ${this.insightBlock()}
       <div class="kpis">
         <div><small>Гостей сегодня</small><b data-live="guests"></b></div>
         <div><small>Выручка</small><b data-live="revenue"></b></div>
@@ -666,9 +759,84 @@ export class Hud {
     }
 
     return `
-      <div class="row head"><b>${cafe.premises.mine}</b><span class="badge ${open ? 'on' : ''}" data-live="status"></span></div>
+      ${this.bizHeader(open)}
       ${tabBar}
       ${body}`;
+  }
+
+  /**
+   * Шапка заведения. На телефоне в свёрнутом листе видна только она: название, статус,
+   * итог дня на этот момент и кнопка «Открыть управление».
+   */
+  private bizHeader(open: boolean): string {
+    const cafe = this.sim.cafe;
+    const t = cafe.today;
+    // Итог «на сейчас»: аренда и коммуналка за весь день уже вычтены, чтобы утренний плюс не обманывал
+    const running = Math.round(
+      t.revenue - t.purchases - cafe.wagesSoFar - t.revenue * ECONOMY.taxRate - t.marketing - (t.other ?? 0) - cafe.premises.rentPerDay - cafe.utilitiesPerDay,
+    );
+    this.live['biz-result'] = `${running > 0 ? '+' : ''}${money(running)}`;
+    this.live['biz-guests'] = `${t.guests}${NB}${plural(t.guests, 'гость', 'гостя', 'гостей')}`;
+    this.liveClass['biz-result'] = running >= 0 ? 'pos' : 'neg';
+    const name = this.renaming
+      ? `<div class="rename">
+          <input data-action="rename-input" maxlength="${CAFE_NAME_MAX}" value="${escapeHtml(cafe.title)}" aria-label="Название заведения" enterkeyhint="done" />
+          <button class="small" data-action="rename-save">Готово</button>
+          <button class="icon" data-action="rename-cancel" aria-label="Отмена">✕</button>
+        </div>`
+      : `<div class="biz-name"><b>${escapeHtml(cafe.title)}</b><button class="icon" data-action="rename" aria-label="Переименовать" title="Переименовать">✎</button></div>`;
+    return `<header class="biz">
+      <small class="eyebrow">Твоё заведение</small>
+      ${name}
+      <div class="biz-line"><span class="biz-status ${open ? 'on' : ''}" data-live="status"></span></div>
+      <div class="biz-line" title="Выручка минус закупки, зарплаты, налог, аренда и${NB}коммуналка за${NB}день">Сегодня пока <b data-live="biz-result"></b> · <span data-live="biz-guests"></span></div>
+      <button class="link only-peek" data-action="expand">Открыть управление</button>
+    </header>`;
+  }
+
+  /**
+   * «Что происходит»: главное наблюдение за последние два часа и один следующий шаг.
+   * Только факты — кто и почему не зашёл; вывод делает игрок.
+   */
+  private insightBlock(): string {
+    const sim = this.sim;
+    const cafe = sim.cafe;
+    const t = cafe.today;
+    const minute = sim.minute;
+    const h = Math.floor(minute / 60) % 24;
+    const from = (h + 23) % 24;
+    const hours = [from, h];
+    const span = `С${NB}${fmtMinute(from * 60)} до${NB}${fmtMinute(((h + 1) % 24) * 60)}`;
+    const count = (reason: RejectReason) => hours.reduce((n, x) => n + (t.lostHour?.[reason]?.[x] ?? 0), 0);
+    const rules: { reasons: RejectReason[]; text: (n: string) => string; tab: CafeTab; action: string }[] = [
+      { reasons: ['queue', 'no-time'], text: (n) => `${n} ушли из-за${NB}очереди`, tab: 'staff', action: 'Настроить смены' },
+      { reasons: ['out-of-stock'], text: (n) => `${n} не${NB}получили заказ: кончились продукты`, tab: 'stock', action: 'Открыть склад' },
+      { reasons: ['expensive'], text: (n) => `${n} решили, что дорого`, tab: 'menu', action: 'Посмотреть цены' },
+      { reasons: ['rival'], text: (n) => `${n} ушли к${NB}конкуренту`, tab: 'menu', action: 'Сравнить цены' },
+      { reasons: ['no-item'], text: (n) => `${n} не${NB}нашли нужного в${NB}меню`, tab: 'menu', action: 'Изменить меню' },
+      { reasons: ['closed'], text: (n) => `${n} пришли, а${NB}было закрыто`, tab: 'overview', action: 'Часы работы' },
+      { reasons: ['unaware'], text: (n) => `${n} прошли мимо: не${NB}знают о${NB}тебе`, tab: 'guests', action: 'Реклама' },
+    ];
+    let best: { n: number; rule: (typeof rules)[number] } | null = null;
+    for (const rule of rules) {
+      const n = rule.reasons.reduce((sum, r) => sum + count(r), 0);
+      if (n >= 2 && (!best || n > best.n)) best = { n, rule };
+    }
+    let text: string;
+    let button = '';
+    if (best) {
+      const who = `${numWord(best.n)} ${plural(best.n, 'гость', 'гостя', 'гостей')}`;
+      text = `${span} ${best.rule.text(who)}.`;
+      button = `<button class="primary" data-action="insight" data-item="${best.rule.tab}">${best.rule.action}</button>`;
+    } else if (!cafe.isOpenAt(minute)) {
+      text = `Сейчас закрыто. Откроешься в${NB}${fmtMinute(cafe.openAt % MINUTES_PER_DAY)}.`;
+    } else {
+      const served = hours.reduce((n, x) => n + (t.servedHour?.[x] ?? 0), 0);
+      text = served
+        ? `${span} обслужено ${served}${NB}${plural(served, 'гость', 'гостя', 'гостей')}, без${NB}заметных потерь.`
+        : `${span} гостей не${NB}было. Посмотри, кто сейчас на${NB}улице и${NB}куда идёт.`;
+    }
+    return `<section class="insight-now"><h4>Что происходит</h4><p>${text}</p>${button}</section>`;
   }
 
   /** Конкурент: кто, чем берёт, цены, часы, акции */

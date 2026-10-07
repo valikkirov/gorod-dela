@@ -1452,3 +1452,289 @@ button.small.danger {
   color: var(--muted);
   border-style: dashed;
 }
+
+/* ——— Эталон интерфейса: карточки на бежевом фоне ——— */
+
+#brand {
+  display: none;
+}
+
+#topbar {
+  margin: 8px 8px 0;
+  padding: 8px 10px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(43, 47, 58, 0.08);
+}
+
+#game {
+  margin-top: 8px;
+}
+
+#cash {
+  font-size: 17px;
+}
+
+/* Подсказка о времени суток: на телефоне — плашка сверху карты */
+#street-note {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  right: 60px;
+  z-index: 2;
+  width: fit-content;
+  max-width: calc(100% - 68px);
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(251, 249, 244, 0.92);
+  box-shadow: 0 2px 6px rgba(43, 47, 58, 0.12);
+  font-size: 12px;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+#street-note b {
+  margin-right: 4px;
+}
+
+#street-note span {
+  color: var(--muted);
+}
+
+/* Нижний лист — карточка, чуть отступающая от краёв */
+#drawer {
+  left: 6px;
+  right: 6px;
+  border-radius: 18px 18px 0 0;
+}
+
+/* Шапка заведения */
+.biz {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 4px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.biz-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.biz-name b {
+  font-size: 22px;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.biz-name .icon,
+.rename .icon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.rename {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.rename input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+}
+
+.biz-line {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.biz-line b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.biz-line b[data-tone='pos'] {
+  color: var(--good);
+}
+
+.biz-line b[data-tone='neg'] {
+  color: var(--bad);
+}
+
+.biz-status {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.biz-status.on {
+  color: var(--good);
+}
+
+.biz .only-peek {
+  justify-self: start;
+  width: auto;
+  text-align: left;
+  margin-top: 2px;
+  padding: 0;
+  font-weight: 600;
+}
+
+#drawer:not([data-size='peek']) .only-peek {
+  display: none;
+}
+
+/* «Что происходит» */
+.insight-now {
+  margin: 10px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+#panel .insight-now h4 {
+  margin: 0 0 4px;
+  color: var(--ink);
+  font-size: 16px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.insight-now p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.insight-now .primary {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Вкладки — текстом, как в эталоне; не влезают — листаются вбок */
+.tabs {
+  gap: 16px;
+  margin: 8px 0 4px;
+  padding: 0 0 2px;
+  background: transparent;
+  border-radius: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tabs button {
+  flex: none;
+  height: 32px;
+  font-size: 14px;
+  padding: 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.tabs button.active {
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+@media (min-width: 900px) {
+  #app {
+    grid-template-columns: 1fr minmax(380px, 440px);
+    gap: 16px;
+    padding: 16px;
+  }
+
+  #brand {
+    display: grid;
+    margin-right: auto;
+  }
+
+  #brand b {
+    font-size: 20px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  #brand small {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  #topbar {
+    margin: 0;
+    gap: 32px;
+    justify-content: flex-start;
+    padding: 14px 20px;
+  }
+
+  #clock b {
+    font-size: 17px;
+  }
+
+  #cash {
+    margin-left: auto;
+    font-size: 24px;
+  }
+
+  #game {
+    margin: 0;
+    border-radius: 18px;
+    box-shadow: 0 1px 3px rgba(43, 47, 58, 0.08);
+  }
+
+  #drawer {
+    border: 0;
+    border-radius: 18px;
+    box-shadow: 0 1px 3px rgba(43, 47, 58, 0.08);
+    overflow: hidden;
+  }
+
+  #panel {
+    padding: 20px 22px;
+  }
+
+  #street-note {
+    bottom: 12px;
+    left: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+
+  .biz .only-peek {
+    display: none;
+  }
+
+  .biz-name b {
+    font-size: 26px;
+  }
+}

@@ -63,6 +63,8 @@ export class Drawer {
   set(size: DrawerSize): void {
     const shrinking = ORDER.indexOf(size) < ORDER.indexOf(this.size);
     this.el.dataset.size = size;
+    // Свёрнутый лист показывает шапку заведения — прокручиваем наверх
+    if (size === 'peek') document.getElementById('panel')!.scrollTop = 0;
     this.grip.setAttribute('aria-label', size === 'full' ? 'Свернуть панель' : 'Развернуть панель');
     // Сворачивается — карта сразу занимает освободившееся место; разворачивается — после анимации
     if (shrinking && size === 'peek') this.onCover(isWide() ? 0 : 14);

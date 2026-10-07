@@ -35,6 +35,7 @@ const hud = new Hud(
 // Что и в каком масштабе видно, решает камера сцены.
 const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
 const gameEl = document.getElementById('game')!;
+hud.onExpand = () => drawer.open();
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',

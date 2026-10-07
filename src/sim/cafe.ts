@@ -248,7 +248,12 @@ export interface CafeSave {
   stock: StockSave;
   upgrades?: UpgradeId[];
   prepUntil?: number;
+  /** Название, которое дал игрок */
+  name?: string | null;
 }
+
+/** Самое длинное название заведения — чтобы влезало в шапку и подпись на карте */
+export const CAFE_NAME_MAX = 24;
 
 /** Состояние кафе игрока */
 export class Cafe {
@@ -263,6 +268,8 @@ export class Cafe {
   readonly stock = new Stock();
   /** Купленные улучшения */
   upgrades: UpgradeId[] = [];
+  /** Своё название; null — «Твоё кафе» / «Твой киоск» по помещению */
+  customName: string | null = null;
   /** Временное замедление (сломалась одна из двух кофемашин) — выставляет симуляция */
   serviceFactor = 1;
   /** До этой минуты дня стойка занята большим заказом и новых гостей не берёт */
@@ -303,6 +310,7 @@ export class Cafe {
       stock: this.stock.toJSON(),
       upgrades: this.upgrades,
       prepUntil: this.prepUntil,
+      name: this.customName,
     };
   }
 
@@ -334,7 +342,19 @@ export class Cafe {
     this.stock.load(d.stock);
     this.upgrades = [...(d.upgrades ?? [])];
     this.prepUntil = d.prepUntil ?? -1;
+    this.customName = d.name ?? null;
     this.stock.shelfBonus = this.has('showcase') ? UPGRADE_EFFECT.showcaseShelfDays : 0;
+  }
+
+  /** Как заведение подписано в интерфейсе и на карте */
+  get title(): string {
+    return this.customName ?? this.premises.mine;
+  }
+
+  /** Переименовать: лишние пробелы убираются, пустое название возвращает стандартное */
+  rename(name: string): void {
+    const clean = name.replace(/\s+/g, ' ').trim().slice(0, CAFE_NAME_MAX);
+    this.customName = clean || null;
   }
 
   has(id: UpgradeId): boolean {

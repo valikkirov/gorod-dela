@@ -132,6 +132,8 @@ export class StreetScene extends Phaser.Scene {
   private sky!: Phaser.GameObjects.Graphics;
   private shops: Shop[] = [];
   private menuBoard!: Phaser.GameObjects.Image;
+  /** Деревянный настил с кашпо и скамьёй — у кафе с залом, когда в нём кто-то работает */
+  private terrace!: Phaser.GameObjects.Graphics;
   private windowLights: { place: Place; image: Phaser.GameObjects.Image }[] = [];
   private walkers: Walker[] = [];
   private guestSpots: { r: Resident; x: number; y: number }[] = [];
@@ -169,6 +171,7 @@ export class StreetScene extends Phaser.Scene {
     for (const [frame, x, y] of PROPS) this.prop(frame, x, y);
     const c = place('cafe');
     this.menuBoard = this.prop('prop-menu-board', 246, c.rect.y + c.rect.h + 34);
+    this.terrace = this.drawTerrace(c);
 
     this.guests = this.add.graphics().setDepth(c.rect.y + c.rect.h + 0.5);
     this.marks = this.add.graphics();
@@ -515,13 +518,14 @@ export class StreetScene extends Phaser.Scene {
       const theirsOpen = theirs && rival!.isOpen(sim.today, sim.minute);
       shop.sprite.setFrame(mine || theirs ? art.open : art.rent);
       // До открытия подписаны оба помещения; после — своё и конкурент
-      const name = mine ? cafe.premises.mine : theirs ? rival!.t.name : cafe.opened ? '' : 'Сдаётся';
+      const name = mine ? cafe.title : theirs ? rival!.t.name : cafe.opened ? '' : 'Сдаётся';
       const status = mine ? (open ? 'открыто' : 'закрыто') : theirs ? `конкурент · ${theirsOpen ? 'открыто' : 'закрыто'}` : cafe.opened ? '' : shop.place.name;
       shop.name.setText(name).setVisible(name !== '');
       shop.status.setText(status).setVisible(status !== '');
       shop.status.setColor(mine && open ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');
     }
     this.menuBoard.setVisible(mineId === 'cafe');
+    this.terrace.setVisible(mineId === 'cafe' || rival?.placeId === 'cafe');
 
     // Гости в витринах; когда закрыто — свет в окнах погашен
     const g = this.guests;
@@ -730,6 +734,32 @@ export class StreetScene extends Phaser.Scene {
     }
   }
 
+  /** Настил у входа: доски, два кашпо с зеленью, скамья у витрины (по эталону из Figma) */
+  private drawTerrace(c: Place): Phaser.GameObjects.Graphics {
+    const base = c.rect.y + c.rect.h;
+    const x = c.rect.x + 12;
+    const y = base - 1;
+    const g = this.add.graphics().setDepth(base + 0.2);
+    g.fillStyle(0xc9a074, 1);
+    g.fillRoundedRect(x, y, 174, 22, 4);
+    g.fillStyle(0xb0875c, 1);
+    for (let i = 1; i <= 4; i++) g.fillRect(x + 5, y + i * 4, 164, 1);
+    const planter = (px: number) => {
+      g.fillStyle(0x6fa35a, 1);
+      g.fillEllipse(px + 9, y + 1, 21, 19);
+      g.fillStyle(0x8a6a4f, 1);
+      g.fillRoundedRect(px, y + 6, 18, 14, 3);
+    };
+    planter(x + 5);
+    planter(x + 147);
+    g.fillStyle(0x9c6b45, 1);
+    g.fillRoundedRect(x + 38, y + 1, 51, 8, 3);
+    g.fillStyle(0x6e4a30, 1);
+    g.fillRect(x + 43, y + 9, 4, 7);
+    g.fillRect(x + 81, y + 9, 4, 7);
+    return g;
+  }
+
   private prop(frame: string, x: number, y: number): Phaser.GameObjects.Image {
     return this.add
       .image(x, y, 'ground', frame)
@@ -739,11 +769,16 @@ export class StreetScene extends Phaser.Scene {
   }
 }
 
+/** Ряд клеток с пешеходным переходом */
+const CROSSWALK_Y = 520;
+
 /** Какая клетка земли лежит в точке (x, y) — левый верхний угол клетки */
 function groundTile(x: number, y: number): string {
   if (y >= PARK_TOP) return 'tile-grass';
   if (y >= ROAD.bottom) return 'tile-sidewalk';
   if (x >= ROAD.left && x < ROAD.right) {
+    // Переход между кафе и «Продуктами»
+    if (y === CROSSWALK_Y) return 'tile-road-crosswalk';
     return x === ROAD.left + GRID.size ? 'tile-road-marking' : 'tile-road-asphalt';
   }
   if (x === ROAD.left - GRID.size) return 'tile-sidewalk-curb-left';
