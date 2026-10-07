@@ -98,7 +98,7 @@ const PROPS: [string, number, number][] = [
 /** Помещения под бизнес игрока: спрайты «сдаётся» и «открыто», окна, подписи */
 const PREMISES_ART: Record<string, { rent: string; open: string; lights: string; rival: string; windows: { x: number; y: number; w: number; h: number }[]; labelX: number; labelY: number }> = {
   cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', rival: 'building-cafe-rival', windows: [], labelX: 120, labelY: 32 },
-  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', rival: 'building-kiosk-rival', windows: [{ x: 12, y: 46, w: 64, h: 14 }], labelX: -66, labelY: 30 },
+  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', rival: 'building-kiosk-rival', windows: [{ x: 12, y: 46, w: 64, h: 14 }], labelX: 60, labelY: 106 },
 };
 
 interface Shop {
