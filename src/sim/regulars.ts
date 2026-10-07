@@ -40,12 +40,17 @@ interface Pick {
   usual: WantKind;
   /** Живёт на улице — его легче встретить */
   local: boolean;
+  /** Постоянный персонаж: те же жители ведут Telegram-группу игры */
+  name?: string;
+  /** Желательно: где живёт и где работает (если такой житель есть) */
+  home?: string;
+  work?: string;
 }
 
 const PICKS: Pick[] = [
-  { kind: 'office', trait: 'Кофе по\u00a0дороге в\u00a0офис', usual: 'coffee', local: true },
-  { kind: 'pensioner', trait: 'Любит тихие часы и\u00a0чай', usual: 'tea', local: true },
-  { kind: 'student', trait: 'Считает каждый рубль', usual: 'snack', local: true },
+  { kind: 'office', trait: 'Кофе по\u00a0дороге в\u00a0офис', usual: 'coffee', local: true, name: 'Марина Орлова', work: 'office-north' },
+  { kind: 'pensioner', trait: 'Любит тихие часы и\u00a0чай', usual: 'tea', local: true, name: 'Зинаида Петровна', home: 'home-1' },
+  { kind: 'student', trait: 'Считает каждый рубль', usual: 'snack', local: true, name: 'Лёша Ковалёв' },
   { kind: 'remote', trait: 'Сидит с\u00a0ноутбуком подолгу', usual: 'coffee', local: true },
   { kind: 'youth', trait: 'Вечером\u00a0— с\u00a0друзьями', usual: 'bar', local: true },
   { kind: 'passenger', trait: 'Пересадка, берёт с\u00a0собой', usual: 'coffee', local: false },
@@ -62,8 +67,13 @@ export const LOYAL = 0.3;
 export function pickRegulars(residents: Resident[]): Regular[] {
   const out: Regular[] = [];
   for (const p of PICKS) {
-    const r = residents.find((x) => x.kind === p.kind && (p.local ? x.homeId !== 'metro' : true));
+    const fits = (x: Resident) => x.kind === p.kind && (p.local ? x.homeId !== 'metro' : true);
+    const r =
+      residents.find((x) => fits(x) && (!p.home || x.homeId === p.home) && (!p.work || x.workId === p.work)) ??
+      residents.find(fits);
     if (!r) continue;
+    // Имя — не из генератора: rng не трогаем, мир остаётся тем же
+    if (p.name) r.name = p.name;
     out.push({ residentId: r.id, trait: p.trait, usual: p.usual, history: [], status: 'unaware' });
   }
   return out;
