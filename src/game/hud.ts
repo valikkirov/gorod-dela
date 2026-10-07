@@ -30,7 +30,7 @@ import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type 
 import { statusText, type Regular } from '../sim/regulars';
 import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
 import type { Simulation } from '../sim/simulation';
-import { place } from '../sim/world';
+import { place, type Place } from '../sim/world';
 import { RESIDENT_COLOR, toCss } from './palette';
 import { clearSave } from './save';
 import { openFeedback } from './feedback';
@@ -46,7 +46,7 @@ import { card } from '../sim/events';
 const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
 
-type View = 'cafe' | 'resident' | 'report';
+type View = 'cafe' | 'resident' | 'report' | 'place';
 type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'guests' | 'growth';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
@@ -104,6 +104,7 @@ export class Hud {
   speed = 1;
   private view: View = 'cafe';
   private selected: Resident | null = null;
+  private selectedPlace: Place | null = null;
   private lastRender = 0;
   private lastHtml = '';
   private lastView = '';
@@ -169,7 +170,16 @@ export class Hud {
 
   select(r: Resident | null): void {
     this.selected = r;
+    if (r) this.selectedPlace = null;
     this.view = r ? 'resident' : 'cafe';
+    this.render(true);
+  }
+
+  /** Нажали на здание: название, кто там живёт или работает, кто сейчас внутри */
+  selectPlace(p: Place | null): void {
+    this.selectedPlace = p;
+    if (p) this.selected = null;
+    this.view = p ? 'place' : 'cafe';
     this.render(true);
   }
 
@@ -338,7 +348,8 @@ export class Hud {
         return;
       case 'back':
         this.view = 'cafe';
-        if (this.selected) this.onDeselect();
+        this.selectedPlace = null;
+        this.onDeselect();
         break;
       case 'restart':
         this.restart();
@@ -400,6 +411,8 @@ export class Hud {
       ? this.bankruptView()
       : this.view === 'resident' && this.selected
         ? this.residentView(this.selected)
+        : this.view === 'place' && this.selectedPlace
+          ? this.placeView(this.selectedPlace)
         : this.view === 'report' && this.sim.reports.length > 0
           ? this.reportView(this.sim.reports.at(-1)!)
           : this.cafeView();
@@ -408,7 +421,7 @@ export class Hud {
     if (force || html !== this.lastHtml) {
       this.lastHtml = html;
       this.panel.innerHTML = html;
-      const viewKey = this.sim.bankrupt ? 'bankrupt' : `${this.view}:${this.selected?.id ?? ''}`;
+      const viewKey = this.sim.bankrupt ? 'bankrupt' : `${this.view}:${this.selected?.id ?? ''}:${this.selectedPlace?.id ?? ''}`;
       if (viewKey !== this.lastView) this.panel.scrollTop = 0;
       this.lastView = viewKey;
     }
@@ -422,20 +435,96 @@ export class Hud {
     }
   }
 
+  private premisesCard(id: PremisesId): string {
+    const pr = PREMISES[id];
+    const canAfford = this.sim.cash >= pr.openingCost;
+    return `<li class="premises">
+      <div class="row"><b class="grow">${pr.name}</b><span class="badge">аренда ${money(pr.rentPerDay * 30)}/мес</span></div>
+      <small>${pr.about}. Коммуналка — за${NB}часы работы, налог 6${NB}% с${NB}выручки.</small>
+      <button class="primary" data-action="open-cafe" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>
+    </li>`;
+  }
+
+  private placeView(p: Place): string {
+    const sim = this.sim;
+    const residents = sim.residents;
+    const inside = residents.filter((r) => r.placeId === p.id && !r.walking);
+    const head = (title: string, sub: string) => `
+      <div class="card-head">
+        <i class="place-dot place-${p.kind}"></i>
+        <div><b>${title}</b><small>${sub}</small></div>
+        <button data-action="back" aria-label="Закрыть">✕</button>
+      </div>`;
+    const people = (list: Resident[], title: string) =>
+      list.length
+        ? `<h5>${title}</h5><div class="people">${list
+            .slice(0, 24)
+            .map(
+              (r) =>
+                `<button class="person${sim.cafe.opened && !r.aware ? ' unaware' : ''}" data-action="face" data-item="${r.id}" title="${r.name}"><i style="background:${toCss(RESIDENT_COLOR[r.kind as ResidentKind])}"></i>${r.name.split(' ')[0]}</button>`,
+            )
+            .join('')}${list.length > 24 ? `<small>и${NB}ещё ${list.length - 24}</small>` : ''}</div>`
+        : '';
+    const awareLine = (list: Resident[], what: string) => {
+      if (!sim.cafe.opened || !list.length) return '';
+      const n = list.filter((r) => r.aware).length;
+      return `<div>О${NB}твоём кафе знают ${n} из${NB}${list.length} ${what}</div>`;
+    };
+
+    // Свободное, своё или конкурента помещение
+    if (p.kind === 'cafe') {
+      const id = p.id as PremisesId;
+      const mine = sim.cafe.opened && sim.shopId === p.id;
+      const rival = sim.rival && sim.cafe.opened && sim.rival.placeId === p.id ? sim.rival : null;
+      if (mine) {
+        const open = sim.cafe.isOpenAt(sim.minute);
+        return `${head(sim.cafe.premises.mine, open ? 'открыто' : 'закрыто')}
+          <div class="facts"><div>Гостей сегодня: ${sim.cafe.today.guests} · выручка ${money(sim.cafe.today.revenue)}</div></div>
+          ${people(inside, 'Сейчас внутри')}
+          <button class="primary" data-action="back">К${NB}управлению кафе</button>`;
+      }
+      if (rival) {
+        const opened = sim.today >= rival.opensDay;
+        return `${head(rival.t.name, opened ? 'конкурент' : `конкурент откроется через ${rival.opensDay - sim.today}${NB}дн.`)}
+          <div class="facts"><div>${rival.t.pitch}</div><div>Часы: ${fmtMinute(rival.t.openAt)}–${fmtMinute(rival.t.closeAt)}</div><div>Цены: ${Object.entries(
+            rival.t.prices,
+          )
+            .map(([item, price]) => `${itemName(item)} ${money(price)}`)
+            .join(' · ')}</div></div>
+          ${people(inside, `Сейчас у${NB}него`)}`;
+      }
+      return `${head(p.name, sim.cafe.opened ? 'свободно' : 'сдаётся')}
+        ${sim.cafe.opened ? `<div class="facts"><div>Помещение пустует.</div></div>` : `<ul class="menu premises-list">${this.premisesCard(id)}</ul>`}`;
+    }
+
+    if (p.kind === 'home') {
+      const live = residents.filter((r) => r.homeId === p.id);
+      return `${head(p.name, 'жилой дом')}
+        <div class="facts"><div>Живут: ${live.length} · дома сейчас: ${inside.length}</div>${awareLine(live, 'жильцов')}</div>
+        ${people(inside, 'Сейчас дома')}`;
+    }
+    if (p.kind === 'office') {
+      const work = residents.filter((r) => r.workId === p.id);
+      return `${head(p.name, 'офис')}
+        <div class="facts"><div>Работают: ${work.length} · сейчас на${NB}месте: ${inside.length}</div>${awareLine(work, 'сотрудников')}</div>
+        ${people(inside, `Сейчас в${NB}офисе`)}`;
+    }
+    if (p.kind === 'metro') {
+      const come = residents.filter((r) => r.homeId === 'metro');
+      return `${head(p.name, `выход из${NB}метро`)}
+        <div class="facts"><div>Приезжают на${NB}улицу на${NB}метро: ${come.length}</div>${awareLine(come, `из${NB}них`)}</div>`;
+    }
+    const sub = p.kind === 'shop' ? 'магазин' : p.kind === 'park' ? `здесь гуляют и${NB}отдыхают` : 'остановка автобуса';
+    const here = p.kind === 'park' ? residents.filter((r) => r.placeId === p.id && r.visible) : inside;
+    return `${head(p.name, sub)}${people(here, p.kind === 'park' ? 'Сейчас гуляют' : 'Сейчас здесь')}`;
+  }
+
   private cafeView(): string {
     const { cafe } = this.sim;
     const today = cafe.today;
     if (!cafe.opened) {
       this.live.wanted = String(today.wanted);
-      const card = (id: PremisesId) => {
-        const pr = PREMISES[id];
-        const canAfford = this.sim.cash >= pr.openingCost;
-        return `<li class="premises">
-          <div class="row"><b class="grow">${pr.name}</b><span class="badge">аренда ${money(pr.rentPerDay * 30)}/мес</span></div>
-          <small>${pr.about}. Коммуналка — за${NB}часы работы, налог 6${NB}% с${NB}выручки.</small>
-          <button class="primary" data-action="open-cafe" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>
-        </li>`;
-      };
+      const card = (id: PremisesId) => this.premisesCard(id);
       return `
         <div class="row head"><b>Свободные помещения</b><span class="badge">Сдаются</span></div>
         <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Посмотри, кто и${NB}когда, — нажми на${NB}жителя.</p>

@@ -12,8 +12,17 @@
         <div id="speeds"></div>
         <div id="cash"></div>
       </header>
-      <main id="game"></main>
-      <section id="panel"></section>
+      <main id="game">
+        <div id="zoom">
+          <button data-zoom="in" aria-label="Приблизить">+</button>
+          <button data-zoom="out" aria-label="Отдалить">−</button>
+          <button data-zoom="fit" aria-label="Вся улица">⤢</button>
+        </div>
+      </main>
+      <section id="drawer" data-size="peek">
+        <div id="grip" role="button" aria-label="Развернуть панель"></div>
+        <div id="panel"></div>
+      </section>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

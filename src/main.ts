@@ -7,7 +7,7 @@ import { showTutorial, tutorialDone } from './game/tutorial';
 import { Simulation } from './sim/simulation';
 import { initMetrika } from './game/metrika';
 import { CHALLENGE, isChallenge, saveKeyFor } from './game/challenge';
-import { WORLD } from './sim/world';
+import { Drawer, isWide } from './game/drawer';
 
 initMetrika();
 
@@ -20,29 +20,52 @@ const sim =
   new Simulation(challenge ? CHALLENGE.seed : Number(params.get('seed') ?? 1));
 autosave(sim, saveKey);
 const scene = new StreetScene();
+const drawer = new Drawer((css) => scene.setCovered(css));
 const hud = new Hud(
   sim,
-  () => scene.select(null),
+  () => {
+    scene.select(null);
+    scene.selectPlace(null, false);
+  },
   (r) => scene.select(r),
   challenge,
 );
 
+// Канвас — во всё место под карту, в физических пикселях экрана: на телефонах графика чёткая.
+// Что и в каком масштабе видно, решает камера сцены.
+const DPR = Math.min(window.devicePixelRatio || 1, 2.5);
+const gameEl = document.getElementById('game')!;
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'game',
-  width: WORLD.width,
-  height: WORLD.height,
-  backgroundColor: '#e9e4d8',
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  backgroundColor: '#9cc27a',
+  scale: {
+    mode: Phaser.Scale.NONE,
+    width: Math.max(1, gameEl.clientWidth * DPR),
+    height: Math.max(1, gameEl.clientHeight * DPR),
+    zoom: 1 / DPR,
+  },
   scene: [],
 });
 
 const hooks: SceneHooks = {
   sim,
   getSpeed: () => hud.speed,
-  onSelect: (r) => hud.select(r),
+  onSelect: (r) => {
+    hud.select(r);
+    if (r) drawer.open();
+  },
+  onPlace: (p) => {
+    hud.selectPlace(p);
+    if (p) drawer.open();
+    else drawer.collapse();
+  },
+  wide: isWide,
   onFrame: () => hud.frame(),
-  onDayEnd: () => hud.onDayEnd(),
+  onDayEnd: () => {
+    hud.onDayEnd();
+    drawer.open();
+  },
   onBankrupt: () => hud.onBankrupt(),
 };
 game.scene.add('street', scene, true, hooks);
@@ -51,7 +74,15 @@ game.scene.add('street', scene, true, hooks);
 if (!params.has('seed') && !tutorialDone()) showTutorial(hud);
 
 // Канвас подстраивается под место между верхней панелью и карточкой
-new ResizeObserver(() => game.scale.refresh()).observe(document.getElementById('game')!);
+new ResizeObserver(() => game.scale.resize(Math.max(1, gameEl.clientWidth * DPR), Math.max(1, gameEl.clientHeight * DPR))).observe(gameEl);
+
+// Кнопки масштаба поверх карты
+document.getElementById('zoom')!.addEventListener('click', (ev) => {
+  const z = (ev.target as HTMLElement).closest<HTMLElement>('[data-zoom]')?.dataset.zoom;
+  if (z === 'in') scene.zoomBy(1.35);
+  if (z === 'out') scene.zoomBy(1 / 1.35);
+  if (z === 'fit') scene.fitView();
+});
 
 // Доступ из консоли браузера для отладки: window.sim
-Object.assign(window, { sim });
+Object.assign(window, { sim, scene });

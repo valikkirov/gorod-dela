@@ -13,6 +13,10 @@ export interface SceneHooks {
   sim: Simulation;
   getSpeed: () => number;
   onSelect: (resident: Resident | null) => void;
+  /** Нажали на здание (или на пустое место — null) */
+  onPlace: (place: Place | null) => void;
+  /** Компьютерная раскладка: карта целиком по высоте, а не по ширине */
+  wide: () => boolean;
   onFrame: () => void;
   onDayEnd: () => void;
   onBankrupt: () => void;
@@ -93,7 +97,7 @@ const PROPS: [string, number, number][] = [
 /** Помещения под бизнес игрока: спрайты «сдаётся» и «открыто», окна, подписи */
 const PREMISES_ART: Record<string, { rent: string; open: string; lights: string; windows: { x: number; y: number; w: number; h: number }[]; labelX: number; labelY: number }> = {
   cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', windows: [], labelX: 120, labelY: 32 },
-  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', windows: [{ x: 12, y: 46, w: 64, h: 14 }], labelX: -62, labelY: 22 },
+  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', windows: [{ x: 12, y: 46, w: 64, h: 14 }], labelX: -66, labelY: 30 },
 };
 
 interface Shop {
@@ -132,6 +136,14 @@ export class StreetScene extends Phaser.Scene {
   private walkers: Walker[] = [];
   private guestSpots: { r: Resident; x: number; y: number }[] = [];
   private selected: Resident | null = null;
+  private selectedPlace: Place | null = null;
+  private highlight!: Phaser.GameObjects.Graphics;
+  /** Подписи на карте: держим их читаемыми при любом масштабе */
+  private labels: Phaser.GameObjects.Text[] = [];
+  /** Камера: центр в координатах мира и масштаб. Пока игрок не трогал масштаб — подбираем сами */
+  private view = { cx: WORLD.width / 2, cy: 0, zoom: 1, auto: true };
+  private touches = new Map<number, { x: number; y: number }>();
+  private gesture: { x: number; y: number; moved: boolean; pinch: number; zoom: number } | null = null;
 
   constructor() {
     super('street');
@@ -181,7 +193,184 @@ export class StreetScene extends Phaser.Scene {
       lastX: r.pos.x,
       lastY: r.pos.y,
     }));
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pick(p.worldX, p.worldY));
+    this.highlight = this.add.graphics().setDepth(DEPTH.labels - 0.5);
+    this.setupCamera();
+  }
+
+  // ——— Камера: перетаскивание, щипок, колесо, кнопки ———
+  // Канвас рисуется в физических пикселях экрана (чётко на телефонах), поэтому все «экранные»
+  // размеры ниже умножаются на px — сколько пикселей канваса в одном CSS-пикселе.
+
+  private get px(): number {
+    return 1 / this.scale.zoom;
+  }
+
+  /** Масштаб «по размеру»: на телефоне улица во всю ширину, на компьютере — целиком по высоте */
+  private baseZoom(): number {
+    const { width: w, height: h } = this.scale;
+    const contain = Math.min(w / WORLD.width, h / WORLD.height);
+    return this.hooks.wide() ? contain : Math.max(contain, w / WORLD.width);
+  }
+
+  private zoomLimits(): [number, number] {
+    const { width: w, height: h } = this.scale;
+    const contain = Math.min(w / WORLD.width, h / WORLD.height);
+    return [contain, Math.max(this.baseZoom() * 2.6, 1.4 * this.px)];
+  }
+
+  /** Сколько CSS-пикселей снизу карты закрыто нижним листом */
+  private covered = 0;
+
+  private setupCamera(): void {
+    this.cameras.main.setBackgroundColor('#9cc27a');
+    this.input.addPointer(1);
+    // Свёрнутый лист закругляется поверх карты на 14 px
+    if (!this.covered && !this.hooks.wide()) this.covered = 14;
+    // Начинаем сверху улицы: там метро и свободные помещения
+    this.view.zoom = this.baseZoom();
+    this.view.cy = 0;
+    this.fitViewport();
+    this.scale.on('resize', () => {
+      if (this.view.auto) this.view.zoom = this.baseZoom();
+      this.fitViewport();
+    });
+
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.touches.set(p.id, { x: p.x, y: p.y });
+      if (this.touches.size === 1) this.gesture = { x: p.x, y: p.y, moved: false, pinch: 0, zoom: this.view.zoom };
+      else if (this.gesture) {
+        const [a, b] = [...this.touches.values()];
+        this.gesture.pinch = Math.hypot(a.x - b.x, a.y - b.y);
+        this.gesture.zoom = this.view.zoom;
+        this.gesture.moved = true;
+      }
+    });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      const prev = this.touches.get(p.id);
+      if (!prev || !this.gesture || !p.isDown) return;
+      if (this.touches.size >= 2 && this.gesture.pinch > 0) {
+        const old = [...this.touches.values()];
+        const midOld = { x: (old[0].x + old[1].x) / 2, y: (old[0].y + old[1].y) / 2 };
+        this.touches.set(p.id, { x: p.x, y: p.y });
+        const [a, b] = [...this.touches.values()];
+        const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const z = this.gesture.zoom * (Math.hypot(a.x - b.x, a.y - b.y) / this.gesture.pinch);
+        // Сдвиг пальцев двигает карту, разведение — масштабирует вокруг середины
+        this.pan(mid.x - midOld.x, mid.y - midOld.y);
+        this.zoomAt(mid.x, mid.y, z);
+        return;
+      }
+      this.touches.set(p.id, { x: p.x, y: p.y });
+      if (!this.gesture.moved && Math.hypot(p.x - this.gesture.x, p.y - this.gesture.y) < 8 * this.px) return;
+      this.gesture.moved = true;
+      this.pan(p.x - prev.x, p.y - prev.y);
+    });
+    const up = (p: Phaser.Input.Pointer) => {
+      if (!this.touches.has(p.id)) return;
+      this.touches.delete(p.id);
+      if (this.touches.size > 0) return;
+      const g = this.gesture;
+      this.gesture = null;
+      if (g && !g.moved) this.pick(...this.toWorld(p.x, p.y));
+    };
+    this.input.on('pointerup', up);
+    this.input.on('pointerupoutside', up);
+    this.input.on('wheel', (p: Phaser.Input.Pointer, _o: unknown, _dx: number, dy: number) => {
+      this.zoomAt(p.x, p.y, this.view.zoom * Math.exp(-dy * 0.0015));
+    });
+  }
+
+  /** Камера рисует только видимую часть: то, что под нижним листом, в кадр не считается */
+  private fitViewport(): void {
+    const cam = this.cameras.main;
+    const { width: w, height: h } = this.scale;
+    const vh = Math.max(80, h - this.covered * this.px);
+    if (cam.width !== w || cam.height !== vh) {
+      // Верх карты остаётся на месте — лист наезжает снизу
+      const top = this.view.cy - cam.height / 2 / this.view.zoom;
+      cam.setViewport(0, 0, w, vh);
+      this.view.cy = top + vh / 2 / this.view.zoom;
+    }
+    this.applyView();
+  }
+
+  /** Нижний лист открылся или закрылся: сколько CSS-пикселей карты он теперь закрывает */
+  setCovered(css: number): void {
+    this.covered = Math.max(0, css);
+    if (!this.highlight) return; // сцена ещё не создана — применится при создании
+    this.fitViewport();
+    if (this.selectedPlace) this.reveal(this.selectedPlace.rect);
+    else if (this.selected?.visible) this.reveal({ x: this.selected.pos.x - 20, y: this.selected.pos.y - 60, w: 40, h: 70 });
+  }
+
+  private toWorld(sx: number, sy: number): [number, number] {
+    const cam = this.cameras.main;
+    return [this.view.cx + (sx - cam.width / 2) / this.view.zoom, this.view.cy + (sy - cam.height / 2) / this.view.zoom];
+  }
+
+  private pan(dx: number, dy: number): void {
+    this.view.cx -= dx / this.view.zoom;
+    this.view.cy -= dy / this.view.zoom;
+    this.applyView();
+  }
+
+  /** Масштаб вокруг точки экрана: то, что под пальцем, остаётся под пальцем */
+  private zoomAt(sx: number, sy: number, zoom: number): void {
+    const [lo, hi] = this.zoomLimits();
+    const z = Phaser.Math.Clamp(zoom, lo, hi);
+    const [wx, wy] = this.toWorld(sx, sy);
+    const cam = this.cameras.main;
+    this.view.zoom = z;
+    this.view.auto = false;
+    this.view.cx = wx - (sx - cam.width / 2) / z;
+    this.view.cy = wy - (sy - cam.height / 2) / z;
+    this.applyView();
+  }
+
+  /** Кнопки +/−: масштаб вокруг центра экрана; «вся улица» — вернуть исходный вид */
+  zoomBy(factor: number): void {
+    const cam = this.cameras.main;
+    this.zoomAt(cam.width / 2, cam.height / 2, this.view.zoom * factor);
+  }
+
+  fitView(): void {
+    const [lo] = this.zoomLimits();
+    // Повторное нажатие на «вся улица», когда масштаб уже исходный, — показать улицу целиком
+    const base = this.baseZoom();
+    this.view.zoom = Math.abs(this.view.zoom - base) < 0.01 ? lo : base;
+    this.view.auto = this.view.zoom === base;
+    this.view.cx = WORLD.width / 2;
+    this.applyView();
+  }
+
+  private applyView(): void {
+    const cam = this.cameras.main;
+    const v = this.view;
+    const [lo, hi] = this.zoomLimits();
+    v.zoom = Phaser.Math.Clamp(v.zoom, lo, hi);
+    const vw = cam.width / v.zoom;
+    const vh = cam.height / v.zoom;
+    v.cx = vw >= WORLD.width ? WORLD.width / 2 : Phaser.Math.Clamp(v.cx, vw / 2, WORLD.width - vw / 2);
+    v.cy = vh >= WORLD.height ? WORLD.height / 2 : Phaser.Math.Clamp(v.cy, vh / 2, WORLD.height - vh / 2);
+    cam.setZoom(v.zoom);
+    cam.centerOn(v.cx, v.cy);
+    // Подписи не мельче ~11 px на экране
+    const k = Math.max(1, (0.62 * this.px) / v.zoom);
+    for (const l of this.labels) l.setScale(k);
+  }
+
+  /** Прокрутить карту так, чтобы прямоугольник был в кадре (если уже виден — не трогаем) */
+  private reveal(r: { x: number; y: number; w: number; h: number }): void {
+    const cam = this.cameras.main;
+    const v = this.view;
+    const vw = cam.width / v.zoom;
+    const vh = cam.height / v.zoom;
+    const inX = r.x >= v.cx - vw / 2 && r.x + r.w <= v.cx + vw / 2;
+    const inY = r.y >= v.cy - vh / 2 && r.y + r.h <= v.cy + vh / 2;
+    if (inX && inY) return;
+    v.cx = r.x + r.w / 2;
+    v.cy = r.y + r.h / 2;
+    this.applyView();
   }
 
   update(time: number, delta: number): void {
@@ -197,12 +386,32 @@ export class StreetScene extends Phaser.Scene {
 
   select(resident: Resident | null): void {
     this.selected = resident;
+    if (resident) this.selectPlace(null, false);
     this.hooks.onSelect(resident);
+  }
+
+  selectPlace(p: Place | null, notify = true): void {
+    this.selectedPlace = p;
+    const g = this.highlight;
+    g.clear();
+    if (p && p.kind !== 'park') {
+      const r = p.rect;
+      g.lineStyle(6, 0xffffff, 0.95);
+      g.strokeRoundedRect(r.x - 4, r.y - 4, r.w + 8, r.h + 8, 10);
+      g.lineStyle(3, COLORS.outline, 1);
+      g.strokeRoundedRect(r.x - 6, r.y - 6, r.w + 12, r.h + 12, 12);
+    }
+    if (p) this.reveal(p.rect);
+    if (notify) {
+      if (p) this.selected = null;
+      this.hooks.onPlace(p);
+    }
   }
 
   private pick(x: number, y: number): void {
     let best: Resident | null = null;
-    let bestDist = 26;
+    // Палец толще курсора: на мелком масштабе радиус попадания больше
+    let bestDist = Math.max(26, (20 * this.px) / this.view.zoom);
     for (const r of this.hooks.sim.residents) {
       if (!r.visible) continue;
       // Житель нарисован вверх от стоп — целимся в середину фигуры
@@ -219,7 +428,18 @@ export class StreetScene extends Phaser.Scene {
         bestDist = d;
       }
     }
-    this.select(best);
+    if (best) {
+      this.select(best);
+      return;
+    }
+    // Мимо жителей — может, в здание или сквер
+    const hit = PLACES.find((p) => x >= p.rect.x && x <= p.rect.x + p.rect.w && y >= p.rect.y && y <= p.rect.y + p.rect.h);
+    if (hit) {
+      this.selectPlace(hit === this.selectedPlace ? null : hit);
+      return;
+    }
+    if (this.selectedPlace) this.selectPlace(null);
+    else this.select(null);
   }
 
   private handleEvents(): void {
@@ -255,14 +475,16 @@ export class StreetScene extends Phaser.Scene {
     // На высокой скорости событий много — не заваливаем экран надписями
     if (this.floats >= 8) return;
     this.floats++;
+    // На мелком масштабе подпись крупнее в мире, чтобы на экране оставалась читаемой (~12 px)
+    const px = Math.round(Math.max(size, (13 * this.px) / this.view.zoom));
     const t = this.add
       .text(x, y, text, {
         fontFamily: FONT,
-        fontSize: `${size}px`,
+        fontSize: `${px}px`,
         fontStyle: 'bold',
         color,
         stroke: '#ffffff',
-        strokeThickness: 5,
+        strokeThickness: Math.round(px / 3.2),
       })
       .setOrigin(0.5)
       .setResolution(2)
@@ -383,7 +605,7 @@ export class StreetScene extends Phaser.Scene {
   }
 
   private label(x: number, y: number, text: string, size: number, bold: boolean): Phaser.GameObjects.Text {
-    return this.add
+    const t = this.add
       .text(x, y, text, {
         fontFamily: FONT,
         fontSize: `${size}px`,
@@ -396,6 +618,9 @@ export class StreetScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setResolution(2)
       .setDepth(DEPTH.labels);
+    t.setScale(Math.max(1, (0.62 * this.px) / this.view.zoom));
+    this.labels.push(t);
+    return t;
   }
 
   /** Жители: спрайт по направлению движения, 4 кадра шага, стоя — кадр «стоит» */
@@ -484,10 +709,8 @@ export class StreetScene extends Phaser.Scene {
   private drawBuildings(): void {
     for (const p of PLACES) {
       const sprite = BUILDING_SPRITE[p.id];
-      if (!sprite) {
-        if (p.kind === 'park') this.label(p.rect.x + p.rect.w / 2, PARK_TOP + 20, p.name, 20, true);
-        continue;
-      }
+      // Названия домов не висят на крышах: нажми на здание — название и жильцы будут в панели
+      if (!sprite) continue;
       const base = p.rect.y + p.rect.h;
       const img = this.add
         .image(p.rect.x, p.rect.y, 'buildings', sprite)
@@ -504,7 +727,6 @@ export class StreetScene extends Phaser.Scene {
         .setDepth(DEPTH.lights)
         .setVisible(false);
       this.windowLights.push({ place: p, image: light });
-      if (p.kind !== 'cafe' && p.kind !== 'metro') this.label(p.rect.x + p.rect.w / 2, p.rect.y + 28, p.name, 18, false);
     }
   }
 
