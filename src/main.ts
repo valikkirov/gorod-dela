@@ -6,19 +6,25 @@ import { autosave, loadGame } from './game/save';
 import { showTutorial, tutorialDone } from './game/tutorial';
 import { Simulation } from './sim/simulation';
 import { initMetrika } from './game/metrika';
-
-initMetrika();
+import { CHALLENGE, isChallenge, saveKeyFor } from './game/challenge';
 import { WORLD } from './sim/world';
 
+initMetrika();
+
 const params = new URLSearchParams(location.search);
-// ?seed=N — новый город с этим seed (без загрузки сохранения)
-const sim = (params.has('seed') ? null : loadGame()) ?? new Simulation(Number(params.get('seed') ?? 1));
-autosave(sim);
+// ?seed=N — новый город с этим seed (без загрузки сохранения); ?challenge — испытание недели
+const challenge = isChallenge();
+const saveKey = saveKeyFor(challenge);
+const sim =
+  (params.has('seed') ? null : loadGame(saveKey)) ??
+  new Simulation(challenge ? CHALLENGE.seed : Number(params.get('seed') ?? 1));
+autosave(sim, saveKey);
 const scene = new StreetScene();
 const hud = new Hud(
   sim,
   () => scene.select(null),
   (r) => scene.select(r),
+  challenge,
 );
 
 const game = new Phaser.Game({

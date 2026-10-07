@@ -1268,3 +1268,7 @@ button.small.danger {
   color: var(--muted);
   font-size: 13px;
 }
+
+.challenge-result > b {
+  font-size: 30px;
+}

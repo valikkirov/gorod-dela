@@ -37,6 +37,7 @@ import { openFeedback } from './feedback';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
 import { goal } from './metrika';
+import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
 import { card } from '../sim/events';
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
@@ -121,6 +122,7 @@ export class Hud {
     private readonly sim: Simulation,
     private readonly onDeselect: () => void,
     private readonly selectInScene: (r: Resident) => void = () => {},
+    private readonly challenge = false,
   ) {
     const speeds = $('#speeds');
     for (const s of SPEEDS) {
@@ -172,6 +174,7 @@ export class Hud {
   }
 
   onDayEnd(): void {
+    this.checkChallenge();
     // Сколько дней прожило заведение — главный показатель удержания
     const opened = this.sim.reports.filter((r) => r.opened).length;
     if ([1, 3, 7, 14, 28].includes(opened)) goal(`day_${opened}`, { premises: this.sim.cafe.premisesId });
@@ -180,7 +183,15 @@ export class Hud {
     this.render(true);
   }
 
+  /** Испытание закончилось — один раз показываем итог */
+  private checkChallenge(): void {
+    if (!this.challenge || savedResult()) return;
+    const r = resultIfFinished(this.sim);
+    if (r) showChallengeResult(r, this);
+  }
+
   onBankrupt(): void {
+    this.checkChallenge();
     goal('bankrupt', { day: this.sim.today, premises: this.sim.cafe.premisesId });
     this.setSpeed(0);
     this.render(true);
@@ -191,7 +202,8 @@ export class Hud {
     if (now - this.lastRender < 100) return;
     this.lastRender = now;
     const day = dayNumber(this.sim.time);
-    const clock = `<b>${WEEKDAY_SHORT[weekday(day)]} · ${formatClock(this.sim.time)}</b><small>День ${day} · ${weatherShort(this.sim.weather)}</small>`;
+    const dayText = !this.challenge ? `День ${day}` : day <= CHALLENGE.days ? `День ${day} из${NB}${CHALLENGE.days}` : `День ${day} · итог записан`;
+    const clock = `<b>${WEEKDAY_SHORT[weekday(day)]} · ${formatClock(this.sim.time)}</b><small>${dayText} · ${weatherShort(this.sim.weather)}</small>`;
     if (this.clock.innerHTML !== clock) this.clock.innerHTML = clock;
     this.cash.textContent = money(this.sim.cash);
     this.cash.classList.toggle('neg', this.sim.cash < 0);
@@ -306,6 +318,17 @@ export class Hud {
       case 'event':
         showEventCard(sim, this, () => this.render(true));
         return;
+      case 'challenge':
+        location.href = challengeUrl();
+        return;
+      case 'normal-game':
+        location.href = location.pathname;
+        return;
+      case 'challenge-result': {
+        const r = savedResult();
+        if (r) showChallengeResult(r, this);
+        return;
+      }
       case 'feedback':
         goal('feedback');
         openFeedback(this.sim);
@@ -364,8 +387,8 @@ export class Hud {
   private restart(): void {
     goal('restart', { day: this.sim.today });
     window.dispatchEvent(new Event('gorod-dela:reset'));
-    clearSave();
-    location.href = location.pathname;
+    clearSave(saveKeyFor(this.challenge));
+    location.href = this.challenge ? challengeUrl() : location.pathname;
   }
 
   // ——— Отрисовка панели ———
@@ -416,6 +439,7 @@ export class Hud {
       return `
         <div class="row head"><b>Свободные помещения</b><span class="badge">Сдаются</span></div>
         <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Посмотри, кто и${NB}когда, — нажми на${NB}жителя.</p>
+        ${this.challengeBanner()}
         <ul class="menu premises-list">${card('kiosk')}${card('cafe')}</ul>
         <small>Формат начинается с${NB}места: у${NB}метро — поток пассажиров, в${NB}кафе с${NB}залом гости сидят и${NB}дозаказывают.</small>
         ${this.sim.time > hm(7) ? this.restartBlock() : ''}`;
@@ -830,7 +854,19 @@ export class Hud {
            <button class="link" data-action="tutorial">Как играть</button>
            <button class="link" data-action="restart-ask">Начать заново</button>
          </div>
+         ${
+           this.challenge
+             ? `<div class="links">${savedResult() ? `<button class="link" data-action="challenge-result">Мой итог испытания</button>` : ''}<button class="link" data-action="normal-game">К${NB}обычной игре</button></div>`
+             : `<div class="links"><button class="link" data-action="challenge">🏆 ${CHALLENGE.title}</button></div>`
+         }
          <small class="saved">Игра сохраняется автоматически в${NB}этом браузере</small>`;
+  }
+
+  /** На экране выбора помещения: что за испытание и как считается итог */
+  private challengeBanner(): string {
+    if (!this.challenge) return '';
+    return `<div class="event-banner"><span>🏆</span><div class="grow"><b>${CHALLENGE.title}</b>
+      <small>У${NB}всех тот же город: те же жители, погода и${NB}события. Итог${NB}— касса в${NB}конце ${CHALLENGE.days}-го дня.</small></div></div>`;
   }
 
   /** Что кончается или испортится — подсказка на обзоре */

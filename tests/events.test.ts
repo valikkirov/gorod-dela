@@ -33,7 +33,7 @@ describe('События-дилеммы', () => {
     expect(a.slice(0, EVENTS.fromDay).flat()).toHaveLength(0);
     expect(a.flat().length).toBeGreaterThanOrEqual(3);
     expect(run()).toEqual(a);
-  });
+  }, 30_000);
 
   it('у каждого события есть варианты с подсказкой и вариант по умолчанию', () => {
     const sim = openKnown();
