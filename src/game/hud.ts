@@ -210,6 +210,8 @@ export class Hud {
     });
     this.panel.addEventListener('click', (ev) => this.onClick(ev));
     this.panel.addEventListener('change', (ev) => this.onChange(ev));
+    // Ушли со списка, ничего не выбрав, — догоняем отложенную пересборку
+    this.panel.addEventListener('focusout', () => setTimeout(() => this.render(), 0));
     this.panel.addEventListener('keydown', (ev) => {
       const t = ev.target as HTMLElement;
       if (t.dataset.action !== 'rename-input') return;
@@ -523,7 +525,11 @@ export class Hud {
           : this.cafeView();
     // Пересобираем DOM только когда изменилась структура — иначе обновляем «живые» числа.
     // Так не сбиваются клики, прокрутка и открытые списки.
-    if (force || html !== this.lastHtml) {
+    // Пока открыт выпадающий список или идёт ввод — не трогаем DOM: на телефоне пересборка
+    // закрывает системное окно выбора времени. Пересоберём сразу после выбора (change) или ухода фокуса.
+    const active = document.activeElement;
+    const editing = !force && active instanceof HTMLElement && this.panel.contains(active) && (active.tagName === 'SELECT' || active.tagName === 'INPUT');
+    if (!editing && (force || html !== this.lastHtml)) {
       this.lastHtml = html;
       this.panel.innerHTML = html;
       const viewKey = this.sim.bankrupt ? 'bankrupt' : `${this.sim.cafe.opened}:${this.view}:${this.selected?.id ?? ''}:${this.selectedPlace?.id ?? ''}`;
@@ -854,7 +860,9 @@ export class Hud {
         ? `${span} обслужено ${served}${NB}${plural(served, 'гость', 'гостя', 'гостей')}, без${NB}заметных потерь.`
         : `${span} гостей не${NB}было. Посмотри, кто сейчас на${NB}улице и${NB}куда идёт.`;
     }
-    return `<section class="insight-now"><h4>Что происходит</h4><p>${text}</p>${button}</section>`;
+    // Текст — «живой»: числа меняются каждую минуту, а пересобирать из-за них панель незачем
+    this.live.insight = text.replace(/&nbsp;|\u00a0/g, NB);
+    return `<section class="insight-now"><h4>Что происходит</h4><p data-live="insight"></p>${button}</section>`;
   }
 
   /** Конкурент: кто, чем берёт, цены, часы, акции */
