@@ -6,7 +6,7 @@ import { WANT_LABEL } from '../sim/demand';
 import { formatMoney } from '../sim/economy';
 import { PARK_TOP, place, PLACES, ROAD, WORLD, GRID, type Place } from '../sim/world';
 import { COLORS, RESIDENT_COLOR } from './palette';
-import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Facing } from './atlas';
+import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accessory, type Facing } from './atlas';
 import { Traffic } from './traffic';
 import { sound } from './sound';
 import type { RejectReason } from '../sim/cafe';
@@ -118,6 +118,12 @@ const CAFE_DOOR_GLASS = { x: 192, y: 148, w: 24, h: 18 };
 
 interface Walker {
   sprite: Phaser.GameObjects.Image;
+  /** Аксессуар поверх жителя: портфель, рюкзак, трость, стаканчик, пакет */
+  acc: Phaser.GameObjects.Image;
+  /** До какой минуты игры в руке стаканчик (купил у тебя) и пакет (вышел из «Продуктов») */
+  coffeeUntil: number;
+  bagUntil: number;
+  inShop: boolean;
   facing: Facing;
   flip: boolean;
   lastX: number;
@@ -228,6 +234,14 @@ export class StreetScene extends Phaser.Scene {
         .image(r.pos.x, r.pos.y, 'people', personFrame(r.kind, 'down', 0))
         .setOrigin(0.5, RESIDENT_SIZE.feet / RESIDENT_SIZE.h)
         .setScale(1 / ART_SCALE),
+      acc: this.add
+        .image(r.pos.x, r.pos.y, textureOf('acc-cane-down'), 'acc-cane-down')
+        .setOrigin(0.5, RESIDENT_SIZE.feet / RESIDENT_SIZE.h)
+        .setScale(1 / ART_SCALE)
+        .setVisible(false),
+      coffeeUntil: -1,
+      bagUntil: -1,
+      inShop: false,
       facing: 'down' as Facing,
       flip: false,
       lastX: r.pos.x,
@@ -489,6 +503,8 @@ export class StreetScene extends Phaser.Scene {
     for (const e of sim.drainEvents()) {
       if (e.type === 'sale') {
         sound.sale();
+        // Купил кофе — выходит со стаканчиком (в зале допивает на месте, но стакан с собой тоже бывает)
+        if (sim.cafe.menu.find((m) => m.id === e.itemId)?.kind === 'coffee') this.walkers[e.residentId].coffeeUntil = sim.time + COFFEE_MINUTES;
         if (sim.cafe.menu.find((m) => m.id === e.itemId)?.kind === 'coffee' && Math.random() < 0.3) sound.play('sfx-coffee', 0.6);
         const c = place(sim.shopId).rect;
         this.float(c.x + c.w / 2, c.y + Math.min(c.h - 70, 30), `+${formatMoney(e.price)}`, '#2e8b57', 24);
@@ -713,7 +729,9 @@ export class StreetScene extends Phaser.Scene {
       const w = this.walkers[i];
       const s = w.sprite;
       s.setVisible(r.visible);
+      if (!r.visible) w.acc.setVisible(false);
       if (!r.visible) {
+        if (r.placeId === 'shop') w.inShop = true;
         w.lastX = r.pos.x;
         w.lastY = r.pos.y;
         return;
@@ -737,6 +755,24 @@ export class StreetScene extends Phaser.Scene {
         .setFlipX(w.flip)
         .setPosition(r.pos.x, r.pos.y)
         .setDepth(r.pos.y);
+      // Аксессуар: что в руках сейчас, иначе — то, что носит этот тип жителя
+      if (r.placeId === 'shop' && !r.walking) w.inShop = true;
+      else if (w.inShop && r.walking) {
+        w.inShop = false;
+        w.bagUntil = sim.time + BAG_MINUTES;
+      }
+      const acc: Accessory | undefined =
+        sim.time < w.coffeeUntil ? 'coffee' : sim.time < w.bagUntil ? 'shopping-bag' : KIND_ACCESSORY[r.kind];
+      if (acc) {
+        // Покачивается в такт шагу: на шагах 1 и 3 чуть выше
+        const bob = phase % 2 === 1 ? -0.7 : 0;
+        w.acc
+          .setFrame(`acc-${acc}-${w.facing}`)
+          .setFlipX(w.flip)
+          .setPosition(r.pos.x, r.pos.y + bob)
+          .setDepth(r.pos.y + 0.01)
+          .setVisible(true);
+      } else w.acc.setVisible(false);
     });
 
     // Знакомые лица: звёздочка над головой — золотая у постоянных
@@ -830,6 +866,11 @@ export class StreetScene extends Phaser.Scene {
       .setDepth(y);
   }
 }
+
+/** Кто что носит всегда; стаканчик и пакет — на время */
+const KIND_ACCESSORY: Partial<Record<Resident['kind'], Accessory>> = { office: 'briefcase', student: 'backpack', pensioner: 'cane' };
+const COFFEE_MINUTES = 30;
+const BAG_MINUTES = 40;
 
 /** Ряд клеток с пешеходным переходом */
 const CROSSWALK_Y = 520;

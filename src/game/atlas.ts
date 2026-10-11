@@ -27,11 +27,16 @@ const FACINGS: Facing[] = ['down', 'up', 'right'];
 
 type Frames = Record<string, [x: number, y: number, w: number, h: number]>;
 
+/** Аксессуары жителей: кадр 28×44 как у жителя, накладывается поверх. Ряд внизу атласа extra */
+export const ACCESSORIES = ['briefcase', 'backpack', 'cane', 'coffee', 'shopping-bag'] as const;
+export type Accessory = (typeof ACCESSORIES)[number];
+
 export const ATLASES: Record<string, { url: string; frames: Frames }> = {
-  // Второй набор (октябрь): конкуренты, новые дома, транспорт, свет, улучшения и события
+  // Второй набор (октябрь): конкуренты, новые дома, транспорт, свет, улучшения, события и аксессуары жителей
   extra: {
     url: extraUrl,
     frames: {
+      ...accessoryFrames(),
       'building-cafe-rival': [4, 4, 240, 200],
       'building-cafe-rival-lights': [248, 4, 240, 200],
       'building-home-c-left': [736, 4, 240, 180],
@@ -120,6 +125,14 @@ export const RESIDENT_SIZE = { w: 28, h: 44, feet: 42 } as const;
 
 export function personFrame(kind: ResidentKind, facing: Facing, phase: number): string {
   return `${kind}-${facing}-${phase}`;
+}
+
+
+function accessoryFrames(): Frames {
+  const frames: Frames = {};
+  let i = 0;
+  for (const a of ACCESSORIES) for (const f of FACINGS) frames[`acc-${a}-${f}`] = [4 + i++ * 32, 824, 28, 44];
+  return frames;
 }
 
 /** Лист жителей: ряд — тип, в ряду 15 кадров (вниз, вверх, вправо × стоит + 4 шага), ячейка 32×48 */
