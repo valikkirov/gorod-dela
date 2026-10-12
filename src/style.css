@@ -829,6 +829,40 @@ small.saved {
   background: #f8e7e4;
 }
 
+/* Перенос игры файлом: спокойный блок, не красный, как у «Начать заново» */
+.restart.transfer {
+  background: #eef2f6;
+}
+
+.transfer .hire {
+  grid-template-columns: 1fr 1fr;
+}
+
+.transfer .hire .ghost {
+  grid-column: 1 / -1;
+}
+
+label.button-like {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+small.transfer-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--bad);
+  font-weight: 700;
+}
+
 button.small.danger {
   border-color: var(--bad);
   background: var(--bad);

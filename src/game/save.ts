@@ -47,3 +47,41 @@ export function autosave(sim: Simulation, key = KEY): void {
     stopped = true;
   });
 }
+
+// ——— Перенос игры файлом: на другое устройство или на новый адрес игры ———
+
+const FILE_TAG = 'gorod-dela-save';
+
+/** Скачать текущую игру файлом */
+export function exportSave(sim: Simulation): void {
+  const day = sim.today;
+  const body = JSON.stringify({ tag: FILE_TAG, saved: new Date().toISOString(), data: sim.serialize() });
+  const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `gorod-dela-den-${day}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/** Прочитать файл игры. Ошибка — текст для игрока, успех — null (игра уже записана, нужно перезагрузить) */
+export async function importSave(file: File, key = KEY): Promise<string | null> {
+  let parsed: { tag?: string; data?: SaveData };
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch {
+    return 'Это не файл игры';
+  }
+  if (parsed.tag !== FILE_TAG || !parsed.data) return 'Это не файл игры';
+  if (!Simulation.restore(parsed.data)) return 'Файл от слишком старой версии игры';
+  // Останавливаем автосохранение, чтобы текущая игра не записалась поверх загруженной
+  window.dispatchEvent(new Event('gorod-dela:reset'));
+  try {
+    localStorage.setItem(key, JSON.stringify(parsed.data));
+  } catch {
+    return 'Браузер не дал записать игру — проверь, не включён ли приватный режим';
+  }
+  return null;
+}

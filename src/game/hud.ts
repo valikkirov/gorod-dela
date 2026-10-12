@@ -33,7 +33,7 @@ import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/mileston
 import type { Simulation } from '../sim/simulation';
 import { place, type Place } from '../sim/world';
 import { RESIDENT_COLOR, toCss } from './palette';
-import { clearSave } from './save';
+import { clearSave, exportSave, importSave } from './save';
 import { openFeedback } from './feedback';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
@@ -168,6 +168,9 @@ export class Hud {
   /** Развернуть нижний лист на телефоне — подставляет main */
   onExpand: () => void = () => {};
   private confirmRestart = false;
+  /** Открыт блок «Перенести игру»; transferError — что не так с загруженным файлом */
+  private transfer = false;
+  private transferError = '';
   private tab: CafeTab = 'overview';
   /** Какое событие уже показали карточкой — второй раз сама не всплывает */
   private eventShown = '';
@@ -463,6 +466,14 @@ export class Hud {
       case 'restart-ask':
         this.confirmRestart = !this.confirmRestart;
         break;
+      case 'transfer':
+        this.transfer = !this.transfer;
+        this.transferError = '';
+        break;
+      case 'save-export':
+        goal('save-export', { day: sim.today });
+        exportSave(sim);
+        return;
     }
     this.render(true);
   }
@@ -470,6 +481,20 @@ export class Hud {
   private onChange(ev: Event): void {
     const el = ev.target as HTMLSelectElement;
     const cafe = this.sim.cafe;
+    if (el.dataset.action === 'save-import') {
+      const file = (el as unknown as HTMLInputElement).files?.[0];
+      if (!file) return;
+      void importSave(file, saveKeyFor(this.challenge)).then((error) => {
+        if (error) {
+          this.transferError = error;
+          this.render(true);
+          return;
+        }
+        goal('save-import');
+        location.reload();
+      });
+      return;
+    }
     if (el.dataset.action === 'open-at') {
       const open = Number(el.value);
       // Круглосуточный режим сохраняем; иначе не даём закрытию оказаться раньше открытия
@@ -647,7 +672,7 @@ export class Hud {
         ${this.challengeBanner()}
         <ul class="menu premises-list">${card('kiosk')}${card('cafe')}</ul>
         <small>Формат начинается с${NB}места: у${NB}метро — поток пассажиров, в${NB}кафе с${NB}залом гости сидят и${NB}дозаказывают.</small>
-        ${this.sim.time > hm(7) ? this.restartBlock() : ''}`;
+        ${this.sim.time > hm(7) ? this.restartBlock() : this.challenge ? '' : this.transferBlock()}`;
     }
 
     const minute = this.sim.minute;
@@ -1137,12 +1162,28 @@ export class Hud {
            <button class="link" data-action="tutorial">Как играть</button>
            <button class="link" data-action="restart-ask">Начать заново</button>
          </div>
+         ${this.challenge ? '' : this.transferBlock()}
          ${
            this.challenge
              ? `<div class="links">${savedResult() ? `<button class="link" data-action="challenge-result">Мой итог испытания</button>` : ''}<button class="link" data-action="normal-game">К${NB}обычной игре</button></div>`
              : `<div class="links"><button class="link" data-action="challenge">🏆 ${CHALLENGE.title}</button></div>`
          }
          <small class="saved">Игра сохраняется автоматически в${NB}этом браузере</small>`;
+  }
+
+  /** Перенос игры файлом: на другой телефон или компьютер, на новый адрес игры. В испытании не нужен */
+  private transferBlock(): string {
+    if (!this.transfer) return `<div class="links"><button class="link" data-action="transfer">Перенести игру на${NB}другое устройство</button></div>`;
+    return `<div class="restart transfer">
+        <small>Скачай файл с${NB}игрой и${NB}открой его на${NB}другом устройстве или по${NB}новому адресу игры — кафе, деньги и${NB}жители будут на${NB}месте.</small>
+        <div class="hire">
+          <button class="small" data-action="save-export">Скачать файл</button>
+          <label class="small button-like">Загрузить файл<input type="file" accept=".json,application/json" data-action="save-import" hidden /></label>
+          <button class="small ghost" data-action="transfer">Закрыть</button>
+        </div>
+        <small class="transfer-note">Загрузка заменит текущую игру в${NB}этом браузере.</small>
+        ${this.transferError ? `<small class="transfer-error">${escapeHtml(this.transferError)}</small>` : ''}
+      </div>`;
   }
 
   /** На экране выбора помещения: что за испытание и как считается итог */
