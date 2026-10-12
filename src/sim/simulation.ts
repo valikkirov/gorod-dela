@@ -12,10 +12,14 @@ import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId }
 import { card, EVENTS, resultLine, supplierPrice, type EventId, type PendingEvent } from './events';
 import { rollWeather, type Weather } from './weather';
 import {
-  clampSidewalkY,
+  entrancesOf,
+  nearestFront,
   place,
-  ROAD_CENTER_X,
-  sidewalkX,
+  snapToWalkway,
+  walkLength,
+  walkPath,
+  withLane,
+  type Entrance,
   type Place,
   type Point,
 } from './world';
@@ -24,9 +28,13 @@ import {
 const STEP = 0.2;
 /** Меняется, когда сохранения старой версии больше нельзя загрузить */
 export const SAVE_VERSION = 2;
+/** Версия карты: сохранения со старой картой загружаются, но жители встают на новые места */
+export const MAP_VERSION = 2;
 
 export interface SaveData {
   version: number;
+  /** Нет — сохранение до Садовой (карта 1) */
+  map?: number;
   seed: number;
   time: number;
   day: number;
@@ -168,6 +176,7 @@ export class Simulation {
   serialize(): SaveData {
     return {
       version: SAVE_VERSION,
+      map: MAP_VERSION,
       seed: this.seed,
       time: this.time,
       day: this.day,
@@ -217,7 +226,8 @@ export class Simulation {
   static restore(d: SaveData): Simulation | null {
     if (d.version !== SAVE_VERSION) return null;
     const sim = new Simulation(d.seed);
-    if (sim.residents.length !== d.residents.length) return null;
+    // Жителей Садовой добавили в конец списка: в старом сохранении их нет — они начнут день как в новой игре
+    if (d.residents.length > sim.residents.length) return null;
     sim.time = d.time;
     sim.day = d.day;
     sim.carry = d.carry;
@@ -265,6 +275,18 @@ export class Simulation {
         lastVisit: s.lastVisit ?? 0,
       });
     });
+    // Карта поменялась: кто был в пути — идёт дальше по новым тротуарам, кто на месте — встаёт к новой двери
+    if ((d.map ?? 1) !== MAP_VERSION) {
+      for (const r of sim.residents.slice(0, d.residents.length)) {
+        if (r.walking) {
+          r.pos = snapToWalkway(r.pos);
+          r.path = sim.route(r, place(r.placeId), null);
+        } else {
+          const p = place(r.placeId);
+          if (p.kind !== 'park' || r.pos.y < p.rect.y || r.pos.x < p.rect.x) r.pos = sim.spotIn(p);
+        }
+      }
+    }
     return sim;
   }
 
@@ -529,7 +551,7 @@ export class Simulation {
     else {
       // Житель видит цены с учётом счастливых часов
       const menu = cafe.menu.filter((m) => !this.blocked(m.kind)).map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
-      const offer = evaluate(r, want, menu, r.pos, place(this.shopId).front, place(entry.placeId).front, this.weather.kind);
+      const offer = evaluate(r, want, menu, r.pos, place(this.shopId).front, nearestFront(place(entry.placeId), r.pos), this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
       const pP = offer.item ? Math.min(1, offer.p * this.boost) : 0;
@@ -572,7 +594,7 @@ export class Simulation {
   private rivalChance(r: Resident, want: Want, entry: ScheduleEntry, minute: number): number {
     const rival = this.rival;
     if (!rival || !rival.isOpen(this.day, minute) || !rival.isOpen(this.day, minute + 10)) return 0;
-    const o = evaluate(r, want, rival.menu(this.day), r.pos, place(rival.placeId).front, place(entry.placeId).front, this.weather.kind);
+    const o = evaluate(r, want, rival.menu(this.day), r.pos, place(rival.placeId).front, nearestFront(place(entry.placeId), r.pos), this.weather.kind);
     // Конкурент — сетевой, о нём знают все; лояльность к нему не растёт
     return o.item ? o.pPrice * o.pRoute * 0.8 : 0;
   }
@@ -1143,8 +1165,10 @@ export class Simulation {
       this.learn(r, 'flyers');
     }
     r.noticed = false;
+    // Откуда выходит: из здания или сквера — через один из его входов; на ходу — с того места, где идёт
+    const from = r.walking ? null : place(r.placeId);
     r.placeId = placeId;
-    r.path = this.route(r, place(placeId));
+    r.path = this.route(r, place(placeId), from);
     r.walking = true;
     r.visible = true;
   }
@@ -1181,31 +1205,44 @@ export class Simulation {
     }
   }
 
-  /** Маршрут: к тротуару → вдоль улицы → переход → ко входу */
-  private route(r: Resident, to: Place): Point[] {
-    // Из метро и сквера (они посередине) кто-то идёт по левому тротуару, кто-то по правому
-    const side = r.pos.x === ROAD_CENTER_X ? (r.lane < 0 ? 'left' : 'right') : r.pos.x < ROAD_CENTER_X ? 'left' : 'right';
-    const lane = (s: 'left' | 'right') => sidewalkX(s) + r.lane;
-    const path: Point[] = [{ x: lane(side), y: clampSidewalkY(r.pos.y) }];
-
-    const targetSide = to.side === 'center' ? side : to.side;
-    const targetY = clampSidewalkY(to.door.y);
-    path.push({ x: lane(side), y: targetY });
-    if (targetSide !== side) path.push({ x: lane(targetSide), y: targetY });
-
-    path.push(this.spotIn(to));
+  /**
+   * Маршрут по тротуарам: из здания через ближайший удобный вход → по тротуарам и переходам → к двери.
+   * У метро два выхода, у сквера два входа: берём пару, при которой идти меньше всего.
+   */
+  private route(r: Resident, to: Place, from: Place | null): Point[] {
+    const outdoor = from ? !from.indoor : false;
+    const starts: { door: Point | null; front: Point }[] = from
+      ? entrancesOf(from).map((e) => ({ door: e.door, front: e.front }))
+      : [{ door: null, front: snapToWalkway(r.pos) }];
+    let best: { s: (typeof starts)[number]; t: Entrance; len: number } | null = null;
+    for (const s of starts) {
+      for (const t of entrancesOf(to)) {
+        const len = walkLength(s.front, t.front) + (outdoor && s.door ? Math.hypot(r.pos.x - s.door.x, r.pos.y - s.door.y) : 0);
+        if (!best || len < best.len) best = { s, t, len };
+      }
+    }
+    const { s, t } = best!;
+    const path: Point[] = [];
+    // Из здания с несколькими выходами житель появляется у выбранного, из сквера — идёт к его краю
+    if (s.door && from && entrancesOf(from).length > 1) {
+      if (outdoor) path.push({ ...s.door });
+      else r.pos = { ...s.door };
+    }
+    for (const p of walkPath(s.front, t.front)) path.push(withLane(p, r.lane));
+    path.push(this.spotIn(to, t));
     return path;
   }
 
   /** Куда именно встать в месте назначения */
-  private spotIn(p: Place): Point {
+  private spotIn(p: Place, entrance: Entrance = entrancesOf(p)[0]): Point {
     if (p.kind === 'park') {
+      // В сквере — где-нибудь на дорожках, не у самой остановки
       return {
-        x: this.rng.range(p.rect.x + 40, p.rect.x + p.rect.w - 40),
-        y: this.rng.range(p.rect.y + 50, p.rect.y + p.rect.h - 30),
+        x: this.rng.range(p.rect.x + 50, p.rect.x + p.rect.w - 40),
+        y: this.rng.range(p.rect.y + 40, p.rect.y + p.rect.h - 90),
       };
     }
-    return { ...p.door };
+    return { ...entrance.door };
   }
 
   private placeAt(r: Resident, placeId: string): void {

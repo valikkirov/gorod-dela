@@ -133,6 +133,8 @@ function makeName(rng: Rng): string {
 }
 
 const HOMES = ['home-1', 'home-2', 'home-3', 'home-4'];
+/** Жилые дома Садовой. Дом 4 переехал туда с Кленовой */
+const SADOVAYA_HOMES = ['home-4', 'home-5', 'home-6', 'home-7'];
 /** Сколько людей проходит через улицу и приезжает отдохнуть */
 export const PASSENGERS = 40;
 export const VISITORS = 36;
@@ -159,10 +161,11 @@ const SCHEDULES: Record<ResidentKind, Builder> = {
     else out.push(e(leave, home, 'home'));
     return out;
   },
-  student: (rng, home) => {
+  student: (rng, home, study) => {
+    // Учатся за пределами района (едут на метро) или в школе на Садовой
     const out = [
       e(0, home, 'home'),
-      e(hm(9, 20) + rng.jitter(40), 'metro', 'study'),
+      e(hm(9, 20) + rng.jitter(40), study, 'study'),
       e(hm(16, 30) + rng.jitter(60), home, 'home'),
     ];
     if (rng.chance(0.45)) {
@@ -345,6 +348,7 @@ interface Template {
 
 export function generateResidents(rng: Rng): Resident[] {
   const fromStreet = () => rng.pick(HOMES);
+  const fromSadovaya = () => rng.pick(SADOVAYA_HOMES);
   const templates: Template[] = [
     // Живут на улице
     { kind: 'office', count: 14, home: fromStreet, work: () => 'metro' },
@@ -361,6 +365,12 @@ export function generateResidents(rng: Rng): Resident[] {
     // Не с улицы: пересаживаются с метро на автобус и приезжают отдохнуть
     { kind: 'passenger', count: PASSENGERS, home: () => 'metro', work: () => 'bus' },
     { kind: 'visitor', count: VISITORS, home: () => 'metro', work: () => 'metro' },
+    // Садовая — жилая улица. Добавлены в конец, чтобы прежние жители по тому же seed остались прежними
+    { kind: 'office', count: 10, home: fromSadovaya, work: () => 'metro' },
+    { kind: 'student', count: 8, home: fromSadovaya, work: () => 'school' },
+    { kind: 'pensioner', count: 6, home: fromSadovaya, work: () => 'metro' },
+    { kind: 'remote', count: 4, home: fromSadovaya, work: () => 'metro' },
+    { kind: 'youth', count: 3, home: fromSadovaya, work: () => 'metro' },
   ];
 
   const residents: Resident[] = [];

@@ -4,7 +4,7 @@ import type { Resident } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import { WANT_LABEL } from '../sim/demand';
 import { formatMoney } from '../sim/economy';
-import { PARK_TOP, place, PLACES, ROAD, WORLD, GRID, type Place } from '../sim/world';
+import { SQUARE, place, PLACES, ROAD, WORLD, GRID, type Place } from '../sim/world';
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accessory, type Facing } from './atlas';
 import { Traffic } from './traffic';
@@ -202,7 +202,7 @@ export class StreetScene extends Phaser.Scene {
       .setDepth(cBase + 0.3);
     this.noCoffee = this.prop('prop-sign-no-coffee', c.rect.x + 204 - 30, cBase + 6).setDepth(cBase + 0.4);
     // Палатка фестиваля — в сквере у входа с улицы
-    this.tent = this.prop('prop-festival-tent', 150, PARK_TOP + 150);
+    this.tent = this.prop('prop-festival-tent', SQUARE.x + 300, SQUARE.y + 150);
     for (const [frame, x, y] of PROPS) {
       if (frame !== 'prop-lamp') continue;
       this.pools.push(this.light('light-lamp-pool', x, y + 6));
@@ -877,7 +877,6 @@ const CROSSWALK_Y = 520;
 
 /** Какая клетка земли лежит в точке (x, y) — левый верхний угол клетки */
 function groundTile(x: number, y: number): string {
-  if (y >= PARK_TOP) return 'tile-grass';
   if (y >= ROAD.bottom) return 'tile-sidewalk';
   if (x >= ROAD.left && x < ROAD.right) {
     // Переход между кафе и «Продуктами»

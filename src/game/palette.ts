@@ -21,6 +21,8 @@ export const PLACE_FILL: Record<PlaceKind, number> = {
   metro: 0xd85a5a,
   park: 0xbcd99c,
   bus: 0x9aa4ae,
+  school: 0xe6c98f,
+  vacant: 0xd9cfc0,
 };
 
 export const RESIDENT_COLOR: Record<ResidentKind, number> = {
