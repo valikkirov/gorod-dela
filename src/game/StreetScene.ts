@@ -150,7 +150,7 @@ export class StreetScene extends Phaser.Scene {
   /** Свет ночью: пятна под фонарями и от витрин */
   private pools: Phaser.GameObjects.Image[] = [];
   private spills: { place: Place; image: Phaser.GameObjects.Image }[] = [];
-  private traffic!: Traffic;
+  traffic!: Traffic;
   private windowLights: { place: Place; image: Phaser.GameObjects.Image }[] = [];
   private walkers: Walker[] = [];
   private guestSpots: { r: Resident; x: number; y: number }[] = [];
