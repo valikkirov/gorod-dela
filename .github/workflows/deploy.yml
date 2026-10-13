@@ -89,19 +89,13 @@ jobs:
       # Новые aws cli шлют контрольные суммы, которые S3-совместимые хранилища не всегда принимают
       AWS_REQUEST_CHECKSUM_CALCULATION: when_required
       AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      # Selectel подписан корнем GlobalSign R6: его нет во встроенном списке aws cli, но есть в системном
+      AWS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: site
           path: dist
-
-      - name: Кто подписал сертификаты (временная проверка)
-        run: |
-          for h in s3.ru-7.storage.selcloud.ru s3.ru-1.storage.selcloud.ru s3.storage.selcloud.ru cc82ee81-ae79-4661-a2d0-476d25a2ce5f.selstorage.ru gu-st.ru; do
-            issuer=$(echo | openssl s_client -connect "$h:443" -servername "$h" 2>/dev/null | openssl x509 -noout -issuer 2>/dev/null)
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "https://$h/" 2>&1 || true)
-            echo "::notice title=$h::issuer=[$issuer] curl=$code"
-          done
 
       # Текст ошибки aws выводим аннотацией — его видно в сводке запуска без логов
       - name: Выкладка в Selectel
