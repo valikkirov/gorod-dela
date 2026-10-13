@@ -95,26 +95,21 @@ jobs:
           name: site
           path: dist
 
-      - name: Загрузка ассетов
-        run: >
-          aws s3 sync dist/assets "s3://$BUCKET/assets"
-          --endpoint-url "$ENDPOINT"
-          --cache-control "public, max-age=31536000, immutable"
-
-      - name: Загрузка страницы
-        run: >
-          aws s3 sync dist "s3://$BUCKET"
-          --endpoint-url "$ENDPOINT"
-          --cache-control "no-cache"
-          --exclude "assets/*"
-          --exclude "preview/*"
-          --delete
-
-      - name: Очистка старых ассетов
-        run: >
-          aws s3 sync dist/assets "s3://$BUCKET/assets"
-          --endpoint-url "$ENDPOINT"
-          --delete
+      # Текст ошибки aws выводим аннотацией — его видно в сводке запуска без логов
+      - name: Выкладка в Selectel
+        run: |
+          run() {
+            if ! out=$("$@" 2>&1); then
+              echo "$out"
+              echo "::error title=Selectel::$(echo "$out" | tail -n 3 | tr '\n' ' ')"
+              exit 1
+            fi
+          }
+          run aws s3 sync dist/assets "s3://$BUCKET/assets" --endpoint-url "$ENDPOINT" \
+            --cache-control "public, max-age=31536000, immutable"
+          run aws s3 sync dist "s3://$BUCKET" --endpoint-url "$ENDPOINT" \
+            --cache-control "no-cache" --exclude "assets/*" --exclude "preview/*" --delete
+          run aws s3 sync dist/assets "s3://$BUCKET/assets" --endpoint-url "$ENDPOINT" --delete
 
       - name: Ссылка
         run: echo "Selectel → бакет $BUCKET выложен" >> "$GITHUB_STEP_SUMMARY"
