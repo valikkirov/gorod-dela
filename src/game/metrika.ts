@@ -10,7 +10,9 @@ declare global {
   }
 }
 
-const enabled = (): boolean => location.hostname.endsWith('yandexcloud.net');
+/** Боевые адреса: основной у Яндекса, свой домен и зеркало в Selectel */
+const LIVE_HOSTS = ['yandexcloud.net', 'gorod-dela.ru', 'selstorage.ru'];
+const enabled = (): boolean => LIVE_HOSTS.some((h) => location.hostname === h || location.hostname.endsWith(`.${h}`));
 
 export function initMetrika(): void {
   if (!enabled() || window.ym) return;
