@@ -1455,6 +1455,14 @@ button.small.danger {
   background: #9cc27a;
 }
 
+.place-school {
+  background: #d8b46a;
+}
+
+.place-vacant {
+  background: #c9b9a6;
+}
+
 .people {
   display: flex;
   flex-wrap: wrap;

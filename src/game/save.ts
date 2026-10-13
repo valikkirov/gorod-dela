@@ -1,7 +1,7 @@
 import { Simulation, type SaveData } from '../sim/simulation';
 
 // Сохранение в браузере игрока. Каждый браузер и устройство — своя игра.
-const KEY = 'gorod-dela:save';
+const KEY = `${location.pathname.includes('/preview/') ? 'gorod-dela:preview' : 'gorod-dela'}:save`;
 // Испытание недели хранится под своим ключом — обычная игра не затирается
 
 export function loadGame(key = KEY): Simulation | null {

@@ -18,12 +18,14 @@ export interface Challenge {
 export const CHALLENGE: Challenge = { id: 1, seed: 20261007, days: 14, title: 'Испытание недели №1' };
 
 const NB = ' ';
-const RESULT_KEY = `gorod-dela:challenge-${CHALLENGE.id}-result`;
+/** Превью веток лежат в папке preview/ того же сайта: их игры хранятся отдельно и не трогают настоящую */
+export const SAVE_NS = typeof location !== 'undefined' && location.pathname.includes('/preview/') ? 'gorod-dela:preview' : 'gorod-dela';
+const RESULT_KEY = `${SAVE_NS}:challenge-${CHALLENGE.id}-result`;
 
 export const isChallenge = (): boolean => new URLSearchParams(location.search).has('challenge');
 export const challengeUrl = (): string => `${location.pathname}?challenge`;
 export const saveKeyFor = (challenge: boolean): string =>
-  challenge ? `gorod-dela:challenge-${CHALLENGE.id}` : 'gorod-dela:save';
+  challenge ? `${SAVE_NS}:challenge-${CHALLENGE.id}` : `${SAVE_NS}:save`;
 
 export interface ChallengeResult {
   cash: number;
