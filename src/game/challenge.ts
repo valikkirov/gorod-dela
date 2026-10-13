@@ -15,7 +15,7 @@ export interface Challenge {
 }
 
 /** Текущее испытание. Новое на следующей неделе — увеличить id и сменить seed */
-export const CHALLENGE: Challenge = { id: 1, seed: 20261007, days: 14, title: 'Испытание недели №1' };
+export const CHALLENGE: Challenge = { id: 2, seed: 20261015, days: 14, title: 'Испытание недели №2' };
 
 const NB = ' ';
 const RESULT_KEY = `gorod-dela:challenge-${CHALLENGE.id}-result`;
