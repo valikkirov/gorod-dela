@@ -1669,36 +1669,41 @@ button.small.danger {
   margin-top: 10px;
 }
 
-/* Вкладки — текстом, как в эталоне; не влезают — листаются вбок */
+/* Вкладки управления — отдельный блок-переключатель: все шесть видны сразу (3 × 2),
+   выбранная залита цветом, под блоком — линия, отделяющая его от содержимого */
 .tabs {
-  gap: 16px;
-  margin: 8px 0 4px;
-  padding: 0 0 2px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 10px 0 12px;
+  padding: 0 0 12px;
   background: transparent;
+  border-bottom: 1px solid var(--line);
   border-radius: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.tabs::-webkit-scrollbar {
-  display: none;
+  overflow: visible;
 }
 
 .tabs button {
-  flex: none;
-  height: 32px;
+  height: 36px;
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
   font-size: 14px;
-  padding: 0;
-  background: transparent;
-  color: var(--muted);
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tabs button:hover:not(.active) {
+  border-color: #c9bfab;
+  background: #f4efe4;
 }
 
 .tabs button.active {
-  background: transparent;
-  box-shadow: none;
-  color: var(--accent);
-  font-weight: 600;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
 }
 
 @media (min-width: 900px) {
