@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Город дела — прототип</title>
     <script>
-      // Одна игра — один адрес: сохранения в браузере привязаны к адресу, поэтому www ведёт на основной
-      if (location.hostname === 'www.gorod-dela.ru') location.replace('https://gorod-dela.ru' + location.pathname + location.search + location.hash);
+      // Одна игра — один адрес: сохранения в браузере привязаны к адресу. Основной — www.gorod-dela.ru
+      // (бакет Selectel привязан к www), голый домен ведёт на него
+      if (location.hostname === 'gorod-dela.ru') location.replace('https://www.gorod-dela.ru' + location.pathname + location.search + location.hash);
     </script>
   </head>
   <body>
