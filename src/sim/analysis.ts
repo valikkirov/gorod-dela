@@ -104,14 +104,13 @@ export interface DayAnalysis {
 const sum = (a: number[] | undefined): number => (a ? a.reduce((x, y) => x + y, 0) : 0);
 const pad = (n: number): string => String(n % 24).padStart(2, '0');
 const span = (from: number, to: number): string => `с${NB}${pad(from)}:00 до${NB}${pad(to)}:00`;
-/** «ушёл 21 гость», «ушли 7 гостей» */
+/** «ушёл 21 человек», «ушли 7 человек»: гости — только те, кто купил */
 const left = (n: number): string => (n % 10 === 1 && n % 100 !== 11 ? 'ушёл' : 'ушли');
 const people = (n: number): string => {
   const d = n % 10;
   const dd = n % 100;
-  if (d === 1 && dd !== 11) return `${n}${NB}гость`;
-  if (d >= 2 && d <= 4 && (dd < 12 || dd > 14)) return `${n}${NB}гостя`;
-  return `${n}${NB}гостей`;
+  if (d >= 2 && d <= 4 && (dd < 12 || dd > 14)) return `${n}${NB}человека`;
+  return `${n}${NB}человек`;
 };
 
 /** С чем честно сравнивать: тот же день недели неделю назад, иначе последний день того же типа (будни/выходные) */
