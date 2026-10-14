@@ -870,38 +870,45 @@ export class Hud {
     const from = (h + 23) % 24;
     const hours = [from, h];
     const span = `С${NB}${fmtMinute(from * 60)} до${NB}${fmtMinute(((h + 1) % 24) * 60)}`;
+    // Гости — те, кто зашёл и купил. Кто пришёл и ушёл ни с чем — «люди», кто прошёл мимо — «прохожие»
+    const persons = (n: number) => `${numWord(n)} ${plural(n, 'человек', 'человека', 'человек')}`;
+    const passers = (n: number) => `${numWord(n)} ${plural(n, 'прохожий', 'прохожих', 'прохожих')}`;
     const count = (reason: RejectReason) => hours.reduce((n, x) => n + (t.lostHour?.[reason]?.[x] ?? 0), 0);
-    const rules: { reasons: RejectReason[]; text: (n: string) => string; tab: CafeTab; action: string }[] = [
-      { reasons: ['queue', 'no-time'], text: (n) => `${n} ушли из-за${NB}очереди`, tab: 'staff', action: 'Настроить смены' },
-      { reasons: ['out-of-stock'], text: (n) => `${n} не${NB}получили заказ: кончились продукты`, tab: 'stock', action: 'Открыть склад' },
-      { reasons: ['expensive'], text: (n) => `${n} решили, что дорого`, tab: 'menu', action: 'Посмотреть цены' },
-      { reasons: ['rival'], text: (n) => `${n} ушли к${NB}конкуренту`, tab: 'menu', action: 'Сравнить цены' },
-      { reasons: ['no-item'], text: (n) => `${n} не${NB}нашли нужного в${NB}меню`, tab: 'menu', action: 'Изменить меню' },
-      { reasons: ['closed'], text: (n) => `${n} пришли, а${NB}было закрыто`, tab: 'overview', action: 'Часы работы' },
-      { reasons: ['unaware'], text: (n) => `${n} прошли мимо: не${NB}знают о${NB}тебе`, tab: 'guests', action: 'Реклама' },
+    const rules: { reasons: RejectReason[]; text: (n: number) => string; tab: CafeTab; action: string }[] = [
+      { reasons: ['queue', 'no-time'], text: (n) => `${persons(n)} ушли из-за${NB}очереди`, tab: 'staff', action: 'Настроить смены' },
+      { reasons: ['out-of-stock'], text: (n) => `${persons(n)} не${NB}получили заказ: кончились продукты`, tab: 'stock', action: 'Открыть склад' },
+      { reasons: ['expensive'], text: (n) => `${persons(n)} решили, что дорого`, tab: 'menu', action: 'Посмотреть цены' },
+      { reasons: ['rival'], text: (n) => `${persons(n)} ушли к${NB}конкуренту`, tab: 'menu', action: 'Сравнить цены' },
+      { reasons: ['no-item'], text: (n) => `${persons(n)} не${NB}нашли нужного в${NB}меню`, tab: 'menu', action: 'Изменить меню' },
+      { reasons: ['closed'], text: (n) => `${persons(n)} пришли, а${NB}было закрыто`, tab: 'overview', action: 'Часы работы' },
+      { reasons: ['unaware'], text: (n) => `${passers(n)} прошли мимо: не${NB}знают о${NB}тебе`, tab: 'guests', action: 'Реклама' },
     ];
     let best: { n: number; rule: (typeof rules)[number] } | null = null;
     for (const rule of rules) {
       const n = rule.reasons.reduce((sum, r) => sum + count(r), 0);
       if (n >= 2 && (!best || n > best.n)) best = { n, rule };
     }
+    // Время — отдельно, жирным
+    let time = '';
     let text: string;
     let button = '';
     if (best) {
-      const who = `${numWord(best.n)} ${plural(best.n, 'гость', 'гостя', 'гостей')}`;
-      text = `${span} ${best.rule.text(who)}.`;
+      time = span;
+      text = `${best.rule.text(best.n)}.`;
       button = `<button class="primary" data-action="insight" data-item="${best.rule.tab}">${best.rule.action}</button>`;
     } else if (!cafe.isOpenAt(minute)) {
       text = `Сейчас закрыто. Откроешься в${NB}${fmtMinute(cafe.openAt % MINUTES_PER_DAY)}.`;
     } else {
       const served = hours.reduce((n, x) => n + (t.servedHour?.[x] ?? 0), 0);
+      time = span;
       text = served
-        ? `${span} обслужено ${served}${NB}${plural(served, 'гость', 'гостя', 'гостей')}, без${NB}заметных потерь.`
-        : `${span} гостей не${NB}было. Посмотри, кто сейчас на${NB}улице и${NB}куда идёт.`;
+        ? `обслужено ${served}${NB}${plural(served, 'гость', 'гостя', 'гостей')}, без${NB}заметных потерь.`
+        : `гостей не${NB}было. Посмотри, кто сейчас на${NB}улице и${NB}куда идёт.`;
     }
     // Текст — «живой»: числа меняются каждую минуту, а пересобирать из-за них панель незачем
     this.live.insight = text.replace(/&nbsp;|\u00a0/g, NB);
-    return `<section class="insight-now"><h4>Что происходит</h4><p data-live="insight"></p>${button}</section>`;
+    this.live['insight-time'] = time;
+    return `<section class="insight-now"><h4>Что происходит</h4><p><b data-live="insight-time"></b> <span data-live="insight"></span></p>${button}</section>`;
   }
 
   /** Конкурент: кто, чем берёт, цены, часы, акции */
