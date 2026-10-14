@@ -650,6 +650,10 @@ export class Hud {
         <div class="facts"><div>Работают: ${work.length} · сейчас на${NB}месте: ${inside.length}</div>${awareLine(work, 'сотрудников')}</div>
         ${people(inside, `Сейчас в${NB}офисе`)}`;
     }
+    if (p.kind === 'metro' && p.closed) {
+      return `${head(p.name, 'закрыт')}
+        <div class="facts"><div>Выход на${NB}Садовую пока закрыт. Все пассажиры выходят на${NB}Кленовую, к${NB}киоску.</div></div>`;
+    }
     if (p.kind === 'metro') {
       const come = residents.filter((r) => r.homeId === 'metro');
       return `${head(p.name, `выход из${NB}метро`)}

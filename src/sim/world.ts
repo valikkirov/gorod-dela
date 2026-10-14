@@ -40,6 +40,8 @@ export interface Place {
   indoor: boolean;
   /** Здание только рисуется и открывает карточку — жители туда не ходят */
   decor?: boolean;
+  /** Закрыто: выход метро на Садовую, пока не откроем */
+  closed?: boolean;
 }
 
 export const WORLD = { width: 1440, height: 1560 } as const;
@@ -127,11 +129,10 @@ export const PLACES: Place[] = [
     rect: { x: 280, y: 10, w: 160, h: 78 },
     door: { x: ROAD_CENTER_X, y: 96 },
     front: { x: ROAD_CENTER_X, y: SIDEWALK.minY },
-    // Одна станция, два выхода: на Кленовую и на Садовую. Выходят к тому, что ближе
-    entrances: [
-      { door: { x: ROAD_CENTER_X, y: 96 }, front: { x: ROAD_CENTER_X, y: SIDEWALK.minY } },
-      { door: { x: ROAD_CENTER_X, y: 1250 }, front: { x: ROAD_CENTER_X, y: SAD_SIDEWALK.southY } },
-    ],
+    // Одна станция, два выхода. Выход на Садовую пока закрыт: он заметно забирает поток у Кленовой,
+    // откроем его вместе с балансом форматов (этап A). Чтобы открыть — добавить второй вход:
+    // { door: { x: ROAD_CENTER_X, y: 1250 }, front: { x: ROAD_CENTER_X, y: SAD_SIDEWALK.southY } }
+    entrances: [{ door: { x: ROAD_CENTER_X, y: 96 }, front: { x: ROAD_CENTER_X, y: SIDEWALK.minY } }],
     indoor: true,
   },
   {
@@ -186,7 +187,7 @@ export const PLACES: Place[] = [
   sadovaya('home-5', 'home', 'Дом 5', 1180, 240, 168, 120, true),
   // Садовая, южная сторона: школа, второй выход метро, помещение, дома
   sadovaya('school', 'school', 'Школа', 20, 240, 208, 120, false),
-  { ...sadovaya('metro-2', 'metro', 'Метро «Кленовая», выход на Садовую', 280, 160, 80, 80, false), decor: true },
+  { ...sadovaya('metro-2', 'metro', 'Метро «Кленовая», выход на Садовую', 280, 160, 80, 80, false), decor: true, closed: true },
   { ...sadovaya('premises-2', 'vacant', 'Помещение на Садовой', 460, 240, 188, 198, false), decor: true },
   sadovaya('home-6', 'home', 'Дом 6', 740, 240, 168, 205, false),
   sadovaya('home-7', 'home', 'Дом 7', 1020, 240, 168, 205, false),

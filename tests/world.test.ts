@@ -42,8 +42,8 @@ describe('Карта с Садовой', () => {
     }
   });
 
-  it('у метро два выхода, у сквера два входа; входы стоят на тротуарах', () => {
-    expect(entrancesOf(PLACES.find((p) => p.id === 'metro')!)).toHaveLength(2);
+  it('выход метро на Садовую пока закрыт, у сквера два входа; входы стоят на тротуарах', () => {
+    expect(entrancesOf(PLACES.find((p) => p.id === 'metro')!)).toHaveLength(1);
     expect(entrancesOf(PLACES.find((p) => p.id === 'park')!)).toHaveLength(2);
     for (const p of targets) for (const e of entrancesOf(p)) expect(onWalkway(e.front), p.id).toBe(true);
   });
