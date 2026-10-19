@@ -1969,3 +1969,10 @@ button.small.danger {
   display: block;
   margin-top: 2px;
 }
+
+.hall-guest {
+  position: absolute;
+  display: block;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}

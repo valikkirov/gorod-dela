@@ -14,6 +14,9 @@ import { formatMoney } from '../sim/economy';
 import type { ResidentKind } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import roomUrl from './art/hall/room.webp';
+import { ATLASES, personFrame, type Facing } from './atlas';
+import peopleUrl from './art/people.png';
+import type { Resident } from '../sim/residents';
 
 const NB = ' ';
 const money = formatMoney;
@@ -87,6 +90,81 @@ function facts(seats: number, cozy: number): string {
   return parts.join(' · ') || 'для вида';
 }
 
+/** Где сидят гости у каждой вещи: смещение от низа места (пиксели картинки зала), куда смотрит, за вещью ли */
+interface Seat {
+  dx: number;
+  dy: number;
+  facing: Facing;
+  mirror?: boolean;
+  behind?: boolean;
+}
+const SEATS: Partial<Record<FurnitureId, Seat[]>> = {
+  table2: [
+    { dx: -52, dy: -30, facing: 'right' },
+    { dx: 52, dy: -30, facing: 'right', mirror: true },
+  ],
+  table4: [
+    { dx: -38, dy: -92, facing: 'down', behind: true },
+    { dx: 38, dy: -92, facing: 'down', behind: true },
+    { dx: -74, dy: -40, facing: 'right' },
+    { dx: 74, dy: -40, facing: 'right', mirror: true },
+  ],
+  sofa: [
+    { dx: -42, dy: -58, facing: 'down' },
+    { dx: 40, dy: -58, facing: 'down' },
+  ],
+  bar: [
+    { dx: -48, dy: -44, facing: 'up' },
+    { dx: 34, dy: -44, facing: 'up' },
+  ],
+};
+/** Жителя видно по пояс: 30 из 44 пикселей кадра, высота кадра в зале — 112 пикселей картинки */
+const GUEST = { crop: 30, scale: 112 / 44 };
+const PEOPLE_ATLAS = { w: 484, h: 436 };
+
+function guestHtml(r: Resident, x: number, y: number, seat: Seat, z: number): string {
+  const frame = ATLASES.people.frames[personFrame(r.kind, seat.facing, 0)];
+  const [fx, fy, fw] = frame;
+  const w = fw * GUEST.scale;
+  const h = GUEST.crop * GUEST.scale;
+  const style = [
+    `left:${pct(x - w / 2, ROOM.w)}`,
+    `bottom:${pct(ROOM.h - y, ROOM.h)}`,
+    `width:${pct(w, ROOM.w)}`,
+    `height:${pct(h, ROOM.h)}`,
+    `background-image:url(${peopleUrl})`,
+    `background-size:${((PEOPLE_ATLAS.w / fw) * 100).toFixed(2)}% ${((PEOPLE_ATLAS.h / GUEST.crop) * 100).toFixed(2)}%`,
+    `background-position:${((fx / (PEOPLE_ATLAS.w - fw)) * 100).toFixed(3)}% ${((fy / (PEOPLE_ATLAS.h - GUEST.crop)) * 100).toFixed(3)}%`,
+    `z-index:${z}`,
+    seat.mirror ? 'transform:scaleX(-1)' : '',
+  ].join(';');
+  return `<i class="hall-guest" style="${style}"></i>`;
+}
+
+/** Кто где сидит: сначала у вещей, которые гостю нравятся, остальные — по порядку */
+function seatGuests(sim: Simulation): string {
+  const layout = sim.cafe.interior.layout;
+  const guests = sim.residents
+    .filter((r) => r.visit?.stage === 'dining' && r.visit.want.mode === 'replace')
+    .sort((a, b) => a.id - b.id);
+  const free: { slot: string; f: FurnitureId; seat: Seat }[] = [];
+  for (const { id } of HALL_SLOTS) {
+    const f = layout[id];
+    for (const seat of (f && SEATS[f]) || []) free.push({ slot: id, f: f!, seat });
+  }
+  let html = '';
+  for (const r of guests) {
+    let i = free.findIndex((s) => furniture(s.f).likes.includes(r.kind));
+    if (i < 0) i = 0;
+    const spot = free.splice(i, 1)[0];
+    if (!spot) break;
+    const p = SLOT_POS[spot.slot];
+    const z = p.y + (spot.seat.behind ? -1 : 1);
+    html += guestHtml(r, p.x + spot.seat.dx, p.y + spot.seat.dy, spot.seat, z);
+  }
+  return html;
+}
+
 /** Вкладка целиком; selected — выбранное место для своего дизайна */
 export function hallTab(sim: Simulation, selected: string | null): string {
   const hall = sim.cafe.interior;
@@ -100,11 +178,11 @@ export function hallTab(sim: Simulation, selected: string | null): string {
       const sel = selected === id ? ' selected' : '';
       if (!f) {
         return `<button class="hall-slot empty${sel}" data-action="hall-slot" data-item="${id}" aria-label="${SLOT_TITLE[id]}"
-          style="left:${pct(p.x, ROOM.w)};top:${pct(p.y, ROOM.h)}">+</button>`;
+          style="left:${pct(p.x, ROOM.w)};top:${pct(p.y, ROOM.h)};z-index:2000">+</button>`;
       }
       const w = ITEM_W[f];
       return `<button class="hall-thing${sel}" data-action="hall-slot" data-item="${id}" aria-label="${furniture(f).name}"
-        style="left:${pct(p.x - w / 2, ROOM.w)};bottom:${pct(ROOM.h - p.y, ROOM.h)};width:${pct(w, ROOM.w)}"><img src="${art(f)}" alt=""></button>`;
+        style="left:${pct(p.x - w / 2, ROOM.w)};bottom:${pct(ROOM.h - p.y, ROOM.h)};width:${pct(w, ROOM.w)};z-index:${f === 'rug' ? 0 : p.y}"><img src="${art(f)}" alt=""></button>`;
     })
     .join('');
 
@@ -163,7 +241,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
   }
 
   return `
-    <div class="hall" style="background-image:url(${roomUrl})">${things}</div>
+    <div class="hall" style="background-image:url(${roomUrl})">${things}${seatGuests(sim)}</div>
     ${stats}
     <h4>Готовые комплектации</h4>
     <small>Выбрал${NB}— поставил. Лишнее продаётся за${NB}полцены, совпадающее остаётся.</small>
