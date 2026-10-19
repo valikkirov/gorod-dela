@@ -22,7 +22,6 @@ import urllib.request
 from datetime import datetime, timezone
 
 AUTH_URL = 'https://cloud.api.selcloud.ru/identity/v3/auth/tokens'
-LE_URL = 'https://api.selectel.ru/certs/le/'
 CM_URL = 'https://cloud.api.selcloud.ru/certificate-manager/v1'
 # SSL-сертификаты S3 для страны «Россия» (бакет в ru-7) — тот же адрес, что использует панель
 S3_SSL_URL = 'https://api.ru-6.storage.selcloud.ru/v2/ssl'
@@ -30,7 +29,8 @@ RENEW_DAYS = 30
 
 
 def log(msg: str) -> None:
-    print(msg, flush=True)
+    # Заметка видна в сводке запуска на GitHub, без открытия логов
+    print(f'::notice title=Сертификат::{msg}', flush=True)
 
 
 def fail(msg: str) -> None:
@@ -145,31 +145,36 @@ def main() -> None:
     force = os.environ.get('FORCE') == '1'
     t = token()
 
-    # 1. Сертификат Let's Encrypt в Менеджере
-    le = [c for c in items(request('GET', LE_URL, t)) if domain in (c.get('domains') or [])]
-    if not le:
-        fail(f'В Менеджере сертификатов нет Let\'s Encrypt для {domain}')
-    le.sort(key=lambda c: c.get('expire_at') or '', reverse=True)
-    cert_le = le[0]
-    knox = cert_le.get('knox_cert_id')
-    log(f"Менеджер: {cert_le.get('name')} · {cert_le.get('status')} · до {cert_le.get('expire_at')}")
-    if not knox:
-        fail('У сертификата нет knox_cert_id — не знаю, где взять файлы')
+    # 1. Сертификат в Менеджере (Let's Encrypt хранится там же, среди сертификатов пользователя)
+    certs = items(request('GET', f'{CM_URL}/certs', t))
+    mine = [c for c in certs if domain in (c.get('dns_names') or c.get('domains') or [])]
+    if not mine:
+        log(f'Структура списка: {json.dumps(shape(certs[:1]), ensure_ascii=False)}')
+        fail(f'В Менеджере сертификатов нет сертификата для {domain}')
+    log(f'Менеджер: сертификатов для домена — {len(mine)}')
+    knox_ids = [c.get('id') for c in mine if c.get('id')]
 
     # 2. Что сейчас стоит в S3
     s3 = [c for c in items(request('GET', S3_SSL_URL, t)) if domain in (c.get('domains') or [])]
     s3_end = max((d for d in (parse_date(c.get('expire_at') or c.get('not_after') or c.get('valid_to')) for c in s3) if d), default=None)
     log(f'S3: сертификатов для домена — {len(s3)}, действует до {s3_end}')
 
-    # 3. Файлы из Менеджера
-    meta = request('GET', f'{CM_URL}/cert/{knox}', t)
-    leaf = find_pem(meta, 'BEGIN CERTIFICATE')
-    if not leaf:
-        log(f'Структура ответа: {json.dumps(shape(meta), ensure_ascii=False)}')
+    # 3. Файлы из Менеджера: берём самый свежий
+    best = None
+    for cid in knox_ids:
+        meta = request('GET', f'{CM_URL}/cert/{cid}', t)
+        pem = find_pem(meta, 'BEGIN CERTIFICATE')
+        if not pem:
+            log(f'Структура ответа: {json.dumps(shape(meta), ensure_ascii=False)}')
+            continue
+        end = pem_expiry(pem)
+        if not best or end > best[2]:
+            best = (cid, pem, end)
+    if not best:
         fail('Не нашёл сертификат в ответе Менеджера')
+    knox, leaf, new_end = best
     chain = find_pem(request('GET', f'{CM_URL}/cert/{knox}/ca_chain', t), 'BEGIN CERTIFICATE') or ''
-    new_end = pem_expiry(leaf)
-    log(f'Новый сертификат действует до {new_end:%d.%m.%Y}')
+    log(f'Свежий сертификат действует до {new_end:%d.%m.%Y}')
 
     left = (s3_end - datetime.now(timezone.utc)).days if s3_end else -1
     if not force and s3_end and new_end <= s3_end:
