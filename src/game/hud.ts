@@ -37,6 +37,8 @@ import { clearSave, exportSave, importSave } from './save';
 import { openFeedback } from './feedback';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
+import { hallTab } from './hall';
+import type { FurnitureId, PresetId } from '../sim/interior';
 import { goal } from './metrika';
 import { sound } from './sound';
 import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
@@ -53,7 +55,7 @@ const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
 
 type View = 'cafe' | 'resident' | 'report' | 'place';
-type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'guests' | 'growth';
+type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'guests' | 'hall' | 'growth';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -172,6 +174,8 @@ export class Hud {
   private transfer = false;
   private transferError = '';
   private tab: CafeTab = 'overview';
+  /** Выбранное место в зале (свой дизайн) */
+  private hallSlot: string | null = null;
   /** Какое событие уже показали карточкой — второй раз сама не всплывает */
   private eventShown = '';
 
@@ -338,6 +342,21 @@ export class Hud {
         break;
       case 'toggle-catalog':
         this.catalogOpen = !this.catalogOpen;
+        break;
+      case 'hall-slot':
+        this.hallSlot = this.hallSlot === item ? null : item!;
+        break;
+      case 'hall-place': {
+        const [slot, id] = item!.split(':');
+        if (sim.placeFurniture(slot, id as FurnitureId)) sound.play('ui-upgrade');
+        break;
+      }
+      case 'hall-sell':
+        if (sim.sellFurniture(item!)) sound.play('ui-upgrade');
+        break;
+      case 'hall-preset':
+        if (sim.applyPreset(item as PresetId)) sound.play('ui-upgrade');
+        this.hallSlot = null;
         break;
       case 'tab':
         this.tab = item as CafeTab;
@@ -750,9 +769,10 @@ export class Hud {
       ['stock', 'Склад'],
       ['staff', 'Персонал'],
       ['guests', 'Гости'],
+      ...(this.sim.hasHall ? ([['hall', 'Зал']] as [CafeTab, string][]) : []),
       ['growth', 'Развитие'],
     ];
-    const tabBar = `<nav class="tabs">${tabs
+    const tabBar = `<nav class="tabs${tabs.length > 6 ? ' tabs-7' : ''}">${tabs
       .map(([id, label]) => `<button data-action="tab" data-item="${id}" class="${this.tab === id ? 'active' : ''}">${label}</button>`)
       .join('')}</nav>`;
 
@@ -791,6 +811,8 @@ export class Hud {
       body = this.facesBlock() + this.marketingTab();
     } else if (this.tab === 'growth') {
       body = this.growthTab();
+    } else if (this.tab === 'hall') {
+      body = hallTab(this.sim, this.hallSlot);
     } else {
       body = `
       <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}${cafe.has('machine') ? '3' : '4'}${NB}мин на${NB}гостя. С${NB}бариста — ${cafe.has('machine') ? '1,5' : '2'}${NB}мин, и${NB}обслуживают параллельно.</small>

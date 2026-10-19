@@ -1,3 +1,4 @@
+import { canPlace, furniture, type FurnitureId, Interior, INTERIOR, preset, type PresetId } from './interior';
 import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason } from './cafe';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
@@ -277,6 +278,8 @@ export class Simulation {
     this.cash -= pr.openingCost;
     this.cafe.premisesId = premisesId;
     this.cafe.opened = true;
+    // Два столика входят в открытие кафе; у киоска зала нет
+    if (premisesId === 'cafe') this.cafe.interior.load(preset('standard').layout);
     // В киоске нет кухни и бара — стартовое меню без них
     for (const m of [...this.cafe.menu]) if (!this.cafe.fits(m.id)) this.cafe.removeItem(m.id);
     if (!this.cafe.hasItem('croissant')) this.cafe.addItem('croissant');
@@ -605,7 +608,8 @@ export class Simulation {
     const r = this.residents[residentId];
     this.cash += price; // продукты уже оплачены при закупке
     const card = this.marketing.loyaltyCard;
-    const cozy = this.cafe.has('interior') ? UPGRADE_EFFECT.interiorLoyalty : 0;
+    const hall = this.cafe.premisesId === 'cafe' ? this.cafe.interior : null;
+    const cozy = hall ? hall.cozyLevel * INTERIOR.loyalty + (hall.likes(r.kind) ? INTERIOR.liked : 0) : 0;
     r.loyalty = Math.min(card ? 0.5 : 0.4, r.loyalty + (card ? 0.15 : 0.1) + cozy);
     r.lastVisit = this.day;
     this.noteRegular(r, true, undefined, itemId);
@@ -625,12 +629,18 @@ export class Simulation {
       );
       if (friends.length) this.learn(this.rng.pick(friends), 'word');
     }
-    if (r.visit) {
-      r.visit.stage = 'dining';
-      r.visit.until = this.time + r.visit.want.dwell;
-    }
     this.events.push({ type: 'sale', residentId, price, itemId });
-    if (r.visit) this.extraOrder(r, itemId);
+    if (!r.visit) return;
+    // Хотел посидеть, а все места заняты — берёт с собой и уходит
+    if (r.visit.want.mode === 'replace' && hall && this.seated() >= hall.seats) {
+      this.cafe.today.noSeat = (this.cafe.today.noSeat ?? 0) + 1;
+      r.visit = null;
+      this.goTo(r, r.entry.placeId);
+      return;
+    }
+    r.visit.stage = 'dining';
+    r.visit.until = this.time + r.visit.want.dwell;
+    this.extraOrder(r, itemId);
   }
 
   /** Кто сидит, тот заказывает ещё: вторую кружку в баре, выпечку к кофе, напиток к обеду */
@@ -648,7 +658,7 @@ export class Simulation {
     else if (v.want.kind === 'coffee') [extra, chance] = [pick(['snack']), EXTRA.coffee];
     else if (v.want.kind === 'tea') [extra, chance] = [pick(['snack']), EXTRA.tea];
     else if (v.want.kind === 'lunch') [extra, chance] = [pick(['coffee', 'tea']), EXTRA.lunch];
-    if (this.cafe.has('interior')) chance = Math.min(0.95, chance * UPGRADE_EFFECT.interiorExtra);
+    if (this.cafe.premisesId === 'cafe') chance = Math.min(0.95, chance * (1 + INTERIOR.extraBoost * this.cafe.interior.cozyLevel));
     if (!extra || !this.rng.chance(chance)) return;
     if (this.blocked(this.cafe.item(extra).kind)) return;
     const price = this.cafe.sellExtra(extra, this.minute);
@@ -1106,6 +1116,55 @@ export class Simulation {
     if (id === 'showcase') this.cafe.stock.extendShelf(UPGRADE_EFFECT.showcaseShelfDays);
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + u.cost;
     this.note(`upgrade:${id}`, u.name, undefined, `куплено за ${formatMoney(u.cost)}`);
+    return true;
+  }
+
+  /** Сколько гостей сейчас сидит в зале */
+  seated(): number {
+    return this.residents.filter((r) => r.visit?.stage === 'dining' && r.visit.want.mode === 'replace').length;
+  }
+
+  /** Зал есть только у кафе; киоск — навынос */
+  get hasHall(): boolean {
+    return this.cafe.opened && this.cafe.premisesId === 'cafe';
+  }
+
+  /** Поставить вещь на место; если там что-то стоит — оно продаётся */
+  placeFurniture(slot: string, id: FurnitureId): boolean {
+    if (!this.hasHall || !canPlace(slot, id)) return false;
+    const old = this.cafe.interior.layout[slot];
+    if (old === id) return false;
+    const cost = furniture(id).cost - (old ? Interior.refund(old) : 0);
+    if (this.cash < cost) return false;
+    this.cash -= cost;
+    this.cafe.interior.layout[slot] = id;
+    this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
+    this.note(`hall:${slot}`, 'Зал', old ? furniture(old).name : undefined, furniture(id).name);
+    return true;
+  }
+
+  /** Продать вещь: возвращается половина цены */
+  sellFurniture(slot: string): boolean {
+    if (!this.hasHall) return false;
+    const old = this.cafe.interior.layout[slot];
+    if (!old) return false;
+    const refund = Interior.refund(old);
+    this.cash += refund;
+    delete this.cafe.interior.layout[slot];
+    this.cafe.today.invested = (this.cafe.today.invested ?? 0) - refund;
+    this.note(`hall:${slot}`, 'Зал', furniture(old).name, 'продано');
+    return true;
+  }
+
+  /** Готовая комплектация: новое покупается, лишнее продаётся */
+  applyPreset(id: PresetId): boolean {
+    if (!this.hasHall || this.cafe.interior.matches(id)) return false;
+    const cost = this.cafe.interior.presetCost(id);
+    if (this.cash < cost) return false;
+    this.cash -= cost;
+    this.cafe.interior.load(preset(id).layout);
+    this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
+    this.note('hall', 'Зал', undefined, `комплектация «${preset(id).name}»`);
     return true;
   }
 

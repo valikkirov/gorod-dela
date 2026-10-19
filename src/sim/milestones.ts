@@ -110,6 +110,7 @@ export const MILESTONES: Milestone[] = [
 
 export const milestone = (id: MilestoneId): Milestone => MILESTONES.find((m) => m.id === id)!;
 
+/** 'interior' — старое улучшение, теперь это зал (interior.ts); остаётся ради старых сохранений */
 export type UpgradeId = 'machine' | 'showcase' | 'interior';
 
 export interface Upgrade {
@@ -140,14 +141,6 @@ export const UPGRADES: Upgrade[] = [
     unlock: 'week-plus',
     premises: ['cafe', 'kiosk'],
   },
-  {
-    id: 'interior',
-    name: 'Уютный интерьер',
-    cost: 80_000,
-    effect: 'Сидящие гости чаще заказывают ещё, и\u00a0быстрее становятся постоянными',
-    unlock: 'regulars',
-    premises: ['cafe'],
-  },
 ];
 
 export const upgrade = (id: UpgradeId): Upgrade => UPGRADES.find((u) => u.id === id)!;
@@ -157,7 +150,4 @@ export const UPGRADE_EFFECT = {
   /** Множитель времени приготовления */
   machineService: 0.75,
   showcaseShelfDays: 1,
-  interiorExtra: 1.3,
-  /** Прибавка к росту лояльности за визит */
-  interiorLoyalty: 0.05,
 } as const;
