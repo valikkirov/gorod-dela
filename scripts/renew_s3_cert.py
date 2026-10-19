@@ -49,7 +49,13 @@ def request(method: str, url: str, token: str | None = None, body=None, raw=Fals
             payload = r.read()
             if raw:
                 return r, payload
-            return json.loads(payload) if payload else None
+            if not payload:
+                return None
+            try:
+                return json.loads(payload)
+            except ValueError:
+                # PEM отдаётся простым текстом
+                return payload.decode(errors='replace')
     except urllib.error.HTTPError as e:
         # Тело ошибки печатаем — в нём нет секретов (ключ мы отправляем, а не получаем)
         text = e.read().decode(errors='replace')[:500]
@@ -159,21 +165,19 @@ def main() -> None:
     s3_end = max((d for d in (parse_date(c.get('expire_at') or c.get('not_after') or c.get('valid_to')) for c in s3) if d), default=None)
     log(f'S3: сертификатов для домена — {len(s3)}, действует до {s3_end}')
 
-    # 3. Файлы из Менеджера: берём самый свежий
-    best = None
-    for cid in knox_ids:
-        meta = request('GET', f'{CM_URL}/cert/{cid}', t)
-        pem = find_pem(meta, 'BEGIN CERTIFICATE')
-        if not pem:
-            log(f'Структура ответа: {json.dumps(shape(meta), ensure_ascii=False)}')
-            continue
-        end = pem_expiry(pem)
-        if not best or end > best[2]:
-            best = (cid, pem, end)
-    if not best:
-        fail('Не нашёл сертификат в ответе Менеджера')
-    knox, leaf, new_end = best
-    chain = find_pem(request('GET', f'{CM_URL}/cert/{knox}/ca_chain', t), 'BEGIN CERTIFICATE') or ''
+    # 3. Самый свежий сертификат по сроку из карточки, затем его файлы (цепочка начинается с самого сертификата)
+    metas = [request('GET', f'{CM_URL}/cert/{cid}', t) for cid in knox_ids]
+    metas = [m for m in metas if isinstance(m, dict) and parse_date((m.get('validity') or {}).get('notAfter'))]
+    if not metas:
+        fail('В карточке сертификата нет срока действия')
+    meta = max(metas, key=lambda m: parse_date(m['validity']['notAfter']))
+    knox = meta['id']
+    chain_data = request('GET', f'{CM_URL}/cert/{knox}/ca_chain', t)
+    full = find_pem(chain_data, 'BEGIN CERTIFICATE')
+    if not full:
+        log(f'Структура ответа цепочки: {json.dumps(shape(chain_data), ensure_ascii=False)}')
+        fail('Не нашёл файлы сертификата в Менеджере')
+    new_end = pem_expiry(full)
     log(f'Свежий сертификат действует до {new_end:%d.%m.%Y}')
 
     left = (s3_end - datetime.now(timezone.utc)).days if s3_end else -1
@@ -192,7 +196,7 @@ def main() -> None:
         if line and 'PRIVATE KEY' not in line:
             print(f'::add-mask::{line.strip()}')
     key = to_pkcs8(key.strip())
-    full = leaf.strip() + ('\n' + chain.strip() if chain.strip() and chain.strip() not in leaf else '')
+    full = full.strip()
 
     # 4. Загрузка в S3 и ожидание проверки
     name = f"gorod-dela-{new_end:%Y%m%d}"
