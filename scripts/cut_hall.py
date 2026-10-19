@@ -16,21 +16,29 @@ from scipy import ndimage as nd
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'art-src' / 'v2' / 'hall3'
 OUT = ROOT / 'src' / 'game' / 'art' / 'hall3'
-THRESHOLD = 45  # сумма разниц по RGB, ниже — шум перерисовки
+THRESHOLD = 30  # сумма разниц по RGB после размытия, ниже — шум перерисовки
 
 # Раскладки: какая вещь на каком месте и прямоугольник места (в пикселях 1024×768).
 # Порядок важен: пиксель достаётся первому прямоугольнику, в который попал.
 LAYOUTS = {
     'L1': {
         'states': {'': 'L1', 'half': 'L1h', 'full': 'L1f'},
+        # Дополнительные прямоугольники мест (проверяются первыми): стойка уходит под окно левее цветка
+        'extra': [
+            ('small-1', (44, 400, 118, 445)),
+            ('small-1', (44, 445, 100, 570)),
+            ('window', (88, 280, 192, 350)),
+            ('nook', (192, 232, 246, 300)),
+            ('window', (88, 440, 215, 530)),
+        ],
         'slots': [
             ('wall-1', 'picture', (305, 190, 362, 262)),
-            ('wall-2', 'clock', (350, 136, 406, 196)),
-            ('nook', 'monstera', (178, 232, 246, 345)),
+            ('wall-2', 'clock', (350, 136, 398, 196)),
             ('corner', 'sofa', (240, 270, 392, 395)),
+            ('nook', 'monstera', (196, 300, 236, 350)),
             ('shelf', 'bookshelf', (392, 178, 484, 384)),
-            ('small-1', 'floorlamp', (44, 400, 122, 570)),
-            ('window', 'bar', (88, 296, 246, 530)),
+            ('small-1', 'floorlamp', (44, 400, 100, 570)),
+            ('window', 'bar', (88, 296, 246, 440)),
             ('table-2', 'table2', (222, 488, 418, 608)),
             ('table-3', 'table2', (438, 488, 640, 608)),
             ('table-1', 'table2', (340, 392, 525, 497)),
@@ -40,7 +48,6 @@ LAYOUTS = {
             ('table-2', (222, 430, 418, 610)),
             ('table-3', (438, 430, 640, 610)),
             ('corner', (246, 262, 340, 425)),
-            ('corner', (340, 262, 374, 372)),
             ('window', (88, 270, 250, 530)),
             ('table-1', (340, 300, 532, 497)),
         ],
@@ -80,6 +87,8 @@ LAYOUTS = {
     },
     'R': {'states': {'': 'R'}, 'slots': [('rug', 'rug', (150, 380, 700, 640))]},
 }
+# Неудачные кусочки: за столом на четверых у витрины «полный» вышел с одним гостем — берётся «наполовину»
+SKIP = {'table-4-table4-full'}
 # Место с вещью None — лишнее, что модель дорисовала сама: забираем пиксели, но не сохраняем.
 # Вещи, которые есть в нескольких раскладках, берутся из первой
 SEATED = {'table2', 'table4', 'sofa', 'bar'}
@@ -89,77 +98,72 @@ def load(name: str) -> np.ndarray:
     return np.asarray(Image.open(SRC / f'{name}.png').convert('RGB')).astype(np.int32)
 
 
-def changed(empty: np.ndarray, img: np.ndarray) -> np.ndarray:
-    m = np.abs(empty - img).sum(2) > THRESHOLD
-    m = nd.binary_opening(m)
-    m = nd.binary_closing(m, iterations=2)
-    # Маленькие дырки (столешница цвета пола) заливаем, большие — пол между ножками — оставляем прозрачными
-    holes = nd.binary_fill_holes(m) & ~m
-    lab, n = nd.label(holes)
-    if n:
-        sizes = nd.sum(holes, lab, range(1, n + 1))
-        small = np.isin(lab, np.nonzero(sizes < 500)[0] + 1)
-        m |= small
-    return m
+def blur(img: np.ndarray) -> np.ndarray:
+    return nd.gaussian_filter(img.astype(np.float32), sigma=(1.2, 1.2, 0))
 
 
-def assign(m: np.ndarray, slots) -> np.ndarray:
-    """Номер места для каждого изменённого пикселя: по прямоугольникам, остальное — к ближайшему"""
+def changed(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Где картинки различаются: размытая разница (перерисовка шумит по пикселю), без мелкого мусора"""
+    m = np.abs(blur(a) - blur(b)).sum(2) > THRESHOLD
+    m = nd.binary_opening(m, iterations=1)
+    return nd.binary_closing(m, iterations=3)
+
+
+def solid_area(m: np.ndarray, min_size: int) -> np.ndarray:
+    lab, n = nd.label(m)
+    if not n:
+        return m
+    sizes = nd.sum(m, lab, range(1, n + 1))
+    return np.isin(lab, np.nonzero(sizes >= min_size)[0] + 1)
+
+
+def by_rects(m: np.ndarray, rects, index, near: int) -> np.ndarray:
+    """Номер места для пикселей m: первый прямоугольник, в который попал; остальное — к ближайшему не дальше near"""
     seed = np.zeros(m.shape, np.int32)
-    for i, (_, _, (x0, y0, x1, y1)) in enumerate(slots):
+    for slot, (x0, y0, x1, y1) in rects:
         box = np.zeros(m.shape, bool)
         box[y0:y1, x0:x1] = True
-        seed[(seed == 0) & box & m] = i + 1
-    dist, (iy, ix) = nd.distance_transform_edt(seed == 0, return_indices=True)
-    lab = seed[iy, ix]
-    lab[~m] = 0
-    lab[dist > 70] = 0  # далеко от всех мест — случайная перерисовка, не берём
-    return lab
+        seed[(seed == 0) & box & m] = index[slot]
+    if near:
+        dist, (iy, ix) = nd.distance_transform_edt(seed == 0, return_indices=True)
+        lab = seed[iy, ix]
+        lab[(~m) | (dist > near)] = 0
+        return lab
+    return seed
 
 
-def assign_guests(empty, base, base_lab, pic, slots, guests, bleed=()) -> tuple[np.ndarray, np.ndarray]:
-    """Картинка с гостями: мебель остаётся за своим местом (и берётся из картинки без гостей),
-    а всё новое (гости, чашки) раздаётся по прямоугольникам гостей — впереди стоящие места первыми.
-    Что вне прямоугольников — лишняя перерисовка. Возвращает места и картинку, из которой брать цвета"""
-    index = {slot: i + 1 for i, (slot, _, _) in enumerate(slots)}
-    lab = base_lab.copy()
-    new = changed(empty, pic) & (np.abs(base - pic).sum(2) > THRESHOLD)
-    for other in bleed:
-        new &= np.abs(other - pic).sum(2) > THRESHOLD
-    new = nd.binary_closing(nd.binary_opening(new), iterations=2)
-    taken = np.zeros(new.shape, bool)
-    for slot, (x0, y0, x1, y1) in guests:
-        box = np.zeros(new.shape, bool)
-        box[y0:y1, x0:x1] = True
-        part = new & box & ~taken
-        lab[part] = index[slot]
-        taken |= part
-    return lab, np.where(taken[..., None], pic, base)
+def slot_masks(lab: np.ndarray, n: int) -> dict[int, np.ndarray]:
+    """Маска каждого места: без дыр (пол между ножками — тот же пол) и с запасом в 2 px на контур"""
+    out = {}
+    for i in range(1, n + 1):
+        m = lab == i
+        if m.sum() < 50:
+            continue
+        m = solid_area(m, 40)
+        m = nd.binary_fill_holes(nd.binary_closing(m, iterations=3))
+        out[i] = nd.binary_dilation(m, iterations=2)
+    return out
 
 
-def rgba(empty: np.ndarray, img: np.ndarray, mask: np.ndarray, soft: bool) -> np.ndarray:
-    """Вещь непрозрачная. Для коврика (soft) тень — ровное затемнение пола, примыкающее к краю куска, —
-    становится полупрозрачным чёрным: тогда она ложится на коврик, а не закрывает его голым полом"""
+def rgba(empty: np.ndarray, img: np.ndarray, mask: np.ndarray, soft: bool, keep: np.ndarray) -> np.ndarray:
+    """Кусок непрозрачный, кроме мест, где он совпадает с пустой комнатой (там прозрачно — нет «ступенек»
+    от чуть другого тона стены). Для коврика (soft) всё, что похоже на пол (такой же или ровно темнее — тень),
+    становится полупрозрачным чёрным: кусок не закрывает коврик голым полом. keep — гости, их не трогаем"""
     out = np.zeros((*mask.shape, 4), np.uint8)
-    shadow = np.zeros(mask.shape, bool)
+    a = blur(empty) + 1
+    b = blur(img) + 1
+    same = mask & ~keep & (np.abs(a - b).sum(2) < 14)
+    vis = mask & ~same
+    out[vis, :3] = img[vis]
+    out[vis, 3] = 255
     if soft:
-        a = empty.astype(np.float32) + 1
-        b = img.astype(np.float32) + 1
         ratio = b.sum(2) / a.sum(2)
         resid = np.abs(b - a * ratio[..., None]).max(2)
-        flat = nd.maximum_filter(resid, size=5) < 10
-        cand = nd.binary_opening(mask & flat & (ratio < 0.99) & (ratio > 0.6))
-        # Оставляем только то, что касается пола снаружи куска: плоские доски стула внутри контура — не тень
-        outside = nd.binary_dilation(~mask, iterations=1)
-        lab, n = nd.label(cand)
-        if n:
-            touching = np.unique(lab[outside & cand])
-            shadow = np.isin(lab, touching[touching > 0])
-    solid = mask & ~shadow
-    out[solid, :3] = img[solid]
-    out[solid, 3] = 255
-    if soft:
-        out[shadow, 3] = np.clip((1 - ratio[shadow]) * 255, 0, 255).astype(np.uint8)
+        floor = vis & ~keep & (nd.maximum_filter(resid, size=5) < 10) & (ratio > 0.72)
+        thing = vis & ~floor
+        floor |= thing & ~keep & ~solid_area(thing, 30)  # мелкие островки «вещи» среди пола — тоже пол
+        out[floor, :3] = 0
+        out[floor, 3] = np.clip((1 - ratio[floor]) * 255, 0, 255).astype(np.uint8)
     return out
 
 
@@ -184,41 +188,61 @@ def main() -> None:
     img, (ox, oy, ox1, oy1) = room(empty)
     img.save(OUT / 'room.webp', quality=90)
     frames: list[str] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[str] = set()
     for layout in LAYOUTS.values():
         slots = layout['slots']
-        base_name = layout['states']['']
-        base = load(base_name)
-        base_lab = assign(changed(empty, base), slots)
+        index = {}
+        for i, (slot, _, _) in enumerate(slots):
+            index.setdefault(slot, i + 1)
+        base = load(layout['states'][''])
+        rects = layout.get('extra', []) + [(s_, r) for s_, _, r in slots]
+        base_lab = by_rects(changed(empty, base), rects, index, 70)
         for state, src in layout['states'].items():
             if not (SRC / f'{src}.png').exists():
                 print('нет исходника:', src)
                 continue
             if state:
-                bleed = [load(b) for b in layout.get('bleed', [])]
-                lab, pic = assign_guests(empty, base, base_lab, load(src), slots, layout['guests'], bleed)
+                # Гости и чашки: что изменилось и против пустой комнаты, и против той же мебели без гостей.
+                # Раздаются по прямоугольникам гостей, впереди стоящие места первыми — голова сидящего
+                # впереди остаётся у переднего стола. Мебель остаётся за своими местами.
+                pic = load(src)
+                new = changed(empty, pic) & changed(base, pic)
+                for other in layout.get('bleed', []):
+                    new &= changed(load(other), pic)
+                lab = base_lab.copy()
+                guests = by_rects(new, layout['guests'], index, 0)
+                # Гость целиком — одному месту: если почти весь он у одного стола, ноги не уходят соседнему
+                comp, n = nd.label(new)
+                for k in range(1, n + 1):
+                    where = comp == k
+                    votes = np.bincount(guests[where], minlength=len(slots) + 1)
+                    votes[0] = 0
+                    if votes.sum() < 0.4 * where.sum():
+                        guests[where] = 0  # почти целиком вне мест — дорисованное моделью лишнее (столик у дивана и т.п.)
+                    elif votes.max() >= 0.8 * votes.sum():
+                        guests[where] = votes.argmax()
+                lab[guests > 0] = guests[guests > 0]
             else:
-                lab, pic = base_lab, base
+                pic, lab = base, base_lab
+                guests = np.zeros(lab.shape, np.int32)
+            masks = slot_masks(lab, len(slots))
             for i, (slot, item, _) in enumerate(slots):
-                if item is None or (state and item not in SEATED):
+                if item is None or (state and item not in SEATED) or i + 1 not in masks:
                     continue
-                key = (slot, f'{item}{"-" + state if state else ""}')
-                if key in seen:
+                name = f'{slot}-{item}' + (f'-{state}' if state else '')
+                if name in seen or name in SKIP:
                     continue
-                # +2 px: контур вещи часто почти цвета пола и выпадает из разницы — без него край «пунктирный»
-                mask = nd.binary_dilation(lab == i + 1, iterations=2) & ((lab == 0) | (lab == i + 1))
-                if mask.sum() < 50:
-                    print('пусто:', slot, item, state)
-                    continue
-                seen.add(key)
+                seen.add(name)
+                mask = masks[i + 1]
                 ys, xs = np.nonzero(mask)
                 x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
-                name = f'{slot}-{key[1]}'
                 # Столы стоят на коврике — им нужен ещё вариант с прозрачным полом
                 for soft in (False, True) if slot.startswith('table') else (False,):
-                    piece = rgba(empty, pic, mask, soft)[y0:y1, x0:x1]
+                    # Где эту мебель закрыл гость другого места (голова сидящего впереди), берём мебель без гостей
+                    other = ((guests > 0) & (guests != i + 1))[..., None]
+                    piece = rgba(empty, np.where(other, base, pic), mask, soft, nd.binary_dilation(guests == i + 1, iterations=2))[y0:y1, x0:x1]
                     file = name + ('~rug' if soft else '')
-                    Image.fromarray(piece).save(OUT / f'{file}.webp', lossless=False, quality=90, alpha_quality=100)
+                    Image.fromarray(piece).save(OUT / f'{file}.webp', quality=92, alpha_quality=100)
                     frames.append(f"  '{file}': [{x0 - ox}, {y0 - oy}, {x1 - x0}, {y1 - y0}],")
     ts = [
         '// Сгенерировано scripts/cut_hall.py — не править руками',
