@@ -14,8 +14,7 @@ import { formatMoney } from '../sim/economy';
 import type { ResidentKind } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import roomUrl from './art/hall/room.webp';
-import { ATLASES, personFrame, type Facing } from './atlas';
-import peopleUrl from './art/people.png';
+import { SIT_HEIGHT } from './hallSit';
 import type { Resident } from '../sim/residents';
 
 const NB = ' ';
@@ -90,55 +89,47 @@ function facts(seats: number, cozy: number): string {
   return parts.join(' · ') || 'для вида';
 }
 
-/** Где сидят гости у каждой вещи: смещение от низа места (пиксели картинки зала), куда смотрит, за вещью ли */
+/** Где сидят гости у каждой вещи: точка под ногами (смещение от низа места, пиксели картинки зала), поза, за вещью ли */
+type Pose = 'side' | 'front' | 'back';
 interface Seat {
   dx: number;
   dy: number;
-  facing: Facing;
+  pose: Pose;
   mirror?: boolean;
   behind?: boolean;
 }
 const SEATS: Partial<Record<FurnitureId, Seat[]>> = {
   table2: [
-    { dx: -52, dy: -30, facing: 'right' },
-    { dx: 52, dy: -30, facing: 'right', mirror: true },
+    { dx: -50, dy: -6, pose: 'side' },
+    { dx: 50, dy: -6, pose: 'side', mirror: true },
   ],
   table4: [
-    { dx: -38, dy: -92, facing: 'down', behind: true },
-    { dx: 38, dy: -92, facing: 'down', behind: true },
-    { dx: -74, dy: -40, facing: 'right' },
-    { dx: 74, dy: -40, facing: 'right', mirror: true },
+    { dx: -36, dy: -60, pose: 'front', behind: true },
+    { dx: 36, dy: -60, pose: 'front', behind: true },
+    { dx: -70, dy: -14, pose: 'side' },
+    { dx: 70, dy: -14, pose: 'side', mirror: true },
   ],
   sofa: [
-    { dx: -42, dy: -58, facing: 'down' },
-    { dx: 40, dy: -58, facing: 'down' },
+    { dx: -40, dy: -34, pose: 'front' },
+    { dx: 40, dy: -34, pose: 'front' },
   ],
   bar: [
-    { dx: -48, dy: -44, facing: 'up' },
-    { dx: 34, dy: -44, facing: 'up' },
+    { dx: -50, dy: -10, pose: 'back' },
+    { dx: 32, dy: -10, pose: 'back' },
   ],
 };
-/** Жителя видно по пояс: 30 из 44 пикселей кадра, высота кадра в зале — 112 пикселей картинки */
-const GUEST = { crop: 30, scale: 112 / 44 };
-const PEOPLE_ATLAS = { w: 484, h: 436 };
 
 function guestHtml(r: Resident, x: number, y: number, seat: Seat, z: number): string {
-  const frame = ATLASES.people.frames[personFrame(r.kind, seat.facing, 0)];
-  const [fx, fy, fw] = frame;
-  const w = fw * GUEST.scale;
-  const h = GUEST.crop * GUEST.scale;
+  const key = `${r.kind}-${seat.pose}`;
+  const h = SIT_HEIGHT[key] ?? 80;
   const style = [
-    `left:${pct(x - w / 2, ROOM.w)}`,
+    `left:${pct(x, ROOM.w)}`,
     `bottom:${pct(ROOM.h - y, ROOM.h)}`,
-    `width:${pct(w, ROOM.w)}`,
     `height:${pct(h, ROOM.h)}`,
-    `background-image:url(${peopleUrl})`,
-    `background-size:${((PEOPLE_ATLAS.w / fw) * 100).toFixed(2)}% ${((PEOPLE_ATLAS.h / GUEST.crop) * 100).toFixed(2)}%`,
-    `background-position:${((fx / (PEOPLE_ATLAS.w - fw)) * 100).toFixed(3)}% ${((fy / (PEOPLE_ATLAS.h - GUEST.crop)) * 100).toFixed(3)}%`,
     `z-index:${z}`,
-    seat.mirror ? 'transform:scaleX(-1)' : '',
+    `transform:translateX(-50%)${seat.mirror ? ' scaleX(-1)' : ''}`,
   ].join(';');
-  return `<i class="hall-guest" style="${style}"></i>`;
+  return `<img class="hall-guest" src="${art(`sit-${key}`)}" alt="" style="${style}">`;
 }
 
 /** Кто где сидит: сначала у вещей, которые гостю нравятся, остальные — по порядку */

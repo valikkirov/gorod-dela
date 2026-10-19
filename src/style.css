@@ -1973,6 +1973,6 @@ button.small.danger {
 .hall-guest {
   position: absolute;
   display: block;
-  background-repeat: no-repeat;
+  width: auto;
   pointer-events: none;
 }
