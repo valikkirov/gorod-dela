@@ -1887,11 +1887,11 @@ button.small.danger {
   grid-template-columns: repeat(4, 1fr);
 }
 
-/* Зал кафе: картинка 4:3, мебель стоит на местах, низом на пол */
+/* Зал кафе: комната целиком, мебель — кусочки той же картинки на своих местах */
 .hall {
   position: relative;
   width: 100%;
-  aspect-ratio: 792 / 740;
+  aspect-ratio: 997 / 590;
   margin: 4px 0 10px;
   background: center / contain no-repeat;
 }
@@ -1917,16 +1917,16 @@ button.small.danger {
 }
 
 .hall-slot {
-  width: 26px;
-  height: 26px;
-  margin: -26px 0 0 -13px;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
   border: 2px dashed rgba(90, 60, 30, 0.55);
   border-radius: 50%;
   background: rgba(255, 248, 235, 0.75);
   color: #6b4a2b;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 700;
-  line-height: 20px;
+  line-height: 15px;
 }
 
 .hall-slot.selected {
@@ -1968,13 +1968,6 @@ button.small.danger {
 .menu.presets .preset small {
   display: block;
   margin-top: 2px;
-}
-
-.hall-guest {
-  position: absolute;
-  display: block;
-  width: auto;
-  pointer-events: none;
 }
 
 .hall-piece {

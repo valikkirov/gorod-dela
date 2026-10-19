@@ -13,126 +13,53 @@ import {
 import { formatMoney } from '../sim/economy';
 import type { ResidentKind } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
-import roomUrl from './art/hall/room-v2.webp';
-import { SIT_HEIGHT } from './hallSit';
-import type { Resident } from '../sim/residents';
+import roomUrl from './art/hall3/room.webp';
+import { HALL_FRAMES, HALL_ROOM } from './hallFrames';
 
-const NB = ' ';
+const NB = '\u00a0';
 const money = formatMoney;
 
-const ART = import.meta.glob('./art/hall/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-const art = (id: string): string => ART[`./art/hall/${id}.webp`];
+// Зал нарисован целиком в одном ракурсе, мебель вырезана из него же (scripts/cut_hall.py):
+// каждый кусочек ложится в свои координаты комнаты, поэтому размеры и перспектива совпадают
+const ART = import.meta.glob('./art/hall3/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+const art = (id: string): string => ART[`./art/hall3/${id}.webp`];
 
-/** Картинка зала 792×740, вид строго спереди: стена сверху, пол — нижние 60 %. Координаты — в её пикселях.
- *  Место задаётся точкой «низ по центру»: на эту линию пола вещь встаёт ножками. */
-const ROOM = { w: 792, h: 740 };
-const SLOT_POS: Record<string, { x: number; y: number }> = {
-  'wall-1': { x: 600, y: 140 },
-  'wall-2': { x: 702, y: 80 },
-  window: { x: 150, y: 338 },
-  'small-1': { x: 262, y: 334 },
-  rug: { x: 400, y: 640 },
-  'table-1': { x: 250, y: 470 },
-  'table-2': { x: 560, y: 470 },
-  corner: { x: 170, y: 590 },
-  'table-3': { x: 560, y: 595 },
-  'table-4': { x: 360, y: 690 },
-  'small-2': { x: 690, y: 690 },
+/** Кнопка «+» пустого места: точка на полу или стене, в пикселях комнаты */
+const SLOT_AT: Record<string, { x: number; y: number }> = {
+  rug: { x: 420, y: 470 },
+  'wall-1': { x: 320, y: 145 },
+  'wall-2': { x: 365, y: 85 },
+  corner: { x: 300, y: 270 },
+  shelf: { x: 425, y: 270 },
+  nook: { x: 195, y: 270 },
+  window: { x: 140, y: 360 },
+  'table-1': { x: 420, y: 395 },
+  'small-1': { x: 75, y: 455 },
+  'table-2': { x: 300, y: 500 },
+  'table-3': { x: 520, y: 500 },
+  'table-4': { x: 735, y: 500 },
 };
+const SEATED: FurnitureId[] = ['table2', 'table4', 'sofa', 'bar'];
 
-/** Из каких картинок собрана вещь: смещение низа по центру от места, ширина, слой (больше — ближе) */
-interface Piece {
-  art: string;
-  dx: number;
-  dy: number;
-  w: number;
-  z: number;
-  mirror?: boolean;
+/** Картинка вещи для списка: первая, где она нарисована пустой */
+function thumb(id: FurnitureId): string {
+  const key = Object.keys(HALL_FRAMES).find((k) => k.endsWith(`-${id}`));
+  return key ? art(key) : '';
 }
-/** Где сидит гость: точка под ногами, поза, слой */
-type Pose = 'side' | 'front' | 'back';
-interface Seat {
-  dx: number;
-  dy: number;
-  pose: Pose;
-  z: number;
-  mirror?: boolean;
-}
-const W = { chair: 52, round: 76, square: 100, sofa: 210, stool: 40, bar: 215, shelf: 120, games: 110, monstera: 85, plant: 48, lamp: 44, picture: 66, clock: 48, rug: 320 };
-// Стулья сбоку от стола: гость садится на стул (слой между стулом и столом), колени уходят под стол
-const SIDE_CHAIRS = (gap: number, dy = 0, z = 0): { pieces: Piece[]; seats: Seat[] } => ({
-  pieces: [
-    { art: 'v2-chair', dx: -gap, dy, w: W.chair, z: z + 1 },
-    { art: 'v2-chair', dx: gap, dy, w: W.chair, z: z + 1, mirror: true },
-  ],
-  seats: [
-    { dx: -gap + 8, dy: dy - 2, pose: 'side', z: z + 2 },
-    { dx: gap - 8, dy: dy - 2, pose: 'side', z: z + 2, mirror: true },
-  ],
-});
-const T2 = SIDE_CHAIRS(52);
-const T4back = SIDE_CHAIRS(66, -26, -10);
-const T4front = SIDE_CHAIRS(66, 4, 0);
-const ITEMS: Record<FurnitureId, { pieces: Piece[]; seats: Seat[] }> = {
-  table2: { pieces: [...T2.pieces, { art: 'v2-table-round', dx: 0, dy: 0, w: W.round, z: 5 }], seats: T2.seats },
-  table4: {
-    pieces: [...T4back.pieces, ...T4front.pieces, { art: 'v2-table-square', dx: 0, dy: -4, w: W.square, z: 5 }],
-    seats: [...T4back.seats, ...T4front.seats],
-  },
-  sofa: {
-    pieces: [{ art: 'v2-sofa', dx: 0, dy: 0, w: W.sofa, z: 1 }],
-    seats: [
-      { dx: -45, dy: -8, pose: 'front', z: 2 },
-      { dx: 45, dy: -8, pose: 'front', z: 2 },
-    ],
-  },
-  bar: {
-    pieces: [
-      { art: 'v2-bar', dx: 0, dy: 0, w: W.bar, z: 1 },
-      { art: 'v2-stool', dx: -50, dy: 26, w: W.stool, z: 3 },
-      { art: 'v2-stool', dx: 50, dy: 26, w: W.stool, z: 3 },
-    ],
-    seats: [
-      { dx: -50, dy: 6, pose: 'back', z: 4 },
-      { dx: 50, dy: 6, pose: 'back', z: 4 },
-    ],
-  },
-  bookshelf: { pieces: [{ art: 'v2-bookshelf', dx: 0, dy: 0, w: W.shelf, z: 1 }], seats: [] },
-  games: { pieces: [{ art: 'v2-games', dx: 0, dy: 0, w: W.games, z: 1 }], seats: [] },
-  monstera: { pieces: [{ art: 'v2-monstera', dx: 0, dy: 0, w: W.monstera, z: 1 }], seats: [] },
-  plant: { pieces: [{ art: 'v2-plant', dx: 0, dy: 0, w: W.plant, z: 1 }], seats: [] },
-  floorlamp: { pieces: [{ art: 'v2-floorlamp', dx: 0, dy: 0, w: W.lamp, z: 1 }], seats: [] },
-  picture: { pieces: [{ art: 'v2-picture', dx: 0, dy: 0, w: W.picture, z: 1 }], seats: [] },
-  clock: { pieces: [{ art: 'v2-clock', dx: 0, dy: 0, w: W.clock, z: 1 }], seats: [] },
-  rug: { pieces: [{ art: 'v2-rug', dx: 0, dy: 0, w: W.rug, z: 1 }], seats: [] },
-};
-/** Картинка вещи для списка: у столов — сам стол */
-const THUMB: Record<FurnitureId, string> = {
-  table2: 'v2-table-round',
-  table4: 'v2-table-square',
-  sofa: 'v2-sofa',
-  bar: 'v2-bar',
-  bookshelf: 'v2-bookshelf',
-  games: 'v2-games',
-  monstera: 'v2-monstera',
-  plant: 'v2-plant',
-  floorlamp: 'v2-floorlamp',
-  picture: 'v2-picture',
-  clock: 'v2-clock',
-  rug: 'v2-rug',
-};
+
 const SLOT_TITLE: Record<string, string> = {
-  rug: 'Пол в центре',
-  'wall-1': 'Стена слева',
-  'wall-2': 'Стена над витриной',
-  corner: 'Угол у окна',
-  window: 'У окна',
-  'small-1': 'У стойки',
-  'small-2': 'Угол у входа',
-  'table-1': 'Место для стола 1',
-  'table-2': 'Место для стола 2',
-  'table-3': 'Место для стола 3',
-  'table-4': 'Место для стола 4',
+  rug: 'Пол в\u00a0центре',
+  'wall-1': 'Стена над диваном',
+  'wall-2': 'Стена повыше',
+  corner: 'У\u00a0стены слева',
+  shelf: 'У\u00a0стены справа',
+  nook: 'Угол у\u00a0окна',
+  window: 'Под окном',
+  'small-1': 'Угол у\u00a0входа в\u00a0зал',
+  'table-1': 'Стол у\u00a0стойки',
+  'table-2': 'Стол слева',
+  'table-3': 'Стол в\u00a0центре',
+  'table-4': 'Стол у\u00a0витрины',
 };
 
 const LIKE_LABEL: Record<ResidentKind, string> = {
@@ -158,70 +85,40 @@ function facts(seats: number, cozy: number): string {
   return parts.join(' · ') || 'для вида';
 }
 
-/** Слой: ближе к зрителю — выше; внутри вещи — порядок деталей (стул → гость → стол) */
-const layer = (slotY: number, z: number, rug = false): number => (rug ? 1 : Math.round(slotY * 10 + z));
-
-function pieceHtml(slot: string, p: Piece, sel: boolean, label: string): string {
-  const at = SLOT_POS[slot];
-  const style = [
-    `left:${pct(at.x + p.dx - p.w / 2, ROOM.w)}`,
-    `bottom:${pct(ROOM.h - (at.y + p.dy), ROOM.h)}`,
-    `width:${pct(p.w, ROOM.w)}`,
-    `z-index:${layer(at.y, p.z, slot === 'rug')}`,
-    p.mirror ? 'transform:scaleX(-1)' : '',
-  ].join(';');
-  return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(p.art)}" alt="${label}" data-action="hall-slot" data-item="${slot}" style="${style}">`;
+/** Насколько зал полон: гости рисуются вместе с мебелью, одним уровнем на весь зал */
+function fullness(sim: Simulation): '' | 'half' | 'full' {
+  const seats = sim.cafe.interior.seats;
+  const now = sim.seated();
+  if (!seats || !now) return '';
+  return now * 2 <= seats ? 'half' : 'full';
 }
 
-function guestHtml(r: Resident, slot: string, seat: Seat): string {
-  const at = SLOT_POS[slot];
-  const key = `${r.kind}-${seat.pose}`;
-  const h = SIT_HEIGHT[key] ?? 80;
-  const style = [
-    `left:${pct(at.x + seat.dx, ROOM.w)}`,
-    `bottom:${pct(ROOM.h - (at.y + seat.dy), ROOM.h)}`,
-    `height:${pct(h, ROOM.h)}`,
-    `z-index:${layer(at.y, seat.z)}`,
-    `transform:translateX(-50%)${seat.mirror ? ' scaleX(-1)' : ''}`,
-  ].join(';');
-  return `<img class="hall-guest" src="${art(`sit-${key}`)}" alt="" style="${style}">`;
-}
-
-/** Кто где сидит: сначала у вещей, которые гостю нравятся, остальные — по порядку */
-function seatGuests(sim: Simulation): string {
-  const layout = sim.cafe.interior.layout;
-  const guests = sim.residents
-    .filter((r) => r.visit?.stage === 'dining' && r.visit.want.mode === 'replace')
-    .sort((a, b) => a.id - b.id);
-  const free: { slot: string; f: FurnitureId; seat: Seat }[] = [];
-  for (const { id } of HALL_SLOTS) {
-    const f = layout[id];
-    if (f) for (const seat of ITEMS[f].seats) free.push({ slot: id, f, seat });
-  }
-  let html = '';
-  for (const r of guests) {
-    let i = free.findIndex((s) => furniture(s.f).likes.includes(r.kind));
-    if (i < 0) i = 0;
-    const spot = free.splice(i, 1)[0];
-    if (!spot) break;
-    html += guestHtml(r, spot.slot, spot.seat);
-  }
-  return html;
+function pieceHtml(slot: string, f: FurnitureId, state: string, rug: boolean, sel: boolean): string {
+  const base = `${slot}-${f}`;
+  const withState = state && SEATED.includes(f) && HALL_FRAMES[`${base}-${state}`] ? `${base}-${state}` : base;
+  const name = rug && HALL_FRAMES[`${withState}~rug`] ? `${withState}~rug` : withState;
+  const frame = HALL_FRAMES[name];
+  if (!frame) return '';
+  const [x, y, w, h] = frame;
+  // Слой: коврик внизу, стены за мебелью, остальное — чем ниже на полу, тем ближе
+  const z = slot === 'rug' ? 1 : slot.startsWith('wall') ? 2 : 10 + y + h;
+  const style = `left:${pct(x, HALL_ROOM.w)};top:${pct(y, HALL_ROOM.h)};width:${pct(w, HALL_ROOM.w)};z-index:${z}`;
+  return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(name)}" alt="${furniture(f).name}" data-action="hall-slot" data-item="${slot}" style="${style}">`;
 }
 
 /** Вкладка целиком; selected — выбранное место для своего дизайна */
 export function hallTab(sim: Simulation, selected: string | null): string {
   const hall = sim.cafe.interior;
   const layout = hall.layout;
+  const state = fullness(sim);
+  const rug = layout.rug === 'rug';
   const things = HALL_SLOTS.map(({ id }) => {
-    const p = SLOT_POS[id];
     const f = layout[id];
     const sel = selected === id;
-    if (!f) {
-      return `<button class="hall-slot empty${sel ? ' selected' : ''}" data-action="hall-slot" data-item="${id}" aria-label="${SLOT_TITLE[id]}"
-          style="left:${pct(p.x, ROOM.w)};top:${pct(p.y, ROOM.h)};z-index:20000">+</button>`;
-    }
-    return ITEMS[f].pieces.map((piece) => pieceHtml(id, piece, sel, furniture(f).name)).join('');
+    if (f) return pieceHtml(id, f, state, rug, sel);
+    const p = SLOT_AT[id];
+    return `<button class="hall-slot empty${sel ? ' selected' : ''}" data-action="hall-slot" data-item="${id}" aria-label="${SLOT_TITLE[id]}"
+        style="left:${pct(p.x, HALL_ROOM.w)};top:${pct(p.y, HALL_ROOM.h)};z-index:2000">+</button>`;
   }).join('');
 
   const seatsNow = sim.seated();
@@ -261,7 +158,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
         const here = cur === f.id;
         const likes = f.likes.length ? ` · нравится ${f.likes.map((k) => LIKE_LABEL[k]).join(' и${NB}')}` : '';
         return `<li class="furniture${here ? ' on' : ''}">
-          <img src="${art(THUMB[f.id])}" alt="">
+          <img src="${thumb(f.id)}" alt="">
           <div class="grow"><b>${f.name}</b><small>${facts(f.seats, f.cozy)}${likes}</small></div>
           ${
             here
@@ -279,7 +176,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
   }
 
   return `
-    <div class="hall" style="background-image:url(${roomUrl})">${things}${seatGuests(sim)}</div>
+    <div class="hall" style="background-image:url(${roomUrl})">${things}</div>
     ${stats}
     <h4>Готовые комплектации</h4>
     <small>Выбрал${NB}— поставил. Лишнее продаётся за${NB}полцены, совпадающее остаётся.</small>

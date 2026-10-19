@@ -58,7 +58,7 @@ describe('Зал кафе', () => {
     expect(sim.placeFurniture('window', 'sofa')).toBe(false); // диван у окна не встаёт
     expect(sim.placeFurniture('table-1', 'table4')).toBe(true); // столик на двоих продаётся
     expect(sim.cash).toBe(cash - 12_000 - (11_000 - 3_000));
-    expect(sim.cafe.interior.seats).toBe(2 + 4 + 2);
+    expect(sim.cafe.interior.seats).toBe(3 + 4 + 2);
     expect(sim.sellFurniture('window')).toBe(true);
     expect(sim.cash).toBe(cash - 12_000 - 8_000 + 6_000);
     expect(sim.sellFurniture('window')).toBe(false);
