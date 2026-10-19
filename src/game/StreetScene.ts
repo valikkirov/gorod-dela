@@ -8,7 +8,7 @@ import { PARK_TOP, place, PLACES, ROAD, WORLD, GRID, type Place } from '../sim/w
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accessory, type Facing } from './atlas';
 import { Traffic } from './traffic';
-import { Art2, art2On, paintGround, preloadArt2 } from './art2';
+import { Art2, art2On, atlasUrl, paintGround, preloadArt2 } from './art2';
 import { sound } from './sound';
 import type { RejectReason } from '../sim/cafe';
 
@@ -176,7 +176,7 @@ export class StreetScene extends Phaser.Scene {
   }
 
   preload(): void {
-    for (const [key, atlas] of Object.entries(ATLASES)) this.load.image(key, atlas.url);
+    for (const [key, atlas] of Object.entries(ATLASES)) this.load.image(key, atlasUrl(key, atlas.url));
     preloadArt2(this);
   }
 

@@ -38,6 +38,11 @@ const BASE_SHIFT = 4;
 
 export const art2On = typeof location !== 'undefined' && !new URLSearchParams(location.search).has('old');
 
+/** Жители, транспорт, аксессуары и мелочи у кафе — в той же раскладке, что и старые атласы */
+export function atlasUrl(key: string, url: string): string {
+  return art2On && (key === 'people' || key === 'extra') ? `art2/${key}.png` : url;
+}
+
 export function preloadArt2(scene: Phaser.Scene): void {
   if (!art2On) return;
   for (const n of new Set(Object.values(ART2))) {
