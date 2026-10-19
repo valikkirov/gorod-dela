@@ -1,0 +1,37 @@
+# Продление HTTPS для www.gorod-dela.ru (зеркало в Selectel).
+# Let's Encrypt продлевается сам в Менеджере сертификатов, а S3 принимает сертификат только загрузкой:
+# раз в неделю скрипт сравнивает сроки и, если в Менеджере свежее, загружает его в S3 и удаляет старый.
+name: Сертификат Selectel
+
+on:
+  schedule:
+    - cron: '17 3 * * 1' # понедельник, 06:17 по Москве
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Загрузить, даже если в S3 срок не меньше'
+        type: boolean
+        default: false
+
+concurrency: cert
+
+jobs:
+  renew:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Перенести сертификат в S3
+        env:
+          SEL_USER: ${{ secrets.SELECTEL_CERT_USER }}
+          SEL_PASSWORD: ${{ secrets.SELECTEL_CERT_PASSWORD }}
+          # Не секреты: номер аккаунта и ID проекта видны в адресах панели
+          SEL_ACCOUNT: '707129'
+          SEL_PROJECT: 50bcfc8b78544fceb9ecb4425075060b
+          CERT_DOMAIN: www.gorod-dela.ru
+          FORCE: ${{ inputs.force && '1' || '0' }}
+        run: |
+          if [ -z "$SEL_USER" ]; then
+            echo "::notice title=Сертификат::Нет секретов SELECTEL_CERT_USER / SELECTEL_CERT_PASSWORD — пропускаю"
+            exit 0
+          fi
+          python3 scripts/renew_s3_cert.py
