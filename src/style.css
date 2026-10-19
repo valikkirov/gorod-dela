@@ -1891,7 +1891,7 @@ button.small.danger {
 .hall {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 792 / 740;
   margin: 4px 0 10px;
   background: center / contain no-repeat;
 }
@@ -1975,4 +1975,15 @@ button.small.danger {
   display: block;
   width: auto;
   pointer-events: none;
+}
+
+.hall-piece {
+  position: absolute;
+  display: block;
+  height: auto;
+  cursor: pointer;
+}
+
+.hall-piece.selected {
+  filter: drop-shadow(0 0 3px #e0703f) drop-shadow(0 0 2px #e0703f);
 }
