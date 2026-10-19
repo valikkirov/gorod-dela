@@ -8,7 +8,7 @@ import { PARK_TOP, place, PLACES, ROAD, WORLD, GRID, type Place } from '../sim/w
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accessory, type Facing } from './atlas';
 import { Traffic } from './traffic';
-import { Art2, preloadArt2 } from './art2';
+import { Art2, art2On, paintGround, preloadArt2 } from './art2';
 import { sound } from './sound';
 import type { RejectReason } from '../sim/cafe';
 
@@ -821,6 +821,15 @@ export class StreetScene extends Phaser.Scene {
     const canvas = this.textures.createCanvas('ground-map', WORLD.width * S, WORLD.height * S);
     if (!canvas) return;
     const ctx = canvas.getContext();
+    if (art2On) {
+      const cells = [];
+      for (let row = 0; row < rows; row++)
+        for (let col = 0; col < cols; col++) cells.push({ x: col * GRID.size - GRID.offsetX, y: row * GRID.size, size: GRID.size });
+      paintGround(this, ctx, S, cells, groundTile);
+      canvas.refresh();
+      this.add.image(0, 0, 'ground-map').setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
+      return;
+    }
     const src = this.textures.get('ground').getSourceImage() as HTMLImageElement;
     const frames = ATLASES.ground.frames;
     for (let row = 0; row < rows; row++) {
