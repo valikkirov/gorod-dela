@@ -8,6 +8,7 @@ import { PARK_TOP, place, PLACES, ROAD, WORLD, GRID, type Place } from '../sim/w
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accessory, type Facing } from './atlas';
 import { Traffic } from './traffic';
+import { Art2, preloadArt2 } from './art2';
 import { sound } from './sound';
 import type { RejectReason } from '../sim/cafe';
 
@@ -152,6 +153,8 @@ export class StreetScene extends Phaser.Scene {
   private spills: { place: Place; image: Phaser.GameObjects.Image }[] = [];
   traffic!: Traffic;
   private windowLights: { place: Place; image: Phaser.GameObjects.Image }[] = [];
+  private buildingSprites = new Map<string, Phaser.GameObjects.Image>();
+  private art2!: Art2;
   private walkers: Walker[] = [];
   private guestSpots: { r: Resident; x: number; y: number }[] = [];
   private selected: Resident | null = null;
@@ -174,6 +177,7 @@ export class StreetScene extends Phaser.Scene {
 
   preload(): void {
     for (const [key, atlas] of Object.entries(ATLASES)) this.load.image(key, atlas.url);
+    preloadArt2(this);
   }
 
   create(): void {
@@ -200,6 +204,11 @@ export class StreetScene extends Phaser.Scene {
       .setOrigin(0)
       .setScale(1 / ART_SCALE)
       .setDepth(cBase + 0.3);
+    this.art2 = new Art2(
+      this,
+      this.windowLights.map(({ place: p, image }) => ({ place: p, sprite: this.buildingSprites.get(p.id)!, light: image })),
+      [this.showcase, this.interior],
+    );
     this.noCoffee = this.prop('prop-sign-no-coffee', c.rect.x + 204 - 30, cBase + 6).setDepth(cBase + 0.4);
     // Палатка фестиваля — в сквере у входа с улицы
     this.tent = this.prop('prop-festival-tent', 150, PARK_TOP + 150);
@@ -433,6 +442,7 @@ export class StreetScene extends Phaser.Scene {
     this.handleEvents();
     this.drawCafe();
     this.drawNight();
+    this.art2.sync();
     this.drawSky(time);
     this.drawPeople(time);
     this.traffic.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
@@ -836,6 +846,7 @@ export class StreetScene extends Phaser.Scene {
         .setOrigin(0)
         .setScale(1 / ART_SCALE)
         .setDepth(base);
+      this.buildingSprites.set(p.id, img);
       const art = PREMISES_ART[p.id];
       if (art) this.shops.push({ place: p, sprite: img } as Shop);
       const lightFrame = art ? art.lights : `${sprite}-lights`;
