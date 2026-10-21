@@ -535,7 +535,7 @@ export class Simulation {
       const offer = evaluate(r, want, menu, r.pos, place(this.shopId).front, place(entry.placeId).front, this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
-      const pP = offer.item ? Math.min(1, offer.p * this.boost) : 0;
+      const pP = offer.item ? Math.min(1, offer.p * this.boost * this.cozyPull(r, want)) : 0;
       const pR = this.rivalChance(r, want, entry, minute);
       if (!offer.item) reason = 'no-item';
       else if (pR <= 0) {
@@ -569,6 +569,14 @@ export class Simulation {
     const visitWant = cafe.premises.seats ? want : { ...want, mode: 'stopover' as const, dwell: 0 };
     r.visit = { want: visitWant, itemId: itemId!, stage: 'going', until: 0, since: this.time };
     return true;
+  }
+
+  /** Уютный зал тянет: посидеть идут охотнее, чем взять с собой; любимая вещь в зале — ещё немного */
+  private cozyPull(r: Resident, want: Want): number {
+    if (this.cafe.premisesId !== 'cafe') return 1;
+    const hall = this.cafe.interior;
+    const sit = want.mode === 'replace';
+    return 1 + hall.cozyLevel * (sit ? INTERIOR.attractSit : INTERIOR.attractGo) + (sit && hall.likes(r.kind) ? 0.05 : 0);
   }
 
   /** Насколько житель склонен пойти к конкуренту с этим желанием прямо сейчас (0 — никак) */
@@ -623,7 +631,8 @@ export class Simulation {
       }
     }
     // Постоянный гость рассказывает соседу, коллеге или другу
-    if (r.loyalty >= 0.3 && this.rng.chance(MARKETING.wordChance)) {
+    const cozyWord = hall ? 1 + INTERIOR.wordBoost * hall.cozyLevel : 1;
+    if (r.loyalty >= 0.3 && this.rng.chance(MARKETING.wordChance * cozyWord)) {
       const friends = this.residents.filter(
         (o) => !o.aware && (o.homeId === r.homeId || (r.workId !== null && o.workId === r.workId) || o.kind === r.kind),
       );

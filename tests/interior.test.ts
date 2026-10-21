@@ -42,12 +42,12 @@ describe('Зал кафе', () => {
     const cash = sim.cash;
     const cost = sim.cafe.interior.presetCost('cozy');
     // Два столика уже стоят — платим только за диван, картину, цветок и коврик
-    expect(cost).toBe(15_000 + 3_000 + 2_000 + 3_000);
+    expect(cost).toBe(4_000 + 800 + 500 + 800);
     expect(sim.applyPreset('cozy')).toBe(true);
     expect(sim.cash).toBe(cash - cost);
     expect(sim.cafe.interior.matches('cozy')).toBe(true);
     // Обратно к «Стандарту» — продаём лишнее за половину
-    expect(sim.cafe.interior.presetCost('standard')).toBe(-Math.round(23_000 * INTERIOR.sellShare));
+    expect(sim.cafe.interior.presetCost('standard')).toBe(-Math.round(6_100 * INTERIOR.sellShare));
   });
 
   it('свой дизайн: поставить, заменить и продать', () => {
@@ -57,10 +57,10 @@ describe('Зал кафе', () => {
     expect(sim.placeFurniture('window', 'bar')).toBe(true);
     expect(sim.placeFurniture('window', 'sofa')).toBe(false); // диван у окна не встаёт
     expect(sim.placeFurniture('table-1', 'table4')).toBe(true); // столик на двоих продаётся
-    expect(sim.cash).toBe(cash - 12_000 - (11_000 - 3_000));
+    expect(sim.cash).toBe(cash - 3_000 - (2_500 - 750));
     expect(sim.cafe.interior.seats).toBe(3 + 4 + 2);
     expect(sim.sellFurniture('window')).toBe(true);
-    expect(sim.cash).toBe(cash - 12_000 - 8_000 + 6_000);
+    expect(sim.cash).toBe(cash - 3_000 - 1_750 + 1_500);
     expect(sim.sellFurniture('window')).toBe(false);
   });
 
@@ -102,5 +102,21 @@ describe('Зал кафе', () => {
     const back = Simulation.restore(save)!;
     expect(back.cafe.interior.matches('cozy')).toBe(true);
     expect(preset('cozy').layout.corner).toBe('sofa');
+  });
+
+  it('уютный зал окупается: «Уют» за две недели приносит больше, чем стоил', () => {
+    const run = (cozy: boolean) => {
+      let net = 0;
+      for (const seed of [1, 2, 3]) {
+        const sim = new Simulation(seed);
+        openKnown(sim);
+        const start = sim.cash;
+        if (cozy) sim.applyPreset('cozy');
+        sim.advance(14 * MINUTES_PER_DAY);
+        net += sim.cash - start;
+      }
+      return net;
+    };
+    expect(run(true)).toBeGreaterThan(run(false));
   });
 });

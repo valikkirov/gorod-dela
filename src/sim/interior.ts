@@ -28,18 +28,18 @@ export interface Furniture {
 }
 
 export const FURNITURE: Furniture[] = [
-  { id: 'table2', name: 'Столик на двоих', seats: 2, cozy: 0, cost: 6_000, likes: [] },
-  { id: 'table4', name: 'Стол на четверых', seats: 4, cozy: 0, cost: 11_000, likes: ['office'] },
-  { id: 'sofa', name: 'Мягкий диван', seats: 2, cozy: 2, cost: 15_000, likes: ['pensioner'] },
-  { id: 'bar', name: 'Стойка у окна с розетками', seats: 3, cozy: 0, cost: 12_000, likes: ['remote', 'student'] },
-  { id: 'bookshelf', name: 'Книжный шкаф', seats: 0, cozy: 2, cost: 9_000, likes: ['pensioner', 'student'] },
-  { id: 'games', name: 'Полка с настолками', seats: 0, cozy: 1, cost: 7_000, likes: ['youth'] },
-  { id: 'monstera', name: 'Большая монстера', seats: 0, cozy: 2, cost: 5_000, likes: [] },
-  { id: 'plant', name: 'Цветок в горшке', seats: 0, cozy: 1, cost: 2_000, likes: [] },
-  { id: 'floorlamp', name: 'Торшер', seats: 0, cozy: 1, cost: 4_000, likes: [] },
-  { id: 'picture', name: 'Картина', seats: 0, cozy: 1, cost: 3_000, likes: [] },
-  { id: 'clock', name: 'Часы', seats: 0, cozy: 1, cost: 2_000, likes: [] },
-  { id: 'rug', name: 'Коврик', seats: 0, cozy: 1, cost: 3_000, likes: [] },
+  { id: 'table2', name: 'Столик на двоих', seats: 2, cozy: 0, cost: 1_500, likes: [] },
+  { id: 'table4', name: 'Стол на четверых', seats: 4, cozy: 0, cost: 2_500, likes: ['office'] },
+  { id: 'sofa', name: 'Мягкий диван', seats: 2, cozy: 2, cost: 4_000, likes: ['pensioner'] },
+  { id: 'bar', name: 'Стойка у окна с розетками', seats: 3, cozy: 0, cost: 3_000, likes: ['remote', 'student'] },
+  { id: 'bookshelf', name: 'Книжный шкаф', seats: 0, cozy: 2, cost: 2_500, likes: ['pensioner', 'student'] },
+  { id: 'games', name: 'Полка с настолками', seats: 0, cozy: 1, cost: 2_000, likes: ['youth'] },
+  { id: 'monstera', name: 'Большая монстера', seats: 0, cozy: 2, cost: 1_200, likes: [] },
+  { id: 'plant', name: 'Цветок в горшке', seats: 0, cozy: 1, cost: 500, likes: [] },
+  { id: 'floorlamp', name: 'Торшер', seats: 0, cozy: 1, cost: 1_000, likes: [] },
+  { id: 'picture', name: 'Картина', seats: 0, cozy: 1, cost: 800, likes: [] },
+  { id: 'clock', name: 'Часы', seats: 0, cozy: 1, cost: 600, likes: [] },
+  { id: 'rug', name: 'Коврик', seats: 0, cozy: 1, cost: 800, likes: [] },
 ];
 
 export const furniture = (id: FurnitureId): Furniture => FURNITURE.find((f) => f.id === id)!;
@@ -134,6 +134,11 @@ export const INTERIOR = {
   loyalty: 0.05,
   /** Прибавка к лояльности, если в зале есть вещь, которая нравится гостю */
   liked: 0.03,
+  /** Насколько полный уют прибавляет к желанию зайти: посидеть (×), взять с собой (×) */
+  attractSit: 0.8,
+  attractGo: 0.25,
+  /** Во сколько раз чаще постоянные гости уютного зала советуют кафе знакомым */
+  wordBoost: 1,
 } as const;
 
 export function canPlace(slotId: string, id: FurnitureId): boolean {
