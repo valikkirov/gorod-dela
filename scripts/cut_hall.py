@@ -16,6 +16,11 @@ from scipy import ndimage as nd
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'art-src' / 'v2' / 'hall3'
 OUT = ROOT / 'src' / 'game' / 'art' / 'hall3'
+import os
+MATTE = SRC / 'matte'  # альфа-маски вырезки фона (Magnific «удалить фон» по кадрам из HALL_CTX; стойка у окна — по кадру ~flat)
+CTX = Path(os.environ['HALL_CTX']) if os.environ.get('HALL_CTX') else None
+MARGIN = 12
+W, H = 1024, 768
 THRESHOLD = 30  # сумма разниц по RGB после размытия, ниже — шум перерисовки
 
 # Раскладки: какая вещь на каком месте и прямоугольник места (в пикселях 1024×768).
@@ -47,7 +52,7 @@ LAYOUTS = {
         'guests': [
             ('table-2', (222, 430, 418, 610)),
             ('table-3', (438, 430, 640, 610)),
-            ('corner', (246, 262, 340, 425)),
+            ('corner', (246, 262, 358, 425)),
             ('window', (88, 270, 250, 530)),
             ('table-1', (340, 300, 532, 497)),
         ],
@@ -236,11 +241,54 @@ def main() -> None:
                 mask = masks[i + 1]
                 ys, xs = np.nonzero(mask)
                 x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+                # Где эту мебель закрыл гость другого места (голова сидящего впереди), берём мебель без гостей
+                other = ((guests > 0) & (guests != i + 1))[..., None]
+                src_img = np.where(other, base, pic)
+                # Кадр с запасом — для вырезки фона (matte): так видно, что вещь, а что комната
+                cx0, cy0, cx1, cy1 = max(0, x0 - MARGIN), max(0, y0 - MARGIN), min(W, x1 + MARGIN), min(H, y1 + MARGIN)
+                if CTX:
+                    Image.fromarray(pic[cy0:cy1, cx0:cx1].astype(np.uint8)).save(CTX / f'{name}.png')
+                    # Вариант на ровном фоне: всё, что совпадает с пустой комнатой, — серое (для вещей у стены)
+                    keep = nd.binary_dilation(changed(empty, pic) & nd.binary_dilation(mask, iterations=6), iterations=2)
+                    flat = np.where(keep[..., None], pic, 205)[cy0:cy1, cx0:cx1].astype(np.uint8)
+                    Image.fromarray(flat).save(CTX / f'{name}~flat.png')
+                matte = MATTE / f'{name}.png'
+                if matte.exists() and slot != 'rug':
+                    # Чистая вырезка: альфа от удаления фона плюс то, что заметно отличается от пустой комнаты
+                    # (стойку у стены удаление фона считает стеной). Только в пределах своего места (+8 px).
+                    # Цвета — из картинки целиком: соседние куски одного состояния совпадают пиксель в пиксель.
+                    a = np.zeros(mask.shape, np.float32)
+                    m = Image.open(matte).convert('RGBA').resize((cx1 - cx0, cy1 - cy0), Image.LANCZOS)
+                    a[cy0:cy1, cx0:cx1] = np.asarray(m)[..., 3] / 255.0
+                    a *= nd.binary_dilation(mask, iterations=3)
+                    # Дыры внутри вырезки: если там не пол (заметно отличается от пустой комнаты) — это вещь
+                    # (столешница цвета пола), заливаем; пол между ножками остаётся прозрачным
+                    solid = a > 0.5
+                    holes, n_h = nd.label(nd.binary_fill_holes(nd.binary_closing(solid, iterations=8)) & ~solid)
+                    if n_h:
+                        d = np.abs(blur(empty) - blur(pic)).sum(2)
+                        means = nd.mean(d, holes, range(1, n_h + 1))
+                        cy = [c[0] for c in nd.center_of_mass(np.ones_like(d), holes, range(1, n_h + 1))]
+                        ys_s = np.nonzero(solid)[0]
+                        top, bottom = ys_s.min(), ys_s.max()
+                        # Столешница и сиденья — в верхней части вещи; просветы между ножками — внизу, там пол
+                        fillers = [k + 1 for k in range(n_h) if means[k] > 25 or cy[k] < top + 0.62 * (bottom - top)]
+                        a[np.isin(holes, fillers)] = 1
+                    # Оторванные кусочки (край соседнего стула, макушка соседа) — прочь: остаются крупные части
+                    lab_a, n_a = nd.label(a > 0.3)
+                    if n_a:
+                        sizes = nd.sum(np.ones_like(a), lab_a, range(1, n_a + 1))
+                        big = np.nonzero(np.array(sizes) >= 0.12 * max(sizes))[0] + 1
+                        a *= nd.binary_dilation(np.isin(lab_a, big), iterations=2)
+                    ys, xs = np.nonzero(a > 0.02)
+                    x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+                    out = np.dstack([pic.astype(np.uint8), (np.clip(a, 0, 1) * 255).round().astype(np.uint8)])[y0:y1, x0:x1]
+                    Image.fromarray(out).save(OUT / f'{name}.webp', quality=92, alpha_quality=100)
+                    frames.append(f"  '{name}': [{x0 - ox}, {y0 - oy}, {x1 - x0}, {y1 - y0}],")
+                    continue
                 # Столы стоят на коврике — им нужен ещё вариант с прозрачным полом
                 for soft in (False, True) if slot.startswith('table') else (False,):
-                    # Где эту мебель закрыл гость другого места (голова сидящего впереди), берём мебель без гостей
-                    other = ((guests > 0) & (guests != i + 1))[..., None]
-                    piece = rgba(empty, np.where(other, base, pic), mask, soft, nd.binary_dilation(guests == i + 1, iterations=2))[y0:y1, x0:x1]
+                    piece = rgba(empty, src_img, mask, soft, nd.binary_dilation(guests == i + 1, iterations=2))[y0:y1, x0:x1]
                     file = name + ('~rug' if soft else '')
                     Image.fromarray(piece).save(OUT / f'{file}.webp', quality=92, alpha_quality=100)
                     frames.append(f"  '{file}': [{x0 - ox}, {y0 - oy}, {x1 - x0}, {y1 - y0}],")
