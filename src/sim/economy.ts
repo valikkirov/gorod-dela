@@ -4,10 +4,10 @@ export type Currency = 'RUB';
 export const CURRENCY: Currency = 'RUB';
 
 export const ECONOMY = {
-  startCash: 500_000,
-  cafeOpeningCost: 300_000,
+  startCash: 350_000,
+  cafeOpeningCost: 150_000,
   /** 90 000 ₽ в месяц → списывается каждый игровой день */
-  rentPerDay: 3_000,
+  rentPerDay: 2_200,
   utilitiesPerDay: 500,
   /** Бариста почасово. Ночью (22:00–6:00) — с надбавкой, как по ТК */
   baristaWagePerHour: 300,
@@ -78,7 +78,7 @@ export const PREMISES: Record<PremisesId, Premises> = {
     rentPerDay: 1_500,
     utilitiesPerDay: 100,
     utilitiesPerHour: 15,
-    openingCost: 150_000,
+    openingCost: 75_000,
     seats: false,
     kinds: ['coffee', 'snack', 'tea'],
     maxBaristas: 1,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeDay, comparableDay, describeLost } from '../src/sim/analysis';
 import { hm } from '../src/sim/clock';
-import { formatMoney } from '../src/sim/economy';
+import { ECONOMY, formatMoney } from '../src/sim/economy';
 import { Simulation } from '../src/sim/simulation';
 
 const DAY = 24 * 60;
@@ -113,7 +113,7 @@ describe('Касса', () => {
     openKnown(sim);
     sim.hireBarista('shift');
     const o = sim.cashOutlook();
-    expect(o.daily).toBe(3000 + 200 + 30 * 12 + 2500);
+    expect(o.daily).toBe(ECONOMY.rentPerDay + 200 + 30 * 12 + 2500);
     expect(o.days).toBe(Math.floor(sim.cash / o.daily));
     sim.cash = -100;
     expect(sim.cashOutlook().days).toBe(0);

@@ -182,7 +182,7 @@ export function evaluate(
       ? manhattan(from, cafeDoor) + manhattan(cafeDoor, goalDoor) - manhattan(from, goalDoor)
       : manhattan(from, cafeDoor) - manhattan(from, goalDoor);
   const pRoute = clamp(1 - Math.max(0, detour) / 700, 0.15, 1);
-  const p = item ? pPrice * pRoute * (0.8 + r.loyalty) * focusFactor(menu, item.kind) : 0;
+  const p = item ? pPrice * pRoute * (FOCUS.base + r.loyalty) * focusFactor(menu, item.kind) : 0;
   return { item, pPrice, pRoute, p };
 }
 
@@ -190,11 +190,20 @@ export function evaluate(
  * Понятный формат привлекает сильнее: «кофейня», «бар», «столовая» лучше, чем «всё подряд».
  * Узкое меню (1–2 категории) — плюс, 4–5 категорий — минус; выбор внутри категории (3+ позиции) — плюс.
  */
+export const FOCUS = {
+  /** Базовая охота зайти у незнакомого с кафе жителя (лояльность прибавляется) */
+  base: 1.0,
+  /** Множитель за число категорий в меню: 1–2, 3, 4, 5 */
+  breadth: [1.4, 1.2, 0.85, 0.6],
+  /** За выбор внутри категории (3+ позиции) */
+  depth: 1.15,
+};
+
 export function focusFactor(menu: MenuItem[], kind: ItemKind): number {
   const categories = new Set(menu.map((m) => m.kind)).size;
   const depth = menu.filter((m) => m.kind === kind).length;
-  const breadth = categories <= 2 ? 1.1 : categories === 3 ? 1 : categories === 4 ? 0.9 : 0.8;
-  return breadth * (depth >= 3 ? 1.1 : 1);
+  const breadth = FOCUS.breadth[Math.min(3, Math.max(0, categories - 2))];
+  return breadth * (depth >= 3 ? FOCUS.depth : 1);
 }
 
 /** Почему житель не зашёл — объясняем честно, без «дорого» при нормальной цене */
