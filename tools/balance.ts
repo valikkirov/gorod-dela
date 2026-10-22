@@ -5,7 +5,7 @@ import { hm, isWeekend, MINUTES_PER_DAY } from '../src/sim/clock';
 import type { PremisesId } from '../src/sim/economy';
 import { MILESTONES } from '../src/sim/milestones';
 import { Simulation } from '../src/sim/simulation';
-import { INGREDIENTS, RECIPES, type IngredientId } from '../src/sim/stock';
+import { INGREDIENTS, recipeOf, type IngredientId } from '../src/sim/stock';
 
 export interface Format {
   name: string;
@@ -53,7 +53,7 @@ export const FORMATS: Format[] = [
 function usage(r: DayReport): Partial<Record<IngredientId, number>> {
   const out: Partial<Record<IngredientId, number>> = {};
   for (const [item, n] of Object.entries(r.sold)) {
-    for (const [ing, q] of Object.entries(RECIPES[item] ?? {}) as [IngredientId, number][]) out[ing] = (out[ing] ?? 0) + q * n;
+    for (const [ing, q] of Object.entries(recipeOf(item)) as [IngredientId, number][]) out[ing] = (out[ing] ?? 0) + q * n;
   }
   return out;
 }
@@ -65,7 +65,7 @@ function tuneStock(sim: Simulation): void {
     if (!days.length) continue;
     for (const ing of INGREDIENTS) {
       const need = Math.max(...days.map((d) => usage(d)[ing.id] ?? 0));
-      const used = Object.values(sim.cafe.menu).some((m) => (RECIPES[m.id] ?? {})[ing.id]);
+      const used = Object.values(sim.cafe.menu).some((m) => recipeOf(m.id)[ing.id]);
       sim.setKeep(ing.id, used ? Math.ceil(need * 1.15) + 2 : 0, weekend);
     }
   }

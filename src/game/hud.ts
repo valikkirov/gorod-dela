@@ -9,7 +9,9 @@ import {
   type Change,
   type DayReport,
   type ItemKind,
+  type MenuItem,
   type RejectReason,
+  DISH_NAME_MAX,
 } from '../sim/cafe';
 import {
   dayNumber,
@@ -24,7 +26,8 @@ import {
 } from '../sim/clock';
 import { analyzeDay, describeLost } from '../sim/analysis';
 import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
-import { INGREDIENTS, orderPrice, RECIPES, type IngredientId } from '../sim/stock';
+import { INGREDIENTS, orderPrice, recipeCost, recipeOf, type IngredientId } from '../sim/stock';
+import { BASES, base as dishBase, addIn as dishAddIn, defaultDishName, dishId, dishPrep, MAX_ADDINS, MAX_OWN, type AddInId, type BaseId } from '../sim/dishes';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
 import { ECONOMY, EQUIPMENT, equipmentFor, formatMoney, PREMISES, type EquipmentId, type PremisesId } from '../sim/economy';
@@ -120,7 +123,23 @@ const WANT_VISIT: Record<WantKind, string> = {
 };
 
 const isFemale = (r: Resident): boolean => femaleName(r.name);
-const itemName = (id: string): string => CATALOG.find((c) => c.id === id)?.name ?? id;
+const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Свои блюда игрока — для названий; обновляется при каждой отрисовке */
+let OWN: MenuItem[] = [];
+const itemName = (id: string): string => CATALOG.find((c) => c.id === id)?.name ?? OWN.find((m) => m.id === id)?.name ?? id;
+/** «студентам», «молодёжи» — кому блюдо по вкусу */
+const FANS_DATIVE: Record<ResidentKind, string> = {
+  office: 'офисным',
+  student: 'студентам',
+  pensioner: 'пенсионерам',
+  shopkeeper: 'продавцам',
+  remote: 'фрилансерам',
+  youth: 'молодёжи',
+  nightworker: `ночной${NB}смене`,
+  passenger: 'пассажирам',
+  visitor: `гостям${NB}района`,
+};
 /** Вкус позиции словами: «сладкое, необычное» — по нему подбирают меню под гостей */
 const itemTaste = (id: string): string => {
   const p = profileOf(id);
@@ -172,6 +191,8 @@ export class Hud {
   private readonly panel = $('#panel');
   private readonly note = $('#street-note');
   private catalogOpen = false;
+  /** Конструктор своего блюда: null — закрыт */
+  private dish: { base: BaseId | null; addIns: AddInId[]; name: string | null; price: number | null } | null = null;
   /** Игрок вводит название заведения; на это время игра на паузе */
   private renaming: { resume: number } | null = null;
   /** Развернуть нижний лист на телефоне — подставляет main */
@@ -353,6 +374,51 @@ export class Hud {
       case 'toggle-catalog':
         this.catalogOpen = !this.catalogOpen;
         break;
+      case 'dish-open':
+        this.dish = { base: null, addIns: [], name: null, price: null };
+        break;
+      case 'dish-close':
+        this.dish = null;
+        break;
+      case 'dish-base':
+        // Новая основа — новые добавки, название и цена по умолчанию
+        if (this.dish) this.dish = { base: item as BaseId, addIns: [], name: null, price: null };
+        break;
+      case 'dish-addin':
+        if (this.dish) {
+          const a = item as AddInId;
+          const on = this.dish.addIns.includes(a);
+          if (on || this.dish.addIns.length < MAX_ADDINS) {
+            // Своё название сохраняем, название по умолчанию пересчитается под новые добавки
+            this.keepDishName();
+            this.dish.addIns = on ? this.dish.addIns.filter((x) => x !== a) : [...this.dish.addIns, a];
+            this.dish.price = null;
+          }
+        }
+        break;
+      case 'dish-price-up':
+      case 'dish-price-down':
+        if (this.dish?.base) {
+          this.keepDishName();
+          const now = this.dish.price ?? this.suggestedPrice(dishId(this.dish.base, this.dish.addIns));
+          this.dish.price = Math.max(ECONOMY.priceStep, now + (action === 'dish-price-up' ? 1 : -1) * ECONOMY.priceStep);
+        }
+        break;
+      case 'dish-create':
+        if (this.dish?.base) {
+          this.keepDishName();
+          const id = dishId(this.dish.base, this.dish.addIns);
+          const name = this.dish.name ?? defaultDishName(id);
+          const price = this.dish.price ?? this.suggestedPrice(id);
+          if (sim.createDish(this.dish.base, this.dish.addIns, name, price)) {
+            goal('dish-create', { base: this.dish.base, addIns: this.dish.addIns.join('+') });
+            this.dish = null;
+          }
+        }
+        break;
+      case 'dish-delete':
+        sim.deleteDish(item!);
+        break;
       case 'hall-slot':
         this.hallSlot = this.hallSlot === item ? null : item!;
         break;
@@ -524,6 +590,10 @@ export class Hud {
       });
       return;
     }
+    if (el.dataset.action === 'dish-name') {
+      this.keepDishName();
+      return;
+    }
     if (el.dataset.action === 'open-at') {
       const open = Number(el.value);
       // Круглосуточный режим сохраняем; иначе не даём закрытию оказаться раньше открытия
@@ -565,6 +635,7 @@ export class Hud {
   // ——— Отрисовка панели ———
 
   private render(force = false): void {
+    OWN = this.sim.cafe.own;
     this.live = {};
     this.liveWidth = {};
     this.liveClass = {};
@@ -737,7 +808,7 @@ export class Hud {
         return `
         <li>
           <div class="grow"><b>${m.name}</b>
-            <small>${itemTaste(m.id) ? `${itemTaste(m.id)} · ` : ''}себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span><span class="oos" data-live="oos-${m.id}"></span></small></div>
+            <small>${itemTaste(m.id) ? `${itemTaste(m.id)} · ` : ''}по${NB}вкусу ${this.sim.tasteFans(m.id).fans} · себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span><span class="oos" data-live="oos-${m.id}"></span></small></div>
           <div class="stepper">
             <button data-action="price-down" data-item="${m.id}" aria-label="Дешевле">−</button>
             <span>${money(m.price)}</span>
@@ -842,7 +913,8 @@ export class Hud {
       <p class="hint-line">${this.focusLine()}</p>
       <ul class="menu">${items}</ul>
       <button class="secondary" data-action="toggle-catalog">${this.catalogOpen ? 'Скрыть каталог' : `Изменить меню${full ? ` — мест нет, сначала убери позицию` : ''}`}</button>
-      <div class="catalog-wrap">${catalog}</div>`;
+      <div class="catalog-wrap">${catalog}</div>
+      ${this.ownDishesBlock()}`;
     } else if (this.tab === 'stock') {
       body = this.stockTab();
     } else if (this.tab === 'guests') {
@@ -981,6 +1053,121 @@ export class Hud {
   }
 
   /** Понятность формата: узкое меню привлекает сильнее, «всё подряд» — слабее */
+  /** Свои блюда: список придуманных и конструктор нового (основа + добавки → вкус, себестоимость, кому понравится) */
+  private ownDishesBlock(): string {
+    const cafe = this.sim.cafe;
+    const own = cafe.own
+      .map((m) => {
+        const fans = this.sim.tasteFans(m.id).fans;
+        const inMenu = cafe.hasItem(m.id);
+        const taste = itemTaste(m.id);
+        return `<li><div class="grow"><b>${escapeHtml(m.name)}</b>
+            <small>${taste ? `${taste} · ` : ''}себестоимость ${money(m.cost)} · по${NB}вкусу ${fans}${NB}жителям</small></div>
+          ${
+            inMenu
+              ? '<span class="badge on">в меню</span>'
+              : `<button class="small" data-action="add-item" data-item="${m.id}" ${cafe.menu.length >= MAX_MENU ? 'disabled' : ''}>Вернуть</button>`
+          }
+          <button class="icon" data-action="dish-delete" data-item="${m.id}" aria-label="Забыть блюдо">✕</button></li>`;
+      })
+      .join('');
+    const head = `<h4>Свои блюда · ${cafe.own.length}${NB}из${NB}${MAX_OWN}</h4>`;
+    const list = own ? `<ul class="menu">${own}</ul>` : `<p class="hint-line">Собери блюдо под вкус своих гостей: основа и${NB}до${NB}двух добавок. Вкус блюда видно сразу, а${NB}в${NB}карточках жителей${NB}— что любят они.</p>`;
+    if (!this.dish) {
+      const can = cafe.own.length < MAX_OWN;
+      return `${head}${list}<button class="secondary" data-action="dish-open" ${can ? '' : 'disabled'}>${can ? 'Придумать блюдо' : `Своих блюд уже ${MAX_OWN}${NB}— забудь одно, чтобы придумать новое`}</button>`;
+    }
+    return `${head}${list}${this.dishBuilder()}`;
+  }
+
+  private dishBuilder(): string {
+    const cafe = this.sim.cafe;
+    const d = this.dish!;
+    const bases = BASES.map((b) => {
+      const fits = cafe.premises.kinds.includes(b.kind);
+      return `<button class="chip${d.base === b.id ? ' on' : ''}" data-action="dish-base" data-item="${b.id}" ${fits ? '' : 'disabled'}>${b.name}</button>`;
+    }).join('');
+    let body = '';
+    if (d.base) {
+      const b = dishBase(d.base);
+      const addIns = b.addIns
+        .map((id) => {
+          const on = d.addIns.includes(id);
+          const lock = !on && d.addIns.length >= MAX_ADDINS;
+          return `<button class="chip${on ? ' on' : ''}" data-action="dish-addin" data-item="${id}" ${lock ? 'disabled' : ''}>${dishAddIn(id).name}</button>`;
+        })
+        .join('');
+      const id = dishId(d.base, d.addIns);
+      const p = profileOf(id);
+      const bars = AXES.map(
+        (a) => `<div class="axis"><span>${AXIS_LABEL[a]}</span><i><b style="width:${Math.round(p[a] * 100)}%"></b></i></div>`,
+      ).join('');
+      const cost = recipeCost(id);
+      const price = d.price ?? this.suggestedPrice(id);
+      const fans = this.sim.tasteFans(id);
+      const who = fans.byKind
+        .slice(0, 2)
+        .map(([k]) => FANS_DATIVE[k])
+        .join(` и${NB}`);
+      const prep = dishPrep(id);
+      const need = cafe.missingEquipment(id);
+      const exists = cafe.own.some((m) => m.id === id);
+      const full = cafe.menu.length >= MAX_MENU;
+      const fresh = (Object.keys(recipeOf(id)) as IngredientId[]).filter((i) => cafe.stock.qty(i) <= 0 && cafe.stock.keep[i] <= 0);
+      const block = exists
+        ? `Такое блюдо уже есть`
+        : need
+          ? `Нужна покупка: ${EQUIPMENT[need].name.toLowerCase()}`
+          : full
+            ? `В${NB}меню нет места${NB}— убери позицию`
+            : '';
+      body = `
+        <small>Добавки · до${NB}${MAX_ADDINS}</small>
+        <div class="chips">${addIns}</div>
+        <div class="profile">${bars}</div>
+        <p class="hint-line">По${NB}вкусу <b>${fans.fans}</b>${NB}жителям из${NB}${fans.total}${who ? `, больше всего ${who}` : ''}.</p>
+        <small>Себестоимость ${money(cost)}${prep > 0 ? ` · готовится на${NB}${String(Math.round(prep * 10) / 10).replace('.', ',')}${NB}мин дольше` : ''}</small>
+        <input class="dish-name" data-action="dish-name" maxlength="${DISH_NAME_MAX}" value="${escapeHtml(d.name ?? defaultDishName(id))}" aria-label="Название блюда" enterkeyhint="done" />
+        <div class="row">
+          <span class="grow">Цена</span>
+          <div class="stepper">
+            <button data-action="dish-price-down" aria-label="Дешевле">−</button>
+            <span>${money(price)}</span>
+            <button data-action="dish-price-up" aria-label="Дороже">+</button>
+          </div>
+        </div>
+        ${fresh.length ? `<small>${capitalize(fresh.map((i) => INGREDIENTS.find((x) => x.id === i)!.name.toLowerCase()).join(', '))}${NB}— на${NB}складе нет. Закажу по${NB}15${NB}порций, привезут утром</small>` : ''}
+        <button class="primary" data-action="dish-create" ${block ? 'disabled' : ''}>${block || 'Добавить в меню'}</button>`;
+    }
+    return `<div class="dish-builder">
+        <small>Основа</small>
+        <div class="chips">${bases}</div>
+        ${body}
+        <button class="secondary" data-action="dish-close">Отмена</button>
+      </div>`;
+  }
+
+  /** Игрок сам менял название в поле — тогда его не перезаписываем */
+  private dishNamed(): boolean {
+    const input = this.panel.querySelector<HTMLInputElement>('input[data-action="dish-name"]');
+    if (!input || !this.dish?.base) return this.dish?.name != null;
+    return input.value !== defaultDishName(dishId(this.dish.base, this.dish.addIns));
+  }
+
+  /** Запомнить, что набрано в поле названия, перед пересборкой панели */
+  private keepDishName(): void {
+    const input = this.panel.querySelector<HTMLInputElement>('input[data-action="dish-name"]');
+    if (input && this.dish && this.dishNamed()) this.dish.name = input.value;
+  }
+
+  /** Предложенная цена: как у похожей позиции каталога плюс добавки с наценкой */
+  private suggestedPrice(id: string): number {
+    const d = this.dish!;
+    const b = dishBase(d.base!);
+    const extra = recipeCost(id) - recipeCost(dishId(d.base!, []));
+    return Math.round((b.price + extra * 2.5) / 10) * 10;
+  }
+
   private focusLine(): string {
     const n = new Set(this.sim.cafe.menu.map((m) => m.kind)).size;
     const word = n === 1 ? 'категория' : n <= 4 ? 'категории' : 'категорий';
@@ -1272,7 +1459,7 @@ export class Hud {
     const { stock } = this.sim.cafe;
     const day = dayNumber(this.sim.time);
     const used = new Set<IngredientId>();
-    for (const m of this.sim.cafe.menu) for (const id of Object.keys(RECIPES[m.id] ?? {}) as IngredientId[]) used.add(id);
+    for (const m of this.sim.cafe.menu) for (const id of Object.keys(recipeOf(m.id)) as IngredientId[]) used.add(id);
     const rows = INGREDIENTS.map((ing) => {
       const q = stock.qty(ing.id);
       const exp = ing.shelfDays === null ? 0 : stock.expiringToday(ing.id, day);
@@ -1387,7 +1574,7 @@ export class Hud {
         return `<li><span>${KIND_TITLE[kind]}${hint}</span><b>${n}</b></li>`;
       })
       .join('');
-    const sold = CATALOG
+    const sold = [...CATALOG, ...this.sim.cafe.own]
       .filter((m) => r.sold[m.id])
       .map((m) => `<li><span>${m.name}</span><b>${r.sold[m.id]}</b></li>`)
       .join('');

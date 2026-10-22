@@ -3,6 +3,7 @@
 // а в сохранении хранить нечего — у того же seed тот же житель. Хранится только память визитов.
 import type { ItemKind } from './cafe';
 import type { ResidentKind } from './residents';
+import { dishProfile } from './dishes';
 import { Rng } from './rng';
 
 export type TasteAxis = 'sweet' | 'strong' | 'hearty' | 'novel';
@@ -37,7 +38,7 @@ export const ITEM_PROFILE: Record<string, Profile> = {
 };
 
 export function profileOf(itemId: string): Profile {
-  return ITEM_PROFILE[itemId] ?? P(0.5, 0.5, 0.5, 0.5);
+  return ITEM_PROFILE[itemId] ?? dishProfile(itemId) ?? P(0.5, 0.5, 0.5, 0.5);
 }
 
 export interface Character {
@@ -101,6 +102,8 @@ export function tasteMatch(c: Character, itemId: string): number {
 export const FAVORITE_MATCH = 0.35;
 
 export const TASTE = {
+  /** Готовность платить: ×(1 + budget · совпадение вкуса) */
+  budget: 0.15,
   /** Охота зайти: ×(1 + weight · совпадение вкуса) */
   weight: 0.3,
   /** Ниже этого совпадения житель говорит «не мой вкус» */

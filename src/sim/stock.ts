@@ -1,5 +1,21 @@
 // Склад: ингредиенты, сроки годности, закупка с доставкой утром, оптовые скидки.
-export type IngredientId = 'beans' | 'milk' | 'bakery' | 'kitchen' | 'drinks' | 'bar';
+import { dishRecipe } from './dishes';
+
+export type IngredientId =
+  | 'beans'
+  | 'milk'
+  | 'bakery'
+  | 'kitchen'
+  | 'drinks'
+  | 'bar'
+  // Добавки для своих блюд (этап B2)
+  | 'syrup'
+  | 'chocolate'
+  | 'honey'
+  | 'spices'
+  | 'berries'
+  | 'cheese'
+  | 'ham';
 
 export interface Ingredient {
   id: IngredientId;
@@ -17,7 +33,17 @@ export const INGREDIENTS: readonly Ingredient[] = [
   { id: 'kitchen', name: 'Продукты для кухни', unitCost: 80, shelfDays: 2 },
   { id: 'drinks', name: 'Чай и лимонад', unitCost: 20, shelfDays: null },
   { id: 'bar', name: 'Пиво и сидр', unitCost: 110, shelfDays: null },
+  { id: 'syrup', name: 'Сиропы', unitCost: 10, shelfDays: null },
+  { id: 'chocolate', name: 'Шоколад', unitCost: 15, shelfDays: null },
+  { id: 'honey', name: 'Мёд', unitCost: 12, shelfDays: null },
+  { id: 'spices', name: 'Специи', unitCost: 5, shelfDays: null },
+  { id: 'berries', name: 'Ягоды', unitCost: 25, shelfDays: 2 },
+  { id: 'cheese', name: 'Сыр', unitCost: 25, shelfDays: 4 },
+  { id: 'ham', name: 'Ветчина', unitCost: 35, shelfDays: 3 },
 ];
+
+/** Добавки: на складе по нулям, пока игрок не придумает блюдо */
+const NONE_EXTRA = { syrup: 0, chocolate: 0, honey: 0, spices: 0, berries: 0, cheese: 0, ham: 0 } as const;
 
 export const ingredient = (id: IngredientId): Ingredient => INGREDIENTS.find((i) => i.id === id)!;
 
@@ -38,9 +64,14 @@ export const RECIPES: Record<string, Partial<Record<IngredientId, number>>> = {
   cider: { bar: 1.1 },
 };
 
+/** Рецепт позиции каталога или своего блюда */
+export function recipeOf(itemId: string): Partial<Record<IngredientId, number>> {
+  return RECIPES[itemId] ?? dishRecipe(itemId) ?? {};
+}
+
 /** Себестоимость позиции по базовым ценам поставщика */
 export function recipeCost(itemId: string): number {
-  const r = RECIPES[itemId] ?? {};
+  const r = recipeOf(itemId);
   return Math.round(
     (Object.entries(r) as [IngredientId, number][]).reduce((s, [id, q]) => s + ingredient(id).unitCost * q, 0),
   );
@@ -83,6 +114,7 @@ export const STARTER_KEEP_WEEKEND: Record<IngredientId, number> = {
   kitchen: 10,
   drinks: 15,
   bar: 0,
+  ...NONE_EXTRA,
 };
 
 export const STARTER_KEEP: Record<IngredientId, number> = {
@@ -92,6 +124,7 @@ export const STARTER_KEEP: Record<IngredientId, number> = {
   kitchen: 40,
   drinks: 15,
   bar: 0,
+  ...NONE_EXTRA,
 };
 
 export interface StockSave {
@@ -106,9 +139,9 @@ export class Stock {
   /** Заказы, которые привезут в 6:00 */
   pending: Partial<Record<IngredientId, number>> = {};
   /** Автозаказ: держать столько порций (0 — выключен) */
-  keep: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0 };
+  keep: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0, ...NONE_EXTRA };
   /** Отдельный уровень на выходные: в субботу ланчей не будет */
-  keepWeekend: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0 };
+  keepWeekend: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0, ...NONE_EXTRA };
   /** На сколько дней дольше хранится скоропорт (холодильная витрина). Выставляет кафе, не сохраняется отдельно. */
   shelfBonus = 0;
 
@@ -155,13 +188,13 @@ export class Stock {
   }
 
   canMake(itemId: string): boolean {
-    const r = RECIPES[itemId] ?? {};
+    const r = recipeOf(itemId);
     return (Object.entries(r) as [IngredientId, number][]).every(([id, q]) => this.qty(id) >= q - 1e-9);
   }
 
   /** Списать ингредиенты на одну порцию (сначала самые старые партии) */
   use(itemId: string): void {
-    const r = RECIPES[itemId] ?? {};
+    const r = recipeOf(itemId);
     for (const [id, need] of Object.entries(r) as [IngredientId, number][]) {
       let left = need;
       const list = this.batches.get(id) ?? [];

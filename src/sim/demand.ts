@@ -167,21 +167,26 @@ export function evaluate(
   const c = r.character;
   // Цена на 30 % ниже ожиданий — точно да, на 35 % выше — точно нет; экономный отсекает переплату раньше
   const top = 1.42 - 0.15 * c.thrift;
-  const pFor = (m: MenuItem) => clamp((top - m.price / budget) / (top - 0.7), 0, 1);
   // В жару «чай» превращается в лимонад
   const favorite = weather === 'hot' && want.kind === 'tea' ? 'lemonade' : r.favorites[want.kind];
   const isFav = (m: MenuItem) => m.id === favorite;
-  // Порядок предпочтений: любимая позиция (если не слишком дорого) → основная категория → по вкусу и цене
-  const rank = (m: MenuItem) =>
-    (isFav(m) && pFor(m) >= 0.25 ? 2 : 0) + (m.kind === kinds[0] ? 1 : 0) + pFor(m) / 2 + tasteMatch(c, m.id) / 2;
+  const matchOf = (m: MenuItem) => (isFav(m) ? Math.max(FAVORITE_MATCH, tasteMatch(c, m.id)) : tasteMatch(c, m.id));
+  // За то, что по вкусу, готов заплатить больше, за то, что не по вкусу, — меньше
+  const pFor = (m: MenuItem) => clamp((top - m.price / (budget * (1 + TASTE.budget * matchOf(m)))) / (top - 0.7), 0, 1);
+  // Без любимой позиции житель берёт другую, но с меньшей охотой; нелюбопытный — с ещё меньшей.
+  // Позиция по вкусу не хуже любимой
+  const other = 0.95 - 0.2 * (1 - c.curiosity);
+  const suits = (m: MenuItem) => isFav(m) || tasteMatch(c, m.id) >= FAVORITE_MATCH;
+  const appeal = (m: MenuItem) => pFor(m) * (suits(m) ? 1 : other) * (1 + TASTE.weight * matchOf(m));
+  // Выбирает то, ради чего охотнее всего зайдёт: основная категория, цена и вкус; привычка чуть перевешивает
+  const habit = 0.12 * (1 - c.curiosity);
+  const rank = (m: MenuItem) => (m.kind === kinds[0] ? 2 : 0) + appeal(m) + (isFav(m) ? habit : 0);
   let item: MenuItem | null = null;
   for (const m of menu) {
     if (!kinds.includes(m.kind)) continue;
     if (item === null || rank(m) > rank(item)) item = m;
   }
-  // Без любимой позиции житель берёт другую, но с меньшей охотой; нелюбопытный — с ещё меньшей
-  const other = 0.95 - 0.2 * (1 - c.curiosity);
-  const pPrice = item ? pFor(item) * (isFav(item) ? 1 : other) : 0;
+  const pPrice = item ? pFor(item) * (suits(item) ? 1 : other) : 0;
   // Крюк: насколько дальше идти через кафе, чем сразу к цели; торопливый крюка не любит
   const detour =
     want.mode === 'stopover'
@@ -189,7 +194,7 @@ export function evaluate(
       : manhattan(from, cafeDoor) - manhattan(from, goalDoor);
   const reach = 700 * (1.25 - 0.5 * c.hurry);
   const pRoute = clamp(1 - Math.max(0, detour) / reach, 0.15, 1);
-  const match = item ? (isFav(item) ? Math.max(FAVORITE_MATCH, tasteMatch(c, item.id)) : tasteMatch(c, item.id)) : 0;
+  const match = item ? matchOf(item) : 0;
   const pTaste = 1 + TASTE.weight * match;
   const p = item ? pPrice * pRoute * pTaste * (FOCUS.base + r.loyalty) * focusFactor(menu, item.kind) : 0;
   return { item, pPrice, pRoute, match, p };

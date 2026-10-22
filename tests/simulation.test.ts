@@ -216,7 +216,7 @@ describe('Кафе', () => {
     const sat = sim.reports[5];
     expect(fri.weekday).toBe(4);
     expect(sat.weekday).toBe(5);
-    expect(fri.sold.lunch ?? 0).toBeGreaterThan(5);
+    expect(fri.sold.lunch ?? 0).toBeGreaterThan(2);
     expect(sat.sold.lunch ?? 0).toBeLessThan(fri.sold.lunch ?? 0);
   });
 

@@ -3,6 +3,7 @@ import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, EQUIPMENT, equipmentFor, PREMISES, type Currency, type EquipmentId, type Premises, type PremisesId } from './economy';
 import type { AwareSource } from './marketing';
 import { UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
+import { dishId, dishKind, dishPrep, isDish, MAX_OWN, validDish, type AddInId, type BaseId } from './dishes';
 import { recipeCost, Stock, type IngredientId, type StockSave } from './stock';
 import type { ResidentKind } from './residents';
 import type { Weather } from './weather';
@@ -163,6 +164,20 @@ export const DEFAULT_MENU_IDS = ['americano', 'cappuccino', 'latte', 'croissant'
 export const MAX_MENU = 8;
 export const MAX_QUEUE = 6;
 
+/** Категория позиции каталога или своего блюда */
+export function kindOf(id: string): ItemKind {
+  const k = CATALOG.find((m) => m.id === id)?.kind ?? dishKind(id);
+  if (!k) throw new Error(`Нет позиции ${id}`);
+  return k;
+}
+
+/** Порядок в меню: по категориям каталога, свои блюда — в конце своей категории */
+const KIND_ORDER: ItemKind[] = ['coffee', 'snack', 'lunch', 'tea', 'bar'];
+const menuOrder = (id: string): number => {
+  const i = CATALOG.findIndex((c) => c.id === id);
+  return KIND_ORDER.indexOf(kindOf(id)) * 100 + (i >= 0 ? i : 99);
+};
+
 const catalogItem = (id: string): MenuItem => {
   const it = CATALOG.find((m) => m.id === id);
   if (!it) throw new Error(`Нет позиции ${id} в каталоге`);
@@ -259,10 +274,14 @@ export interface CafeSave {
   prepUntil?: number;
   /** Название, которое дал игрок */
   name?: string | null;
+  /** Свои блюда — и те, что сейчас в меню, и убранные */
+  own?: MenuItem[];
 }
 
 /** Самое длинное название заведения — чтобы влезало в шапку и подпись на карте */
 export const CAFE_NAME_MAX = 24;
+/** Самое длинное название своего блюда */
+export const DISH_NAME_MAX = 32;
 
 /** Состояние кафе игрока */
 export class Cafe {
@@ -299,6 +318,8 @@ export class Cafe {
   private slots: Slot[] = [];
   /** Цены позиций, убранных из меню, — чтобы дообслужить уже сделанные заказы */
   private retired = new Map<string, MenuItem>();
+  /** Свои блюда игрока: название и цена; рецепт — в id */
+  own: MenuItem[] = [];
 
   // Счётчики текущего дня
   today = Cafe.emptyDay(1);
@@ -326,6 +347,7 @@ export class Cafe {
       interior: this.interior.toJSON(),
       prepUntil: this.prepUntil,
       name: this.customName,
+      own: this.own,
     };
   }
 
@@ -367,6 +389,8 @@ export class Cafe {
     }
     this.prepUntil = d.prepUntil ?? -1;
     this.customName = d.name ?? null;
+    // Блюдо в меню и в списке своих — один объект: цена меняется в обоих местах
+    this.own = (d.own ?? []).map((o) => this.menu.find((m) => m.id === o.id) ?? this.retired.get(o.id) ?? o);
     this.stock.shelfBonus = this.has('showcase') ? UPGRADE_EFFECT.showcaseShelfDays : 0;
   }
 
@@ -465,7 +489,7 @@ export class Cafe {
 
   /** Помещается ли позиция в это помещение (в киоске нет кухни и бара) */
   fits(id: string): boolean {
-    return this.premises.kinds.includes(catalogItem(id).kind);
+    return this.premises.kinds.includes(kindOf(id));
   }
 
   hasItem(id: string): boolean {
@@ -474,19 +498,50 @@ export class Cafe {
 
   /** Какого оборудования не хватает для позиции (null — всё есть) */
   missingEquipment(id: string): EquipmentId | null {
-    const need = equipmentFor(catalogItem(id).kind);
+    const need = equipmentFor(kindOf(id));
     return need && !this.equipment.includes(need) ? need : null;
   }
 
   addItem(id: string): boolean {
     if (this.hasItem(id) || this.menu.length >= MAX_MENU || !this.fits(id) || this.missingEquipment(id)) return false;
-    const it = this.retired.get(id) ?? catalogItem(id);
+    const own = this.own.find((m) => m.id === id);
+    if (isDish(id) && !own) return false;
+    const it = own ?? this.retired.get(id) ?? catalogItem(id);
     this.retired.delete(id);
     // Держим порядок каталога — так меню читается по категориям
     this.menu.push(it);
-    const order = CATALOG.map((c) => c.id);
-    this.menu.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    this.menu.sort((a, b) => menuOrder(a.id) - menuOrder(b.id));
     return true;
+  }
+
+  /**
+   * Придумать своё блюдо и сразу поставить в меню. null — нельзя: не подходит основа и добавки,
+   * такое блюдо уже есть, своих блюд уже два, нет места в меню или оборудования.
+   */
+  createDish(baseId: BaseId, addIns: AddInId[], name: string, price: number): MenuItem | null {
+    if (!validDish(baseId, addIns)) return null;
+    const id = dishId(baseId, addIns);
+    if (this.own.some((m) => m.id === id) || this.own.length >= MAX_OWN) return null;
+    if (this.menu.length >= MAX_MENU || !this.fits(id) || this.missingEquipment(id)) return null;
+    const clean = name.replace(/\s+/g, ' ').trim().slice(0, DISH_NAME_MAX);
+    const item: MenuItem = { id, name: clean || id, kind: kindOf(id), price: Math.max(10, Math.round(price / 10) * 10), cost: recipeCost(id) };
+    this.own.push(item);
+    this.addItem(id);
+    return item;
+  }
+
+  /** Забыть своё блюдо: освобождает место под новое */
+  deleteDish(id: string): boolean {
+    const i = this.own.findIndex((m) => m.id === id);
+    if (i < 0) return false;
+    if (this.hasItem(id) && !this.removeItem(id)) return false;
+    this.own.splice(i, 1);
+    return true;
+  }
+
+  /** Лишние минуты на приготовление позиции (свои блюда с добавками готовятся дольше) */
+  prepOf(id: string): number {
+    return dishPrep(id);
   }
 
   removeItem(id: string): boolean {
@@ -601,7 +656,7 @@ export class Cafe {
 
     while (minute >= this.prepUntil && this.slots.length < this.counters && this.queue.length > 0) {
       const q = this.queue.shift()!;
-      this.slots.push({ ...q, left: this.serviceMinutes });
+      this.slots.push({ ...q, left: this.serviceMinutes + this.prepOf(q.itemId) * this.serviceFactor });
     }
     // Загрузка стойки по часам — для отчёта «когда было тесно, а когда пусто»
     const t = this.today;

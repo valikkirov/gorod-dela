@@ -29,7 +29,7 @@ describe('Характер и вкус жителя', () => {
 
   it('по вкусу житель выбирает позицию из меню и охотнее заходит', () => {
     const sim = new Simulation(2);
-    const r = { ...sim.residents[0], favorites: { ...sim.residents[0].favorites, coffee: 'none' }, loyalty: 0 };
+    const r = { ...sim.residents[0], favorites: { ...sim.residents[0].favorites, coffee: 'none' }, budget: { ...sim.residents[0].budget, coffee: 300 }, loyalty: 0 };
     const want = { kind: 'coffee' as const, mode: 'stopover' as const, dwell: 0 };
     const menu = [item('americano'), item('raf')];
     const p = { x: 0, y: 0 };

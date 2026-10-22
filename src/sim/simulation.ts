@@ -1,13 +1,15 @@
 import { canPlace, furniture, type FurnitureId, Interior, INTERIOR, preset, type PresetId } from './interior';
-import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason } from './cafe';
+import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
+import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
+import { tasteMatch } from './character';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY, EQUIPMENT, formatMoney, PREMISES, type EquipmentId, type PremisesId } from './economy';
 import { rateVisit, remember, type Memory } from './character';
-import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
+import { currentEntry, generateResidents, type Resident, type ResidentKind, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
-import { INGREDIENTS, ingredient, RECIPES, recipeCost, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
+import { INGREDIENTS, ingredient, recipeCost, recipeOf, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
 import { Rival, RIVAL, type RivalSave } from './rival';
 import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type Regular } from './regulars';
 import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
@@ -30,6 +32,10 @@ import {
 const STEP = 0.2;
 /** Меняется, когда сохранения старой версии больше нельзя загрузить */
 export const SAVE_VERSION = 2;
+/** Сколько порций новой добавки заказать и держать, когда придумано блюдо */
+const DISH_STARTER = 15;
+/** Совпадение вкуса, с которого житель считается поклонником позиции */
+const TASTE_FAN = 0.3;
 /** Версия карты: сохранения со старой картой загружаются, но жители встают на новые места */
 export const MAP_VERSION = 2;
 
@@ -385,12 +391,49 @@ export class Simulation {
 
   addMenuItem(id: string): boolean {
     const ok = this.cafe.addItem(id);
-    if (ok) this.toggle(`menu:${id}`, `Меню: ${itemName(id)}`, 'добавлен', 'убран', true);
+    if (ok) this.toggle(`menu:${id}`, `Меню: ${itemName(id, this.cafe.own)}`, 'добавлен', 'убран', true);
+    return ok;
+  }
+
+  /** Придумать своё блюдо: основа + добавки, своё название и цена. Сразу встаёт в меню */
+  createDish(baseId: BaseId, addIns: AddInId[], name: string, price: number): boolean {
+    const it = this.cafe.createDish(baseId, addIns, name, price);
+    if (!it) return false;
+    // Новых добавок на складе нет: ставим автозаказ и заказываем сразу — привезут утром
+    const stock = this.cafe.stock;
+    for (const id of Object.keys(recipeOf(it.id)) as IngredientId[]) {
+      if (stock.keep[id] > 0 || stock.qty(id) > 0) continue;
+      stock.keep[id] = DISH_STARTER;
+      stock.keepWeekend[id] = DISH_STARTER;
+      stock.order(id, DISH_STARTER - (stock.pending[id] ?? 0));
+    }
+    this.toggle(`menu:${it.id}`, `Своё блюдо: ${it.name}`, 'убрано', 'в меню', true);
+    return true;
+  }
+
+  /** Сколько жителей улицы считают позицию «своим вкусом» и кто это — для конструктора блюд */
+  tasteFans(itemId: string): { fans: number; total: number; byKind: [ResidentKind, number][] } {
+    const locals = this.residents;
+    const byKind = new Map<ResidentKind, number>();
+    let fans = 0;
+    for (const r of locals) {
+      if (tasteMatch(r.character, itemId) < TASTE_FAN) continue;
+      fans += 1;
+      byKind.set(r.kind, (byKind.get(r.kind) ?? 0) + 1);
+    }
+    return { fans, total: locals.length, byKind: [...byKind.entries()].sort((a, b) => b[1] - a[1]) };
+  }
+
+  /** Забыть своё блюдо, чтобы придумать другое */
+  deleteDish(id: string): boolean {
+    const name = itemName(id, this.cafe.own);
+    const ok = this.cafe.deleteDish(id);
+    if (ok) this.toggle(`menu:${id}`, `Своё блюдо: ${name}`, 'в меню', 'убрано', false);
     return ok;
   }
 
   removeMenuItem(id: string): boolean {
-    const name = itemName(id);
+    const name = itemName(id, this.cafe.own);
     const ok = this.cafe.removeItem(id);
     if (ok) this.toggle(`menu:${id}`, `Меню: ${name}`, 'добавлен', 'убран', false);
     return ok;
@@ -562,7 +605,9 @@ export class Simulation {
       itemId = offer.item?.id;
       price = offer.item?.price;
       const pP = offer.item ? Math.min(1, offer.p * this.boost * this.cozyPull(r, want)) : 0;
-      const pR = this.rivalChance(r, want, entry, minute);
+      // Фирменное блюдо по вкусу есть только здесь — конкурент переманивает вдвое реже
+      const signature = offer.item && isDish(offer.item.id) && offer.match >= SIGNATURE_MATCH ? DISH_EFFECT.rivalPull : 1;
+      const pR = this.rivalChance(r, want, entry, minute) * signature;
       if (!offer.item) reason = 'no-item';
       else if (pR <= 0) {
         if (!this.rng.chance(pP)) reason = rejectReason(offer, r.budget[want.kind]);
@@ -696,9 +741,11 @@ export class Simulation {
     const v = r.visit!;
     if (v.want.mode !== 'replace' || v.want.dwell < 20) return;
     const menu = this.cafe.menu;
+    // Что взять к заказу — как при выборе у стойки: привычка, вкус и цена
     const pick = (kinds: string[]): string | undefined => {
-      const fav = kinds.map((k) => r.favorites[k as keyof Resident['favorites']]).find((id) => this.cafe.hasItem(id));
-      return fav ?? menu.find((m) => kinds.includes(m.kind))?.id;
+      const options = menu.filter((m) => kinds.includes(m.kind));
+      if (!options.length) return undefined;
+      return evaluate(r, { kind: options[0].kind, mode: 'replace', dwell: 0 }, options, r.pos, r.pos, r.pos, this.weather.kind).item?.id;
     };
     let extra: string | undefined;
     let chance = 0;
@@ -975,7 +1022,7 @@ export class Simulation {
     if (cafe.menu.some((m) => m.kind === 'coffee')) out.push({ id: 'breakdown', day, spareMachine: cafe.has('machine') });
     if (wd === 5) out.push({ id: 'festival', day });
     const perishable = (['milk', 'bakery', 'kitchen'] as IngredientId[]).filter((id) =>
-      cafe.menu.some((m) => Object.keys(RECIPES[m.id] ?? {}).includes(id)),
+      cafe.menu.some((m) => Object.keys(recipeOf(m.id)).includes(id)),
     );
     if (perishable.length) out.push({ id: 'supplier', day, ingredientId: perishable[day % perishable.length] });
     const lunch = cafe.menu.find((m) => m.id === 'lunch') ?? cafe.menu.find((m) => m.kind === 'lunch');
@@ -1060,7 +1107,7 @@ export class Simulation {
       const prep = Math.ceil((e.qty * cafe.serviceMinutes * 0.5) / cafe.counters);
       cafe.prepUntil = Math.floor(minute) + prep;
       const t = cafe.today;
-      const name = CATALOG.find((c) => c.id === e.itemId)?.name ?? e.itemId;
+      const name = itemName(e.itemId, cafe.own);
       this.cash += e.pay;
       t.revenue += e.pay;
       t.sold[e.itemId] = (t.sold[e.itemId] ?? 0) + e.qty;
@@ -1375,6 +1422,6 @@ function happyText(h: HappyHours | null): string {
   return h ? `${clockText(h.from)}–${clockText(h.to)}, −${Math.round(h.discount * 100)}\u00a0%` : 'выкл.';
 }
 
-function itemName(id: string): string {
-  return CATALOG.find((c) => c.id === id)?.name ?? id;
+function itemName(id: string, own: MenuItem[] = []): string {
+  return CATALOG.find((c) => c.id === id)?.name ?? own.find((m) => m.id === id)?.name ?? id;
 }

@@ -2047,3 +2047,71 @@ button.small.danger {
 .hall-piece.selected {
   filter: drop-shadow(0 0 3px #e0703f) drop-shadow(0 0 2px #e0703f);
 }
+
+/* ——— Своё блюдо: конструктор ——— */
+.dish-builder {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.dish-builder small {
+  color: var(--muted);
+}
+
+/* Основ и добавок больше, чем влезает в строку: переносим, кнопка по ширине текста */
+.dish-builder .chips {
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.dish-builder .chip {
+  flex: 0 0 auto;
+  padding: 0 12px;
+}
+
+.dish-builder .chip:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.profile {
+  display: grid;
+  gap: 4px;
+}
+
+.profile .axis {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.profile .axis i {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.profile .axis b {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+.dish-name {
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+}
