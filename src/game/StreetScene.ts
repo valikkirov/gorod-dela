@@ -1,3 +1,4 @@
+import { type Cell, paintGround } from './ground';
 import Phaser from 'phaser';
 import { GAME_MINUTES_PER_SECOND } from '../sim/clock';
 import type { Resident } from '../sim/residents';
@@ -77,6 +78,9 @@ const BUILDING_SPRITE: Record<string, string> = {
   'home-7': 'building-home-b-north',
 };
 
+/** Цоколь здания чуть ниже основания, чтобы не было щели до полосы у двери */
+const BASE_SHIFT = 4;
+
 /** Слои глубины: всё на улице сортируется по y основания, сверху — ночь, свет и подписи */
 const DEPTH = { ground: -1000, night: 5000, lights: 5001, sky: 5002, labels: 5003, floats: 5004 } as const;
 
@@ -143,8 +147,8 @@ const PROPS: [string, number, number][] = [
 
 /** Помещения под бизнес игрока: спрайты «сдаётся» и «открыто», окна, подписи */
 const PREMISES_ART: Record<string, { rent: string; open: string; lights: string; rival: string; windows: { x: number; y: number; w: number; h: number }[]; labelX: number; labelY: number }> = {
-  cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', rival: 'building-cafe-rival', windows: [], labelX: 120, labelY: 32 },
-  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', rival: 'building-kiosk-rival', windows: [{ x: 12, y: 46, w: 64, h: 14 }], labelX: 60, labelY: 106 },
+  cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', rival: 'building-cafe-rival', windows: [], labelX: 120, labelY: 28 },
+  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', rival: 'building-kiosk-rival', windows: [{ x: 18, y: 40, w: 56, h: 24 }], labelX: 60, labelY: 106 },
 };
 
 interface Shop {
@@ -156,10 +160,10 @@ interface Shop {
 
 /** Окна кафе в координатах спрайта: гости видны в витринах, ночью и вне часов работы — темно */
 const CAFE_WINDOWS = [
-  { x: 15, y: 147, w: 94, h: 32 },
-  { x: 127, y: 147, w: 48, h: 32 },
+  { x: 19, y: 124, w: 80, h: 46 },
+  { x: 118, y: 124, w: 50, h: 46 },
 ];
-const CAFE_DOOR_GLASS = { x: 192, y: 148, w: 24, h: 18 };
+const CAFE_DOOR_GLASS = { x: 184, y: 132, w: 24, h: 28 };
 
 interface Walker {
   sprite: Phaser.GameObjects.Image;
@@ -188,8 +192,6 @@ export class StreetScene extends Phaser.Scene {
   /** Деревянный настил с кашпо и скамьёй — у кафе с залом, когда в нём кто-то работает */
   private terrace!: Phaser.GameObjects.Image;
   /** Улучшения и события, видимые на улице */
-  private showcase!: Phaser.GameObjects.Image;
-  private interior!: Phaser.GameObjects.Image;
   private noCoffee!: Phaser.GameObjects.Image;
   private tent!: Phaser.GameObjects.Image;
   /** Свет ночью: пятна под фонарями и от витрин */
@@ -235,16 +237,7 @@ export class StreetScene extends Phaser.Scene {
     this.menuBoard = this.prop('prop-menu-board', 246, c.rect.y + c.rect.h + 34);
     const cBase = c.rect.y + c.rect.h;
     this.terrace = this.prop('prop-cafe-terrace', c.rect.x + 12 + 90, cBase + 23).setDepth(cBase + 0.2);
-    this.showcase = this.add
-      .image(c.rect.x + CAFE_WINDOWS[0].x, c.rect.y + CAFE_WINDOWS[0].y, textureOf('overlay-cafe-showcase'), 'overlay-cafe-showcase')
-      .setOrigin(0)
-      .setScale(1 / ART_SCALE)
-      .setDepth(cBase + 0.1);
-    this.interior = this.add
-      .image(c.rect.x, c.rect.y, textureOf('overlay-cafe-interior'), 'overlay-cafe-interior')
-      .setOrigin(0)
-      .setScale(1 / ART_SCALE)
-      .setDepth(cBase + 0.3);
+    // Накладки «витрина» и «интерьер» были нарисованы под старый фасад; новые — в работе (интерьер кафе)
     this.noCoffee = this.prop('prop-sign-no-coffee', c.rect.x + 204 - 30, cBase + 6).setDepth(cBase + 0.4);
     // Палатка фестиваля — в сквере у входа с улицы
     this.tent = this.prop('prop-festival-tent', SQUARE.x + 300, SQUARE.y + 150);
@@ -271,7 +264,7 @@ export class StreetScene extends Phaser.Scene {
       const x = shop.place.rect.x + art.labelX;
       const y = shop.place.rect.y + art.labelY;
       shop.name = this.label(x, y, '', 20, true);
-      shop.status = this.label(x, y + 30, '', 16, false);
+      shop.status = this.label(x, y + 25, '', 16, false);
     }
 
     this.walkers = this.hooks.sim.residents.map((r) => ({
@@ -652,8 +645,6 @@ export class StreetScene extends Phaser.Scene {
     }
     this.menuBoard.setVisible(mineId === 'cafe');
     this.terrace.setVisible(mineId === 'cafe' || rival?.placeId === 'cafe');
-    this.showcase.setVisible(mineId === 'cafe' && cafe.has('showcase') && open);
-    this.interior.setVisible(mineId === 'cafe' && cafe.has('interior'));
     const broken = sim.effects.some((e) => e.type === 'broken' && !e.slow && sim.time < e.until);
     this.noCoffee.setVisible(mineId === 'cafe' && broken);
     this.tent.setVisible(sim.effects.some((e) => e.type === 'boost' && e.day === sim.today));
@@ -858,17 +849,10 @@ export class StreetScene extends Phaser.Scene {
     const canvas = this.textures.createCanvas('ground-map', WORLD.width * S, WORLD.height * S);
     if (!canvas) return;
     const ctx = canvas.getContext();
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const x = col * GRID.size - GRID.offsetX;
-        const y = row * GRID.size;
-        const tile = groundTile(x, y);
-        const key = textureOf(tile);
-        const src = this.textures.get(key).getSourceImage() as HTMLImageElement;
-        const [fx, fy, fw, fh] = ATLASES[key].frames[tile];
-        ctx.drawImage(src, fx * S, fy * S, fw * S, fh * S, x * S, y * S, GRID.size * S, GRID.size * S);
-      }
-    }
+    const cells: Cell[] = [];
+    for (let row = 0; row < rows; row++)
+      for (let col = 0; col < cols; col++) cells.push({ x: col * GRID.size - GRID.offsetX, y: row * GRID.size, size: GRID.size });
+    paintGround(this, ctx, S, cells, groundTile);
     canvas.refresh();
     this.add.image(0, 0, 'ground-map').setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
   }
@@ -879,17 +863,19 @@ export class StreetScene extends Phaser.Scene {
       // Названия домов не висят на крышах: нажми на здание — название и жильцы будут в панели
       if (!sprite) continue;
       const base = p.rect.y + p.rect.h;
+      // Здание стоит цоколем на основании, по центру своего места
+      const cx = p.rect.x + p.rect.w / 2;
       const img = this.add
-        .image(p.rect.x, p.rect.y, textureOf(sprite), sprite)
-        .setOrigin(0)
+        .image(cx, base + BASE_SHIFT, textureOf(sprite), sprite)
+        .setOrigin(0.5, 1)
         .setScale(1 / ART_SCALE)
         .setDepth(base);
       const art = PREMISES_ART[p.id];
       if (art) this.shops.push({ place: p, sprite: img } as Shop);
       const lightFrame = art ? art.lights : `${sprite}-lights`;
       const light = this.add
-        .image(p.rect.x, p.rect.y, textureOf(lightFrame), lightFrame)
-        .setOrigin(0)
+        .image(cx, base + BASE_SHIFT, textureOf(lightFrame), lightFrame)
+        .setOrigin(0.5, 1)
         .setScale(1 / ART_SCALE)
         .setDepth(DEPTH.lights)
         .setVisible(false);

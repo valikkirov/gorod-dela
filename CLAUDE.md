@@ -23,6 +23,7 @@ TypeScript (strict), Phaser 4, Vite, Vitest. Node 20+.
   неразрывным пробелом (` `), тире не начинает строку.
 - Сохранение: `Simulation.serialize/restore`. Добавил новое состояние в sim — добавь его в сохранение.
   Если старые сохранения становятся несовместимы — увеличь `SAVE_VERSION`.
-- Графика — из Figma-файла (ссылка в README), атласы в `src/game/art/`, кадры в `src/game/atlas.ts`,
+- Графика 2.0 — генерация в Magnific по рецепту из Figma («Графика 2.0 (генерация)»), исходники в `art-src/v2/`,
+  атласы собирает `scripts/pack_v2.py` в `src/game/art/`, кадры — `src/game/atlasFrames.ts` и `src/game/atlas.ts`,
   порядок обновления — `scripts/README.md`. Карта на сетке 40 (сдвиг 20 по x), двери — на фасадах.
 - Сборка с `base: './'` — открывается из любой папки и из бакета Object Storage.

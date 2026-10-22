@@ -1,12 +1,16 @@
-// Атласы графики. Исходник — Figma-файл «Город дела — графика», страница «Экспорт для игры».
-// Координаты кадров — в единицах 1× (как в Figma), PNG выгружены в 2×.
-// Как обновить арт: см. scripts/README.md.
+// Атласы графики («Графика 2.0»). Здания, свет, предметы и текстуры собирает scripts/pack_v2.py
+// из art-src/v2 (кадры — в atlasFrames.ts); жители и extra — в старой раскладке кадров.
+// Координаты кадров — в единицах 1×, PNG — в 2×. Как обновить арт: см. scripts/README.md.
+import { BUILDING_FRAMES, LIGHT_FRAMES, PROP_FRAMES, TEXTURE_FRAMES } from './atlasFrames';
 import buildingsUrl from './art/buildings.png';
 import extraUrl from './art/extra.png';
 import groundUrl from './art/ground.png';
 import lightsUrl from './art/lights.png';
 import peopleUrl from './art/people.png';
 import sadovayaUrl from './art/sadovaya.png';
+import texAsphaltUrl from './art/tex-asphalt.png';
+import texGrassUrl from './art/tex-grass.png';
+import texSidewalkUrl from './art/tex-sidewalk.png';
 import type { ResidentKind } from '../sim/residents';
 
 /** Во сколько раз PNG крупнее единиц мира */
@@ -38,18 +42,6 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
     url: extraUrl,
     frames: {
       ...accessoryFrames(),
-      'building-cafe-rival': [4, 4, 240, 200],
-      'building-cafe-rival-lights': [248, 4, 240, 200],
-      'building-home-c-left': [736, 4, 240, 180],
-      'building-home-c-left-lights': [736, 208, 240, 180],
-      'building-home-c-right': [4, 208, 240, 180],
-      'building-home-c-right-lights': [4, 392, 240, 180],
-      'building-home-d-left': [248, 208, 240, 180],
-      'building-home-d-left-lights': [248, 392, 240, 180],
-      'building-home-d-right': [492, 208, 240, 180],
-      'building-home-d-right-lights': [492, 392, 240, 180],
-      'building-kiosk-rival': [740, 576, 120, 84],
-      'building-kiosk-rival-lights': [864, 576, 120, 84],
       'bus-down': [652, 576, 40, 110],
       'bus-up': [696, 576, 40, 110],
       'car-a-down': [232, 740, 32, 56],
@@ -146,57 +138,13 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
       'van-right': [804, 820, 64, 34],
     },
   },
-  ground: {
-    url: groundUrl,
-    frames: {
-      'prop-bench': [4, 4, 60, 30],
-      'prop-bin': [68, 4, 20, 28],
-      'prop-bus-stop': [92, 4, 100, 60],
-      'prop-lamp': [196, 4, 20, 70],
-      'prop-menu-board': [220, 4, 30, 40],
-      'prop-tree-round': [254, 4, 80, 100],
-      'prop-tree-tall': [338, 4, 80, 100],
-      'tile-grass': [422, 4, 40, 40],
-      'tile-road-asphalt': [466, 4, 40, 40],
-      'tile-road-crosswalk': [4, 108, 40, 40],
-      'tile-road-marking': [48, 108, 40, 40],
-      'tile-sidewalk': [92, 108, 40, 40],
-      'tile-sidewalk-curb-left': [136, 108, 40, 40],
-      'tile-sidewalk-curb-right': [180, 108, 40, 40],
-    },
-  },
-  buildings: {
-    url: buildingsUrl,
-    frames: {
-      'building-bc-right': [4, 4, 240, 260],
-      'building-cafe-open': [248, 4, 240, 200],
-      'building-cafe-rent': [492, 4, 240, 200],
-      'building-home-a-left': [736, 4, 240, 180],
-      'building-home-a-right': [4, 268, 240, 180],
-      'building-home-b-left': [248, 268, 240, 180],
-      'building-home-b-right': [492, 268, 240, 180],
-      'building-kiosk-open': [736, 268, 120, 84],
-      'building-kiosk-rent': [860, 268, 120, 84],
-      'building-metro': [4, 452, 160, 90],
-      'building-office-left': [168, 452, 240, 220],
-      'building-shop-right': [412, 452, 240, 150],
-    },
-  },
-  lights: {
-    url: lightsUrl,
-    frames: {
-      'building-bc-right-lights': [4, 4, 240, 260],
-      'building-cafe-lights': [248, 4, 240, 200],
-      'building-home-a-left-lights': [492, 4, 240, 180],
-      'building-home-a-right-lights': [736, 4, 240, 180],
-      'building-home-b-left-lights': [4, 268, 240, 180],
-      'building-home-b-right-lights': [248, 268, 240, 180],
-      'building-kiosk-lights': [492, 268, 120, 84],
-      'building-metro-lights': [616, 268, 160, 90],
-      'building-office-left-lights': [4, 452, 240, 220],
-      'building-shop-right-lights': [248, 452, 240, 150],
-    },
-  },
+  ground: { url: groundUrl, frames: PROP_FRAMES },
+  buildings: { url: buildingsUrl, frames: BUILDING_FRAMES },
+  lights: { url: lightsUrl, frames: LIGHT_FRAMES },
+  // Бесшовные текстуры земли: рисуются узором, кадр — вся картинка
+  'tex-grass': { url: texGrassUrl, frames: { 'tex-grass': TEXTURE_FRAMES['tex-grass'] } },
+  'tex-sidewalk': { url: texSidewalkUrl, frames: { 'tex-sidewalk': TEXTURE_FRAMES['tex-sidewalk'] } },
+  'tex-asphalt': { url: texAsphaltUrl, frames: { 'tex-asphalt': TEXTURE_FRAMES['tex-asphalt'] } },
   people: { url: peopleUrl, frames: peopleFrames() },
 };
 

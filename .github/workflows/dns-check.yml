@@ -1,0 +1,19 @@
+name: Проверка DNS домена
+
+# Запускается вручную: что публичный DNS знает о gorod-dela.ru (NS у регистратора и в зоне).
+on:
+  workflow_dispatch:
+
+jobs:
+  dns:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Записи
+        run: |
+          d=gorod-dela.ru
+          note() { echo "::notice title=$1::$(echo "$2" | tr '\n' ' ')"; }
+          note "NS через 8.8.8.8" "$(dig +short NS $d @8.8.8.8)"
+          note "NS в реестре .ru" "$(dig +norec NS $d @a.dns.ripn.net | grep -A6 'AUTHORITY SECTION' | grep NS)"
+          note "SOA" "$(dig +short SOA $d @8.8.8.8)"
+          note "Ответ Selectel" "$(dig +short NS $d @a.ns.selectel.ru)"
+          note "whois" "$(whois $d 2>/dev/null | grep -iE 'nserver|state|registrar|created' | head -8)"
