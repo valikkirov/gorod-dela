@@ -326,3 +326,19 @@ describe('Кафе', () => {
     expect(Simulation.restore({ ...save, version: -1 })).toBeNull();
   });
 });
+
+describe('Сохранение до Садовой', () => {
+  it('старое сохранение без жителей Садовой загружается, жители встают на новую карту', async () => {
+    const { Simulation } = await import('../src/sim/simulation');
+    const sim = new Simulation(7);
+    sim.advance(60 * 9);
+    const d = sim.serialize();
+    // Как сохранение до Садовой: нет поля map и нет последних 31 жителя
+    delete d.map;
+    d.residents = d.residents.slice(0, d.residents.length - 31);
+    const back = Simulation.restore(JSON.parse(JSON.stringify(d)));
+    expect(back).not.toBeNull();
+    back!.advance(60 * 3);
+    expect(back!.residents.every((r) => Number.isFinite(r.pos.x) && Number.isFinite(r.pos.y))).toBe(true);
+  });
+});

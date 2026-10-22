@@ -672,10 +672,24 @@ export class Hud {
         <div class="facts"><div>Работают: ${work.length} · сейчас на${NB}месте: ${inside.length}</div>${awareLine(work, 'сотрудников')}</div>
         ${people(inside, `Сейчас в${NB}офисе`)}`;
     }
+    if (p.kind === 'metro' && p.closed) {
+      return `${head(p.name, 'закрыт')}
+        <div class="facts"><div>Выход на${NB}Садовую пока закрыт. Все пассажиры выходят на${NB}Кленовую, к${NB}киоску.</div></div>`;
+    }
     if (p.kind === 'metro') {
       const come = residents.filter((r) => r.homeId === 'metro');
       return `${head(p.name, `выход из${NB}метро`)}
         <div class="facts"><div>Приезжают на${NB}улицу на${NB}метро: ${come.length}</div>${awareLine(come, `из${NB}них`)}</div>`;
+    }
+    if (p.kind === 'school') {
+      const study = residents.filter((r) => r.workId === p.id);
+      return `${head(p.name, `школа на${NB}Садовой`)}
+        <div class="facts"><div>Учатся: ${study.length} · сейчас на${NB}уроках: ${inside.length}</div>${awareLine(study, 'учеников')}</div>
+        ${people(inside, `Сейчас в${NB}школе`)}`;
+    }
+    if (p.kind === 'vacant') {
+      return `${head(p.name, 'сдаётся')}
+        <div class="facts"><div>Второе помещение на${NB}жилой улице. Откроется для${NB}аренды позже${NB}— когда кафе на${NB}Кленовой встанет на${NB}ноги.</div></div>`;
     }
     const sub = p.kind === 'shop' ? 'магазин' : p.kind === 'park' ? `здесь гуляют и${NB}отдыхают` : 'остановка автобуса';
     const here = p.kind === 'park' ? residents.filter((r) => r.placeId === p.id && r.visible) : inside;
