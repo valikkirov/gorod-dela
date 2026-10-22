@@ -36,7 +36,8 @@ export type RejectReason =
   | 'mood'
   | 'out-of-stock'
   | 'unaware'
-  | 'rival';
+  | 'rival'
+  | 'taste';
 
 export const REJECT_LABEL: Record<RejectReason, string> = {
   'not-open': 'Кафе ещё не открыто',
@@ -50,6 +51,7 @@ export const REJECT_LABEL: Record<RejectReason, string> = {
   'out-of-stock': 'Нет в наличии',
   unaware: 'Не знает о кафе',
   rival: 'Ушёл к конкуренту',
+  taste: 'Не\u00a0его вкус',
 };
 
 export interface DayReport {

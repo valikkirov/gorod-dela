@@ -20,6 +20,7 @@ const ACTIONABLE: RejectReason[] = [
   'off-route',
   'unaware',
   'rival',
+  'taste',
 ];
 
 const REASON_WHY: Record<RejectReason, string> = {
@@ -34,6 +35,7 @@ const REASON_WHY: Record<RejectReason, string> = {
   'out-of-stock': 'кончились продукты',
   unaware: `не${NB}знали о${NB}кафе`,
   rival: `ушли к${NB}конкуренту`,
+  taste: `не${NB}их вкус`,
 };
 
 /** Кому: «Студентам дорого» */

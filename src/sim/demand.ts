@@ -1,6 +1,7 @@
 // Спрос: когда у жителя возникает желание зайти и как он решает.
 // Логика из GDD §4.2: расстояние, цена, (позже — качество, атмосфера, отзывы), лояльность.
 import type { ItemKind, MenuItem, RejectReason } from './cafe';
+import { FAVORITE_MATCH, TASTE, tasteMatch } from './character';
 import { hm } from './clock';
 import type { Resident, ResidentKind, ScheduleEntry } from './residents';
 import type { Rng } from './rng';
@@ -146,6 +147,8 @@ export interface Offer {
   item: MenuItem | null;
   pPrice: number;
   pRoute: number;
+  /** −1…1: насколько выбранная позиция во вкусе жителя */
+  match: number;
   p: number;
 }
 
@@ -161,29 +164,35 @@ export function evaluate(
 ): Offer {
   const budget = r.budget[want.kind];
   const kinds = ACCEPTS[want.kind];
-  // Цена на 30 % ниже ожиданий — точно да, на 35 % выше — точно нет
-  const pFor = (m: MenuItem) => clamp((1.35 - m.price / budget) / 0.65, 0, 1);
+  const c = r.character;
+  // Цена на 30 % ниже ожиданий — точно да, на 35 % выше — точно нет; экономный отсекает переплату раньше
+  const top = 1.42 - 0.15 * c.thrift;
+  const pFor = (m: MenuItem) => clamp((top - m.price / budget) / (top - 0.7), 0, 1);
   // В жару «чай» превращается в лимонад
   const favorite = weather === 'hot' && want.kind === 'tea' ? 'lemonade' : r.favorites[want.kind];
   const isFav = (m: MenuItem) => m.id === favorite;
-  // Порядок предпочтений: любимая позиция (если не слишком дорого) → основная категория → замена
+  // Порядок предпочтений: любимая позиция (если не слишком дорого) → основная категория → по вкусу и цене
   const rank = (m: MenuItem) =>
-    (isFav(m) && pFor(m) >= 0.25 ? 2 : 0) + (m.kind === kinds[0] ? 1 : 0) + pFor(m) / 2;
+    (isFav(m) && pFor(m) >= 0.25 ? 2 : 0) + (m.kind === kinds[0] ? 1 : 0) + pFor(m) / 2 + tasteMatch(c, m.id) / 2;
   let item: MenuItem | null = null;
   for (const m of menu) {
     if (!kinds.includes(m.kind)) continue;
     if (item === null || rank(m) > rank(item)) item = m;
   }
-  // Без любимой позиции в меню житель берёт другую, но с меньшей охотой — повод расширять меню
-  const pPrice = item ? pFor(item) * (isFav(item) ? 1 : 0.85) : 0;
-  // Крюк: насколько дальше идти через кафе, чем сразу к цели
+  // Без любимой позиции житель берёт другую, но с меньшей охотой; нелюбопытный — с ещё меньшей
+  const other = 0.95 - 0.2 * (1 - c.curiosity);
+  const pPrice = item ? pFor(item) * (isFav(item) ? 1 : other) : 0;
+  // Крюк: насколько дальше идти через кафе, чем сразу к цели; торопливый крюка не любит
   const detour =
     want.mode === 'stopover'
       ? manhattan(from, cafeDoor) + manhattan(cafeDoor, goalDoor) - manhattan(from, goalDoor)
       : manhattan(from, cafeDoor) - manhattan(from, goalDoor);
-  const pRoute = clamp(1 - Math.max(0, detour) / 700, 0.15, 1);
-  const p = item ? pPrice * pRoute * (FOCUS.base + r.loyalty) * focusFactor(menu, item.kind) : 0;
-  return { item, pPrice, pRoute, p };
+  const reach = 700 * (1.25 - 0.5 * c.hurry);
+  const pRoute = clamp(1 - Math.max(0, detour) / reach, 0.15, 1);
+  const match = item ? (isFav(item) ? Math.max(FAVORITE_MATCH, tasteMatch(c, item.id)) : tasteMatch(c, item.id)) : 0;
+  const pTaste = 1 + TASTE.weight * match;
+  const p = item ? pPrice * pRoute * pTaste * (FOCUS.base + r.loyalty) * focusFactor(menu, item.kind) : 0;
+  return { item, pPrice, pRoute, match, p };
 }
 
 /**
@@ -210,6 +219,7 @@ export function focusFactor(menu: MenuItem[], kind: ItemKind): number {
 export function rejectReason(o: Offer, budget: number): RejectReason {
   if (!o.item) return 'no-item';
   if (o.item.price > budget) return 'expensive';
+  if (o.match <= TASTE.dislike) return 'taste';
   if (o.pRoute < 0.7) return 'off-route';
   return 'mood';
 }

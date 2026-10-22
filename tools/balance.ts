@@ -90,8 +90,9 @@ function decide(sim: Simulation): void {
   sim.chooseEvent(pick[e.id]);
 }
 
-export function play(f: Format, seed: number, days: number): DayReport[] {
+export function play(f: Format, seed: number, days: number, prep?: (sim: Simulation) => void): DayReport[] {
   const sim = new Simulation(seed);
+  prep?.(sim);
   sim.openCafe(f.premises ?? 'cafe');
   // Оборудование под категории меню (плита, кран) — сразу при открытии
   for (const id of f.menu) {

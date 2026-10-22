@@ -1,5 +1,6 @@
 import { hm } from './clock';
 import { BASE_BUDGET, type Decision, type Want, type WantKind } from './demand';
+import { makeCharacter, type Character, type Memory } from './character';
 import { Rng } from './rng';
 import type { Point } from './world';
 
@@ -65,6 +66,10 @@ export interface Resident {
   budget: Record<WantKind, number>;
   /** Любимая позиция в каждой категории — за ней житель идёт охотнее */
   favorites: Record<WantKind, string>;
+  /** Характер и вкус: из seed и номера жителя, в сохранение не идёт */
+  character: Character;
+  /** Последние визиты в кафе и как понравилось — новые сверху */
+  memory: Memory[];
   /** 0…0.4: растёт после удачных визитов */
   loyalty: number;
   /** Последнее решение насчёт кафе — для карточки жителя */
@@ -104,6 +109,8 @@ export interface Visit {
   until: number;
   /** Когда житель решил зайти — чтобы не ждать бесконечно */
   since: number;
+  /** Когда встал в очередь — для оценки ожидания */
+  queuedAt?: number;
 }
 
 const FIRST_NAMES = [
@@ -346,7 +353,7 @@ interface Template {
   work: () => string;
 }
 
-export function generateResidents(rng: Rng): Resident[] {
+export function generateResidents(rng: Rng, seed = 1): Resident[] {
   const fromStreet = () => rng.pick(HOMES);
   const fromSadovaya = () => rng.pick(SADOVAYA_HOMES);
   const templates: Template[] = [
@@ -383,9 +390,18 @@ export function generateResidents(rng: Rng): Resident[] {
       const weekend = (WEEKEND[t.kind] ?? SCHEDULES[t.kind])(rng, homeId, workId).sort(byStart);
       const wallet = rng.range(0.8, 1.25);
       const base = BASE_BUDGET[t.kind];
+      // Порядок бросков прежний: имя, потом любимые позиции — тот же seed даёт тех же жителей
+      const name = makeName(rng);
+      const favorites = {
+        coffee: weighted(rng, TASTES.coffee[t.kind] ?? TASTES.coffee.any),
+        snack: weighted(rng, TASTES.snack[t.kind] ?? TASTES.snack.any),
+        lunch: weighted(rng, TASTES.lunch[t.kind] ?? TASTES.lunch.any),
+        tea: weighted(rng, TASTES.tea[t.kind] ?? TASTES.tea.any),
+        bar: weighted(rng, TASTES.bar[t.kind] ?? TASTES.bar.any),
+      };
       residents.push({
         id: residents.length,
-        name: makeName(rng),
+        name,
         kind: t.kind,
         homeId,
         workId: t.kind === 'pensioner' || t.kind === 'remote' || t.kind === 'youth' || t.kind === 'visitor' ? null : workId,
@@ -399,13 +415,9 @@ export function generateResidents(rng: Rng): Resident[] {
           snack: Math.round(base.snack * wallet),
           bar: Math.round(base.bar * wallet),
         },
-        favorites: {
-          coffee: weighted(rng, TASTES.coffee[t.kind] ?? TASTES.coffee.any),
-          snack: weighted(rng, TASTES.snack[t.kind] ?? TASTES.snack.any),
-          lunch: weighted(rng, TASTES.lunch[t.kind] ?? TASTES.lunch.any),
-          tea: weighted(rng, TASTES.tea[t.kind] ?? TASTES.tea.any),
-          bar: weighted(rng, TASTES.bar[t.kind] ?? TASTES.bar.any),
-        },
+        favorites,
+        character: makeCharacter(seed, residents.length, t.kind, favorites),
+        memory: [],
         loyalty: 0,
         decision: null,
         aware: false,

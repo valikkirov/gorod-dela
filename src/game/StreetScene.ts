@@ -37,6 +37,7 @@ const REASON_SHORT: Record<RejectReason, string> = {
   'out-of-stock': 'кончилось',
   unaware: 'не знает о кафе',
   rival: 'к конкуренту',
+  taste: 'не его вкус',
 };
 
 const FONT = 'Inter, system-ui, sans-serif';

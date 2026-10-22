@@ -3,6 +3,7 @@ import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, ty
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY, EQUIPMENT, formatMoney, PREMISES, type EquipmentId, type PremisesId } from './economy';
+import { rateVisit, remember, type Memory } from './character';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
@@ -75,6 +76,7 @@ export interface SaveData {
     noticed: boolean;
     coffeeCount: number;
     lastVisit?: number;
+    memory?: Resident['memory'];
   }[];
 }
 
@@ -157,7 +159,7 @@ export class Simulation {
     // Первый день — ясно, дальше как повезёт
     this.weather = { kind: 'sunny', temp: 21 };
     this.forecast = rollWeather(this.skyRng, this.weather);
-    this.residents = generateResidents(this.rng);
+    this.residents = generateResidents(this.rng, seed);
     this.regulars = pickRegulars(this.residents);
     for (const g of this.regulars) this.regularById.set(g.residentId, g);
     this.cafe.pricing = (price, minute) => this.marketing.priceAt(price, minute);
@@ -218,6 +220,7 @@ export class Simulation {
           noticed: r.noticed,
           coffeeCount: r.coffeeCount,
           lastVisit: r.lastVisit,
+          memory: r.memory,
         };
       }),
     };
@@ -274,6 +277,7 @@ export class Simulation {
         noticed: s.noticed,
         coffeeCount: s.coffeeCount,
         lastVisit: s.lastVisit ?? 0,
+        memory: s.memory ?? [],
       });
     });
     // Карта поменялась: кто был в пути — идёт дальше по новым тротуарам, кто на месте — встаёт к новой двери
@@ -627,11 +631,15 @@ export class Simulation {
       v.itemId = alt.id;
       if (r.decision) r.decision = { ...r.decision, itemId: alt.id, price: alt.price };
     }
-    if (this.cafe.busy >= MAX_QUEUE || !this.cafe.join(r.id, v.itemId)) {
+    // Торопливый, зашедший по пути, не встанет в длинную очередь
+    const limit = v.want.mode === 'stopover' ? MAX_QUEUE - Math.round(2 * r.character.hurry) : MAX_QUEUE;
+    if (this.cafe.busy >= limit || !this.cafe.join(r.id, v.itemId)) {
       r.loyalty = Math.max(0, r.loyalty - 0.1);
+      this.recall(r, v.itemId, -0.5, ['queue']);
       return this.dropVisit(r, 'queue');
     }
     v.stage = 'queued';
+    v.queuedAt = this.time;
   }
 
   private onSale(residentId: number, price: number, itemId: string): void {
@@ -640,7 +648,16 @@ export class Simulation {
     const card = this.marketing.loyaltyCard;
     const hall = this.cafe.premisesId === 'cafe' ? this.cafe.interior : null;
     const cozy = hall ? hall.cozyLevel * INTERIOR.loyalty + (hall.likes(r.kind) ? INTERIOR.liked : 0) : 0;
-    r.loyalty = Math.min(card ? 0.5 : 0.4, r.loyalty + (card ? 0.15 : 0.1) + cozy);
+    // Как понравилось: вкус, цена, ожидание. Хороший визит привязывает сильнее, плохой — почти нет
+    const item = this.cafe.item(itemId);
+    const wait = r.visit ? this.time - (r.visit.queuedAt ?? r.visit.since) : 0;
+    const firstTry = !r.memory.some((m) => m.itemId === itemId);
+    const fav = Object.values(r.favorites).includes(itemId);
+    const rated = rateVisit(r.character, itemId, price, r.budget[item.kind], wait, firstTry, fav);
+    r.memory = remember(r.memory, { day: this.day, itemId, score: rated.score, notes: rated.notes });
+    // Средний визит (балл ≈0,15) даёт прежний прирост; отличный — до ×1,5, плохой — ×0,3
+    const gain = (card ? 0.15 : 0.1) * Math.min(1.5, Math.max(0.3, 0.9 + 0.6 * rated.score));
+    r.loyalty = Math.max(0, Math.min(card ? 0.5 : 0.4, r.loyalty + gain + cozy));
     r.lastVisit = this.day;
     this.noteRegular(r, true, undefined, itemId);
     // Карта лояльности: каждый N-й кофе — в подарок
@@ -721,9 +738,15 @@ export class Simulation {
     if (r.placeId === this.shopId || r.walking) this.goTo(r, r.entry.placeId);
   }
 
+  /** Запомнить неудачный визит: очередь или нечего купить */
+  private recall(r: Resident, itemId: string, score: number, notes: Memory['notes']): void {
+    r.memory = remember(r.memory, { day: this.day, itemId, score, notes });
+  }
+
   /** Кончились продукты — гость уходит, доверие падает */
   private runOut(r: Resident): void {
     r.loyalty = Math.max(0, r.loyalty - 0.1);
+    if (r.visit) this.recall(r, r.visit.itemId, -0.6, ['out-of-stock']);
     this.dropVisit(r, 'out-of-stock');
   }
 
@@ -1274,8 +1297,10 @@ export class Simulation {
       const front = place(this.shopId).front;
       if (Math.abs(r.pos.x - front.x) < 45 && Math.abs(r.pos.y - front.y) < 60) {
         r.noticed = true;
-        const p = this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase;
-        if (this.rng.chance(p)) this.learn(r, 'walk');
+        // Любопытный замечает новое место чаще, торопливый — реже
+        const look = 1 + 0.8 * (r.character.curiosity - 0.5) - 0.3 * (r.character.hurry - 0.5);
+        const p = (this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase) * look;
+        if (this.rng.chance(Math.min(1, p))) this.learn(r, 'walk');
       }
     }
     if (r.path.length === 0) {

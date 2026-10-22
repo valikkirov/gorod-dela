@@ -1,3 +1,4 @@
+import { AXES, AXIS_LABEL, NOTE_LABEL, profileOf, tasteWords, traitWords, type TasteAxis } from '../sim/character';
 import {
   CAFE_NAME_MAX,
   CATALOG,
@@ -120,6 +121,11 @@ const WANT_VISIT: Record<WantKind, string> = {
 
 const isFemale = (r: Resident): boolean => femaleName(r.name);
 const itemName = (id: string): string => CATALOG.find((c) => c.id === id)?.name ?? id;
+/** Вкус позиции словами: «сладкое, необычное» — по нему подбирают меню под гостей */
+const itemTaste = (id: string): string => {
+  const p = profileOf(id);
+  return AXES.filter((a) => p[a] >= 0.55).map((a) => AXIS_LABEL[a]).join(', ');
+};
 
 const REASON_HINT: Record<RejectReason, string> = {
   'not-open': 'Хотели зайти, но кафе ещё не работает',
@@ -133,6 +139,7 @@ const REASON_HINT: Record<RejectReason, string> = {
   'out-of-stock': `Позиция закончилась на${NB}складе. Гость ушёл недовольным — закажи больше или подними автозаказ`,
   mood: `Цена и${NB}дорога устраивали, но${NB}не${NB}каждый день хочется в${NB}кафе. Постоянные гости заходят чаще`,
   rival: `Готовы были зайти, но${NB}выбрали конкурента: у${NB}него дешевле, ближе по${NB}пути или нужная позиция`,
+  taste: `Цена и${NB}дорога устраивали, но${NB}в${NB}меню не${NB}нашлось ничего на${NB}их вкус. Посмотри, что любят твои гости, в${NB}их карточках`,
 };
 
 const USUAL: Record<WantKind, string> = {
@@ -730,7 +737,7 @@ export class Hud {
         return `
         <li>
           <div class="grow"><b>${m.name}</b>
-            <small>себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span><span class="oos" data-live="oos-${m.id}"></span></small></div>
+            <small>${itemTaste(m.id) ? `${itemTaste(m.id)} · ` : ''}себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span><span class="oos" data-live="oos-${m.id}"></span></small></div>
           <div class="stepper">
             <button data-action="price-down" data-item="${m.id}" aria-label="Дешевле">−</button>
             <span>${money(m.price)}</span>
@@ -752,7 +759,7 @@ export class Hud {
                 const fits = cafe.fits(c.id);
                 const noEquip = fits && !!cafe.missingEquipment(c.id);
                 return `<li><div class="grow"><b>${c.name}</b>
-                  <small>от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
+                  <small>${itemTaste(c.id) ? `${itemTaste(c.id)} · ` : ''}от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
                   ${
                     inMenu
                       ? '<span class="badge on">в меню</span>'
@@ -1506,6 +1513,7 @@ export class Hud {
     }
 
     const reg = this.sim.regularOf(r.id);
+    const character = this.characterBlock(r);
     const rows = r.schedule
       .map(
         (s) =>
@@ -1522,6 +1530,31 @@ export class Hud {
       ${reg ? this.faceCard(reg, r) : ''}
       ${decision}
       <div class="facts"><div>${home}</div>${work}<div>${r.aware ? `Знает о${NB}твоём кафе` : `<b class="oos">Не${NB}знает о${NB}твоём кафе</b>`}</div><div>${f ? 'Готова' : 'Готов'} платить: ${budget}</div></div>
+      ${character}
       <ul class="schedule">${rows}</ul>`;
+  }
+
+  /** Характер, вкус и память визитов: по ним игрок подбирает меню под своих гостей */
+  private characterBlock(r: Resident): string {
+    const c = r.character;
+    const traits = traitWords(c);
+    const { likes, dislikes } = tasteWords(c);
+    const list = (axes: TasteAxis[]) => axes.map((a) => AXIS_LABEL[a]).join(` и${NB}`);
+    const taste = [
+      likes.length ? `любит ${list(likes)}` : '',
+      dislikes.length ? `не${NB}любит ${list(dislikes)}` : '',
+    ].filter(Boolean).join(' · ') || `ест всё`;
+    const memory = r.memory
+      .map((m) => {
+        const mood = m.score >= 0.3 ? 'ok' : m.score <= -0.2 ? 'no' : '';
+        const notes = m.notes.map((n) => NOTE_LABEL[n]).join(', ');
+        return `<li class="${mood}"><span>День ${m.day}</span>${itemName(m.itemId)}${notes ? `${NB}— ${notes}` : ''}</li>`;
+      })
+      .join('');
+    return `<div class="character">
+        ${traits.length ? `<div class="traits">${traits.map((t) => `<span class="badge">${t}</span>`).join('')}</div>` : ''}
+        <div class="taste"><span>Вкус:</span> ${taste}</div>
+        ${memory ? `<div class="taste"><span>Помнит о${NB}твоём кафе:</span></div><ul class="memory">${memory}</ul>` : ''}
+      </div>`;
   }
 }
