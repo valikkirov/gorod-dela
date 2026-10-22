@@ -5,7 +5,7 @@ import type { Resident } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import { WANT_LABEL } from '../sim/demand';
 import { formatMoney } from '../sim/economy';
-import { CROSSWALK_Y, GRID, place, PLACES, ROAD, SADOVAYA, SQUARE, WORLD, type Place } from '../sim/world';
+import { CROSSWALK_Y, GRID, place, PLACES, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type Place } from '../sim/world';
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accessory, type Facing } from './atlas';
 import { Traffic } from './traffic';
@@ -68,14 +68,14 @@ const BUILDING_SPRITE: Record<string, string> = {
   'office-bc': 'building-bc-right',
   shop: 'building-shop-right',
   'home-3': 'building-home-d-right',
-  // Садовая: северная сторона — фасадом вниз, южная — фасадом вверх, к улице
+  // Садовая: все дома крышей вверх, как на Кленовой; у южной стороны двери во дворе
   'home-4': 'building-home-e',
   'home-5': 'building-home-f',
-  school: 'building-school-north',
+  school: 'building-school',
   'metro-2': 'building-metro-exit2-north',
-  'premises-2': 'building-premises2-north-rent',
-  'home-6': 'building-home-a-north',
-  'home-7': 'building-home-b-north',
+  'premises-2': 'building-premises2-rent',
+  'home-6': 'building-home-g',
+  'home-7': 'building-home-h',
 };
 
 /** Подпись помещения: насколько ниже верхнего края здания её центр */
@@ -90,6 +90,9 @@ const BASE_SHIFT = 4;
 /** Слои глубины: всё на улице сортируется по y основания, сверху — ночь, свет и подписи */
 const DEPTH = { ground: -1000, night: 5000, lights: 5001, sky: 5002, labels: 5003, floats: 5004 } as const;
 
+/** Дорожки сквера по сетке: ряд от входа с Кленовой и столбец к выходу на Садовую */
+const PARK_PATH = { row: 880, col: 660 } as const;
+
 /** Предметы улицы и сквера: [кадр, x, y основания] */
 const PROPS: [string, number, number][] = [
   // Кленовая
@@ -101,27 +104,36 @@ const PROPS: [string, number, number][] = [
   ['prop-lamp', 424, 700],
   ['prop-bin', 256, 300],
   ['prop-bin', 464, 572],
-  // Сквер на углу и остановка у его края
+  // Сквер на углу: дорожка от Кленовой, к ней — дорожка с Садовой, на их стыке фонтан
   ['prop-bus-stop', 520, 1040],
-  ['prop-tree-round', 520, 850],
-  ['prop-tree-round', 820, 870],
-  ['prop-tree-tall', 690, 820],
-  ['prop-tree-tall', 838, 1020],
-  ['prop-bench', 620, 905],
-  ['prop-bench', 735, 935],
-  ['prop-lamp', 660, 985],
-  ['prop-bin', 598, 990],
+  ['prop-fountain', 680, 874],
+  ['prop-hedge', 640, 784],
+  ['prop-tree-round', 515, 850],
+  ['prop-tree-tall', 745, 820],
+  ['prop-tree-round', 822, 868],
+  ['prop-flowerbed', 598, 866],
+  ['prop-bush', 762, 872],
+  ['prop-lamp', 628, 878],
+  ['prop-bench', 545, 952],
+  ['prop-bench', 790, 952],
+  ['prop-bin', 604, 996],
+  ['prop-lamp', 716, 1000],
+  ['prop-flowerbed', 785, 1002],
+  ['prop-bush', 632, 1034],
+  ['prop-bushes', 735, 1036],
+  ['prop-tree-tall', 838, 1022],
   // Садовая: фонари у бордюров
   ['prop-lamp', 120, 1078],
   ['prop-lamp', 620, 1078],
   ['prop-lamp', 980, 1078],
   ['prop-lamp', 1320, 1078],
-  ['prop-lamp', 160, 1214],
-  ['prop-lamp', 600, 1214],
-  ['prop-lamp', 1000, 1214],
-  ['prop-lamp', 1380, 1214],
+  // Южный тротуар: фонари у дальнего края, напротив проходов во двор, чтобы не висели над дорогой
+  ['prop-lamp', 240, 1236],
+  ['prop-lamp', 720, 1236],
+  ['prop-lamp', 1080, 1236],
+  ['prop-lamp', 1400, 1236],
   ['prop-bin', 1160, 1076],
-  ['prop-bin', 720, 1236],
+  ['prop-bin', 880, 1236],
   // Дворы за Кленовой
   ['prop-tree-round', 770, 130],
   ['prop-tree-tall', 900, 90],
@@ -140,8 +152,14 @@ const PROPS: [string, number, number][] = [
   ['prop-tree-round', 1020, 780],
   ['prop-bench', 1060, 440],
   ['prop-bench', 1240, 680],
+  // Двор южной стороны Садовой: у дверей кадки и скамейки, проходы между домами свободны
+  ['prop-planter', 64, 1436],
+  ['prop-bench', 590, 1434],
+  ['prop-planter', 880, 1430],
+  ['prop-bench', 1150, 1436],
+  ['prop-bush', 1372, 1290],
   // За южной стороной Садовой
-  ['prop-tree-tall', 1300, 1330],
+  ['prop-tree-tall', 1395, 1330],
   ['prop-tree-round', 1390, 1440],
   ['prop-tree-round', 1320, 1520],
   ['prop-tree-tall', 90, 1540],
@@ -851,17 +869,19 @@ export class StreetScene extends Phaser.Scene {
   private drawGround(): void {
     const S = ART_SCALE;
     const cols = Math.ceil((WORLD.width + GRID.offsetX) / GRID.size);
-    const rows = Math.ceil(MAP.height / GRID.size);
-    const canvas = this.textures.createCanvas('ground-map', WORLD.width * S, MAP.height * S);
+    // Клетки лежат на сетке мира: полоса над миром начинается с целой клетки, а не с MAP.top
+    const top = Math.floor(MAP.top / GRID.size) * GRID.size;
+    const rows = Math.ceil((MAP.top + MAP.height - top) / GRID.size);
+    const canvas = this.textures.createCanvas('ground-map', WORLD.width * S, rows * GRID.size * S);
     if (!canvas) return;
     const ctx = canvas.getContext();
     const cells: Cell[] = [];
     for (let row = 0; row < rows; row++)
       for (let col = 0; col < cols; col++) cells.push({ x: col * GRID.size - GRID.offsetX, y: row * GRID.size, size: GRID.size });
     // Полоса над миром продолжает верхний ряд клеток (улица уходит за край)
-    paintGround(this, ctx, S, cells, (x, y) => groundTile(x, Math.max(0, y + MAP.top)));
+    paintGround(this, ctx, S, cells, (x, y) => groundTile(x, Math.max(0, y + top)));
     canvas.refresh();
-    this.add.image(0, MAP.top, 'ground-map').setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
+    this.add.image(0, top, 'ground-map').setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
   }
 
   private drawBuildings(): void {
@@ -937,8 +957,8 @@ function groundTile(x: number, y: number): string {
     return 'tile-sidewalk-curb-top';
   }
   if (y === SADOVAYA.bottom) return 'tile-sidewalk-curb-bottom';
-  // Южнее Садовой — газон (здания стоят поверх)
-  if (y > SADOVAYA.bottom) return 'tile-grass';
+  // Южнее Садовой — мощёный квартал с домами и двором, дальше газон
+  if (y > SADOVAYA.bottom) return x >= GRID.offsetX && x < SAD_SOUTH.right && y < SAD_SOUTH.yardBottom ? 'tile-sidewalk' : 'tile-grass';
   // Кленовая
   if (x >= ROAD.left && x < ROAD.right) {
     // Переход между кафе и «Продуктами»
@@ -950,7 +970,11 @@ function groundTile(x: number, y: number): string {
   if (x === ROAD.right) return 'tile-sidewalk-curb-right';
   if (x < GRID.offsetX) return 'tile-grass';
   // Сквер и дворы за Кленовой; у домов Садовой — мощёный двор
-  if (x >= SQUARE.x && x < SQUARE.x + SQUARE.w && y >= SQUARE.y) return 'tile-grass';
+  if (x >= SQUARE.x && x < SQUARE.x + SQUARE.w && y >= SQUARE.y) {
+    // Дорожки сквера: от входа с Кленовой вдоль и от Садовой к площадке с фонтаном
+    if (y === PARK_PATH.row || (x === PARK_PATH.col && y > PARK_PATH.row)) return 'tile-sidewalk';
+    return 'tile-grass';
+  }
   if (x >= 700) return x >= 860 && y >= 840 ? 'tile-sidewalk' : 'tile-grass';
   return 'tile-sidewalk';
 }

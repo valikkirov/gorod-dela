@@ -20,6 +20,8 @@ export type Side = 'left' | 'right' | 'center';
 export interface Entrance {
   door: Point;
   front: Point;
+  /** Повороты от тротуара к двери, если дверь не напротив тротуара (дома южной стороны Садовой) */
+  via?: Point[];
 }
 
 export interface Place {
@@ -34,6 +36,8 @@ export interface Place {
   door: Point;
   /** Точка на тротуаре напротив главной двери: отсюда считается крюк и здесь замечают витрину */
   front: Point;
+  /** Повороты от тротуара к главной двери (см. Entrance.via) */
+  via?: Point[];
   /** Другие входы (у метро два выхода, у сквера два входа). Главный — первый */
   entrances?: Entrance[];
   /** Жители внутри не видны (здание), в сквере — видны */
@@ -51,7 +55,8 @@ export const WORLD = { width: 1440, height: 1560 } as const;
  * Кленовая идёт сверху вниз: дорога x 300–420, тротуары 260–300 и 420–460, здания 20–260 и 460–700.
  * Садовая идёт поперёк по всей ширине: тротуар 1040–1080, дорога 1080–1200, тротуар 1200–1240.
  * Перекрёсток x 300–420, y 1080–1200; переходы — продолжение тротуаров через дорогу.
- * Вид 3/4: у здания видна крыша и фасад; на южной стороне Садовой фасад смотрит вверх, к улице.
+ * Вид 3/4: у всех зданий крыша сверху, фасад снизу. Дома южной стороны Садовой стоят крышей к тротуару,
+ * двери на их фасадах — со двора: к ним ведут проходы между домами (40 px, по сетке).
  */
 export const GRID = { size: 40, offsetX: 20 } as const;
 /** Кленовая: проезжая часть до перекрёстка */
@@ -102,19 +107,42 @@ function building(
   };
 }
 
-/** Здание на Садовой. Северная сторона — фасад вниз, к улице; южная — фасад вверх */
-function sadovaya(id: string, kind: PlaceKind, name: string, x: number, w: number, h: number, doorX: number, north: boolean): Place {
-  const top = north ? 1040 - h : 1240;
-  const door = north ? { x: x + doorX, y: 1040 + DOOR_OFFSET } : { x: x + doorX, y: 1240 + 4 };
+/** Здание на северной стороне Садовой: фасад вниз, к улице */
+function sadovaya(id: string, kind: PlaceKind, name: string, x: number, w: number, h: number, doorX: number): Place {
+  const door = { x: x + doorX, y: 1040 + DOOR_OFFSET };
   return {
     id,
     kind,
     name,
     territoryId: SADOVAYA_ID,
     side: 'center',
-    rect: { x, y: top, w, h },
+    rect: { x, y: 1040 - h, w, h },
     door,
-    front: { x: door.x, y: north ? SAD_SIDEWALK.northY : SAD_SIDEWALK.southY },
+    front: { x: door.x, y: SAD_SIDEWALK.northY },
+    indoor: true,
+  };
+}
+
+/** Южная сторона Садовой: крыши вдоль тротуара */
+export const SAD_SOUTH = { top: 1240, yardBottom: 1440, right: 1340 } as const;
+
+/**
+ * Здание на южной стороне Садовой. Стоит крышей к улице, как все дома, фасад и дверь — внизу, во дворе.
+ * passX — середина прохода между домами: из него житель сворачивает с тротуара во двор и идёт к двери.
+ */
+function sadovayaSouth(id: string, kind: PlaceKind, name: string, x: number, w: number, h: number, doorX: number, passX: number): Place {
+  const base = SAD_SOUTH.top + h;
+  const door = { x: x + doorX, y: base + DOOR_OFFSET };
+  return {
+    id,
+    kind,
+    name,
+    territoryId: SADOVAYA_ID,
+    side: 'center',
+    rect: { x, y: SAD_SOUTH.top, w, h },
+    door,
+    front: { x: passX, y: SAD_SIDEWALK.southY },
+    via: [{ x: passX, y: door.y }],
     indoor: true,
   };
 }
@@ -131,7 +159,7 @@ export const PLACES: Place[] = [
     front: { x: ROAD_CENTER_X, y: SIDEWALK.minY },
     // Одна станция, два выхода. Выход на Садовую пока закрыт: он заметно забирает поток у Кленовой,
     // откроем его вместе с балансом форматов (этап A). Чтобы открыть — добавить второй вход:
-    // { door: { x: ROAD_CENTER_X, y: 1250 }, front: { x: ROAD_CENTER_X, y: SAD_SIDEWALK.southY } }
+    // { door: place('metro-2').door, front: place('metro-2').front, via: place('metro-2').via }
     entrances: [{ door: { x: ROAD_CENTER_X, y: 96 }, front: { x: ROAD_CENTER_X, y: SIDEWALK.minY } }],
     indoor: true,
   },
@@ -183,14 +211,14 @@ export const PLACES: Place[] = [
     indoor: false,
   },
   // Садовая, северная сторона
-  sadovaya('home-4', 'home', 'Дом 4', 900, 240, 168, 117, true),
-  sadovaya('home-5', 'home', 'Дом 5', 1180, 240, 168, 120, true),
-  // Садовая, южная сторона: школа, второй выход метро, помещение, дома
-  sadovaya('school', 'school', 'Школа', 20, 240, 208, 120, false),
-  { ...sadovaya('metro-2', 'metro', 'Метро «Кленовая», выход на Садовую', 280, 160, 80, 80, false), decor: true, closed: true },
-  { ...sadovaya('premises-2', 'vacant', 'Помещение на Садовой', 460, 240, 188, 198, false), decor: true },
-  sadovaya('home-6', 'home', 'Дом 6', 740, 240, 168, 205, false),
-  sadovaya('home-7', 'home', 'Дом 7', 1020, 240, 168, 205, false),
+  sadovaya('home-4', 'home', 'Дом 4', 900, 240, 168, 117),
+  sadovaya('home-5', 'home', 'Дом 5', 1180, 240, 168, 120),
+  // Садовая, южная сторона: школа, второй выход метро, помещение, дома. Между ними проходы во двор
+  sadovayaSouth('school', 'school', 'Школа', 20, 240, 167, 118, 280),
+  { ...sadovayaSouth('metro-2', 'metro', 'Метро «Кленовая», выход на Садовую', 300, 160, 82, 78, 480), decor: true, closed: true },
+  { ...sadovayaSouth('premises-2', 'vacant', 'Помещение на Садовой', 500, 240, 152, 201, 760), decor: true },
+  sadovayaSouth('home-6', 'home', 'Дом 6', 780, 240, 155, 206, 1040),
+  sadovayaSouth('home-7', 'home', 'Дом 7', 1060, 240, 168, 201, 1320),
 ];
 
 const BY_ID = new Map(PLACES.map((p) => [p.id, p]));
@@ -202,7 +230,7 @@ export function place(id: string): Place {
 }
 
 export function entrancesOf(p: Place): Entrance[] {
-  return p.entrances ?? [{ door: p.door, front: p.front }];
+  return p.entrances ?? [{ door: p.door, front: p.front, via: p.via }];
 }
 
 /** Вход, ближайший к точке, — для метро и сквера с несколькими входами (по прямым «кварталам», быстро) */

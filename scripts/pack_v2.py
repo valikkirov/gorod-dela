@@ -28,6 +28,13 @@ PROP_HEIGHT = {
     'prop-bin': 28,
     'prop-bus-stop': 60,
     'prop-menu-board': 40,
+    # Сквер
+    'prop-bush': 26,
+    'prop-bushes': 34,
+    'prop-hedge': 22,
+    'prop-flowerbed': 32,
+    'prop-planter': 26,
+    'prop-fountain': 54,
 }
 
 

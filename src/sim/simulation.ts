@@ -1291,8 +1291,8 @@ export class Simulation {
    */
   private route(r: Resident, to: Place, from: Place | null): Point[] {
     const outdoor = from ? !from.indoor : false;
-    const starts: { door: Point | null; front: Point }[] = from
-      ? entrancesOf(from).map((e) => ({ door: e.door, front: e.front }))
+    const starts: { door: Point | null; front: Point; via?: Point[] }[] = from
+      ? entrancesOf(from).map((e) => ({ door: e.door, front: e.front, via: e.via }))
       : [{ door: null, front: snapToWalkway(r.pos) }];
     let best: { s: (typeof starts)[number]; t: Entrance; len: number } | null = null;
     for (const s of starts) {
@@ -1308,7 +1308,10 @@ export class Simulation {
       if (outdoor) path.push({ ...s.door });
       else r.pos = { ...s.door };
     }
+    // Дверь во дворе: сначала по проходу к тротуару
+    if (from && s.via) for (const p of [...s.via].reverse()) path.push({ ...p });
     for (const p of walkPath(s.front, t.front)) path.push(withLane(p, r.lane));
+    if (t.via) for (const p of t.via) path.push({ ...p });
     path.push(this.spotIn(to, t));
     return path;
   }
