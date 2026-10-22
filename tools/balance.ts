@@ -7,7 +7,7 @@ import { MILESTONES } from '../src/sim/milestones';
 import { Simulation } from '../src/sim/simulation';
 import { INGREDIENTS, RECIPES, type IngredientId } from '../src/sim/stock';
 
-interface Format {
+export interface Format {
   name: string;
   premises?: PremisesId;
   menu: string[];
@@ -93,6 +93,11 @@ function decide(sim: Simulation): void {
 export function play(f: Format, seed: number, days: number): DayReport[] {
   const sim = new Simulation(seed);
   sim.openCafe(f.premises ?? 'cafe');
+  // Оборудование под категории меню (плита, кран) — сразу при открытии
+  for (const id of f.menu) {
+    const need = sim.cafe.missingEquipment(id);
+    if (need) sim.buyEquipment(need);
+  }
   // Сначала добавить нужное, потом убрать лишнее — последнюю позицию убрать нельзя
   for (const m of [...sim.cafe.menu]) if (!f.menu.includes(m.id) && sim.cafe.menu.length > 4) sim.removeMenuItem(m.id);
   for (const id of f.menu) if (!sim.cafe.hasItem(id)) sim.addMenuItem(id);

@@ -6,8 +6,17 @@ import { Simulation } from '../src/sim/simulation';
 const DAY = MINUTES_PER_DAY;
 
 /** Открыть кафе так, будто о нём уже знает вся улица — для тестов экономики */
+/** Классическое кафе для проверок: с плитой и бизнес-ланчем, как до оборудования */
+function withLunch(sim: Simulation): void {
+  if (sim.cafe.premisesId !== 'cafe') return;
+  sim.cafe.equipment.push('stove');
+  sim.cafe.removeItem('latte');
+  sim.cafe.addItem('lunch');
+}
+
 function openKnown(sim: Simulation): void {
   sim.openCafe();
+  withLunch(sim);
   for (const r of sim.residents) r.aware = true;
 }
 
@@ -150,6 +159,7 @@ describe('Кафе', () => {
     openKnown(sim);
     sim.setHours(hm(8), hm(26));
     sim.removeMenuItem('tea');
+    sim.cafe.equipment.push('tap');
     sim.addMenuItem('beer');
     sim.addMenuItem('cider');
     sim.setKeep('bar', 30);
@@ -169,7 +179,8 @@ describe('Кафе', () => {
 
   it('меню: до 8 позиций, хотя бы одна', () => {
     const sim = new Simulation(1);
-    for (const id of ['latte', 'raf', 'sandwich', 'soup', 'beer']) sim.addMenuItem(id);
+    sim.cafe.equipment.push('stove', 'tap');
+    for (const id of ['raf', 'sandwich', 'soup', 'beer']) sim.addMenuItem(id);
     expect(sim.cafe.menu.length).toBe(8);
     expect(sim.addMenuItem('cider')).toBe(false);
     for (const m of [...sim.cafe.menu]) sim.removeMenuItem(m.id);

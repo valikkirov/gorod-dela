@@ -26,7 +26,7 @@ import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { INGREDIENTS, orderPrice, RECIPES, type IngredientId } from '../sim/stock';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
-import { ECONOMY, formatMoney, PREMISES, type PremisesId } from '../sim/economy';
+import { ECONOMY, EQUIPMENT, equipmentFor, formatMoney, PREMISES, type EquipmentId, type PremisesId } from '../sim/economy';
 import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
 import { statusText, type Regular } from '../sim/regulars';
 import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
@@ -335,6 +335,9 @@ export class Hud {
       case 'add-item':
         sim.addMenuItem(item!);
         if (sim.cafe.menu.length >= MAX_MENU) this.catalogOpen = false;
+        break;
+      case 'buy-equipment':
+        sim.buyEquipment(item as EquipmentId);
         break;
       case 'toggle-catalog':
         this.catalogOpen = !this.catalogOpen;
@@ -714,6 +717,7 @@ export class Hud {
               .map((c) => {
                 const inMenu = cafe.hasItem(c.id);
                 const fits = cafe.fits(c.id);
+                const noEquip = fits && !!cafe.missingEquipment(c.id);
                 return `<li><div class="grow"><b>${c.name}</b>
                   <small>от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
                   ${
@@ -721,13 +725,26 @@ export class Hud {
                       ? '<span class="badge on">в меню</span>'
                       : !fits
                         ? `<span class="badge">не${NB}здесь</span>`
-                        : `<button class="small" data-action="add-item" data-item="${c.id}" ${full ? 'disabled' : ''}>Добавить</button>`
+                        : noEquip
+                          ? `<span class="badge">нужно оборудование</span>`
+                          : `<button class="small" data-action="add-item" data-item="${c.id}" ${full ? 'disabled' : ''}>Добавить</button>`
                   }</li>`;
               })
               .join('');
-            const note =
+            const legal =
               kind === 'bar' ? `<small class="note">ИП может продавать только пиво и${NB}сидр. Вино и${NB}крепкое — с${NB}лицензией ООО, позже</small>` : '';
-            return `<h5>${KIND_TITLE[kind]}</h5><ul class="menu catalog">${rows}</ul>${note}`;
+            // Оборудование под категорию: плита для обедов, кран для пива
+            const need = equipmentFor(kind);
+            const eq = need ? EQUIPMENT[need] : null;
+            const fitsKind = cafe.premises.kinds.includes(kind);
+            const equip =
+              eq && fitsKind
+                ? cafe.equipment.includes(eq.id)
+                  ? `<p class="equip on"><b>${eq.name}</b> <span class="badge on">есть</span></p>`
+                  : `<p class="equip"><span class="grow">Нужна покупка: <b>${eq.name}</b>. Свет и${NB}вода +${eq.utilitiesPerHour}${NB}₽ за${NB}час работы</span>
+                      <button class="small" data-action="buy-equipment" data-item="${eq.id}" ${this.sim.cash < eq.cost ? 'disabled' : ''}>${money(eq.cost)}</button></p>`
+                : '';
+            return `<h5>${KIND_TITLE[kind]}</h5>${equip}<ul class="menu catalog">${rows}</ul>${legal}`;
           })
           .join('')
       : '';
@@ -1321,7 +1338,11 @@ export class Hud {
       .join('');
     const missing = (Object.entries(r.missingKinds) as [ItemKind, number][])
       .sort((x, y) => y[1] - x[1])
-      .map(([kind, n]) => `<li><span>${KIND_TITLE[kind]}</span><b>${n}</b></li>`)
+      .map(([kind, n]) => {
+        const need = equipmentFor(kind);
+        const hint = need && !this.sim.cafe.equipment.includes(need) && this.sim.cafe.premises.kinds.includes(kind) ? `<small>нужно: ${EQUIPMENT[need].name.toLowerCase()}</small>` : '';
+        return `<li><span>${KIND_TITLE[kind]}${hint}</span><b>${n}</b></li>`;
+      })
       .join('');
     const sold = CATALOG
       .filter((m) => r.sold[m.id])

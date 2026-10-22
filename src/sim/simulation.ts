@@ -1,7 +1,7 @@
 import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason } from './cafe';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
-import { ECONOMY, formatMoney, PREMISES, type PremisesId } from './economy';
+import { ECONOMY, EQUIPMENT, formatMoney, PREMISES, type EquipmentId, type PremisesId } from './economy';
 import { currentEntry, generateResidents, type Resident, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
@@ -1106,6 +1106,18 @@ export class Simulation {
     if (id === 'showcase') this.cafe.stock.extendShelf(UPGRADE_EFFECT.showcaseShelfDays);
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + u.cost;
     this.note(`upgrade:${id}`, u.name, undefined, `куплено за ${formatMoney(u.cost)}`);
+    return true;
+  }
+
+  /** Купить оборудование под категорию меню (плита — обеды, кран — пиво и сидр) */
+  buyEquipment(id: EquipmentId): boolean {
+    const e = EQUIPMENT[id];
+    if (!this.cafe.opened || this.cafe.equipment.includes(id) || this.cash < e.cost) return false;
+    if (!e.kinds.some((k) => (this.cafe.premises.kinds as readonly string[]).includes(k))) return false;
+    this.cash -= e.cost;
+    this.cafe.equipment.push(id);
+    this.cafe.today.invested = (this.cafe.today.invested ?? 0) + e.cost;
+    this.note(`equipment:${id}`, e.name, undefined, `куплено за ${formatMoney(e.cost)}`);
     return true;
   }
 

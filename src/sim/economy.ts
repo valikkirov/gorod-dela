@@ -84,3 +84,28 @@ export const PREMISES: Record<PremisesId, Premises> = {
     maxBaristas: 1,
   },
 };
+
+export type EquipmentId = 'stove' | 'tap';
+
+/** Оборудование под категорию меню: без плиты нет обедов, без крана — пива и сидра.
+ *  Кофемашина, витрина и чайник входят в открытие. Покупается один раз, дальше — свет и вода за часы работы. */
+export interface Equipment {
+  id: EquipmentId;
+  name: string;
+  /** Какие категории меню открывает */
+  kinds: readonly ('lunch' | 'bar')[];
+  cost: number;
+  /** Сколько прибавляет к коммуналке за час работы */
+  utilitiesPerHour: number;
+}
+
+export const EQUIPMENT: Record<EquipmentId, Equipment> = {
+  stove: { id: 'stove', name: 'Плита и\u00a0вытяжка', kinds: ['lunch'], cost: 45_000, utilitiesPerHour: 12 },
+  tap: { id: 'tap', name: 'Пивной кран и\u00a0холодильник', kinds: ['bar'], cost: 30_000, utilitiesPerHour: 6 },
+};
+
+/** Какое оборудование нужно для категории (null — входит в открытие) */
+export function equipmentFor(kind: string): EquipmentId | null {
+  const e = Object.values(EQUIPMENT).find((x) => (x.kinds as readonly string[]).includes(kind));
+  return e ? e.id : null;
+}

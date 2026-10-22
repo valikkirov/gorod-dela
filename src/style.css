@@ -1881,3 +1881,19 @@ button.small.danger {
 #sound-panel .sound-row.off {
   opacity: 0.45;
 }
+
+/* Оборудование под категорию меню в каталоге */
+.equip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fbf3e2;
+  font-size: 13px;
+}
+
+.equip.on {
+  background: #f1f8f3;
+}
