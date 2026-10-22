@@ -1897,3 +1897,101 @@ button.small.danger {
 .equip.on {
   background: #f1f8f3;
 }
+/* Семь вкладок (у кафе есть «Зал») — четыре в ряд */
+.tabs.tabs-7 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Зал кафе: комната целиком, мебель — кусочки той же картинки на своих местах */
+.hall {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 997 / 590;
+  margin: 4px 0 10px;
+  background: center / contain no-repeat;
+}
+
+.hall-thing,
+.hall-slot {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.hall-thing img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.hall-thing.selected img {
+  filter: drop-shadow(0 0 3px #e0703f) drop-shadow(0 0 2px #e0703f);
+}
+
+.hall-slot {
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px dashed rgba(90, 60, 30, 0.55);
+  border-radius: 50%;
+  background: rgba(255, 248, 235, 0.75);
+  color: #6b4a2b;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 15px;
+}
+
+.hall-slot.selected {
+  border-style: solid;
+  border-color: #e0703f;
+  color: #e0703f;
+}
+
+.menu.presets .preset.on {
+  border-color: #b9d7c2;
+  background: #f1f8f3;
+}
+
+.menu.presets .preset button {
+  margin-top: 6px;
+}
+
+.furniture-list .furniture {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.furniture-list .furniture img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  flex: none;
+}
+
+.furniture-list .furniture small {
+  display: block;
+}
+
+.menu.presets .preset {
+  display: block;
+}
+
+.menu.presets .preset small {
+  display: block;
+  margin-top: 2px;
+}
+
+.hall-piece {
+  position: absolute;
+  display: block;
+  height: auto;
+  cursor: pointer;
+}
+
+.hall-piece.selected {
+  filter: drop-shadow(0 0 3px #e0703f) drop-shadow(0 0 2px #e0703f);
+}

@@ -113,10 +113,4 @@ describe('Вехи и улучшения', () => {
     expect(copy.cafe.has('showcase')).toBe(true);
   });
 
-  it('интерьер есть только у кафе с залом', () => {
-    const sim = new Simulation(3);
-    openKnown(sim, 'kiosk');
-    sim.milestones.regulars = 1;
-    expect(sim.upgradeState('interior')).toBe('premises');
-  });
 });

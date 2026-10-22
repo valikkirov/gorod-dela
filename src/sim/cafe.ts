@@ -1,3 +1,4 @@
+import { Interior, type Layout, preset } from './interior';
 import { hm, MINUTES_PER_DAY } from './clock';
 import { CURRENCY, ECONOMY, EQUIPMENT, equipmentFor, PREMISES, type Currency, type EquipmentId, type Premises, type PremisesId } from './economy';
 import type { AwareSource } from './marketing';
@@ -80,6 +81,8 @@ export interface DayReport {
   /** Сколько раз жители хотели зайти (включая отказы) */
   wanted: number;
   missed: Partial<Record<RejectReason, number>>;
+  /** Сели бы, но мест не было — взяли с собой */
+  noSeat?: number;
   /** Чего не нашли в меню: категория → сколько раз */
   missingKinds: Partial<Record<ItemKind, number>>;
   sold: Record<string, number>;
@@ -249,6 +252,8 @@ export interface CafeSave {
   stock: StockSave;
   upgrades?: UpgradeId[];
   equipment?: EquipmentId[];
+  /** Зал: что стоит на каких местах */
+  interior?: Layout;
   prepUntil?: number;
   /** Название, которое дал игрок */
   name?: string | null;
@@ -272,6 +277,8 @@ export class Cafe {
   upgrades: UpgradeId[] = [];
   /** Купленное оборудование под категории меню */
   equipment: EquipmentId[] = [];
+  /** Мебель и декор в зале */
+  readonly interior = new Interior();
   /** Своё название; null — «Твоё кафе» / «Твой киоск» по помещению */
   customName: string | null = null;
   /** Временное замедление (сломалась одна из двух кофемашин) — выставляет симуляция */
@@ -314,6 +321,7 @@ export class Cafe {
       stock: this.stock.toJSON(),
       upgrades: this.upgrades,
       equipment: this.equipment,
+      interior: this.interior.toJSON(),
       prepUntil: this.prepUntil,
       name: this.customName,
     };
@@ -350,6 +358,11 @@ export class Cafe {
     this.equipment = d.equipment
       ? [...d.equipment]
       : [...new Set(this.menu.map((m) => equipmentFor(m.kind)).filter((e): e is EquipmentId => !!e))];
+    this.interior.load(d.interior);
+    // Сохранения до зала: открытое кафе получает «Стандарт», купленный «Уютный интерьер» — комплектацию «Уют»
+    if (d.interior === undefined && this.opened && this.premisesId === 'cafe') {
+      this.interior.load(preset(this.upgrades.includes('interior') ? 'cozy' : 'standard').layout);
+    }
     this.prepUntil = d.prepUntil ?? -1;
     this.customName = d.name ?? null;
     this.stock.shelfBonus = this.has('showcase') ? UPGRADE_EFFECT.showcaseShelfDays : 0;
