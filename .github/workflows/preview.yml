@@ -1,0 +1,39 @@
+name: Превью ветки
+
+# Пуш в любую ветку, кроме main: сборка → папка preview/<ветка>/ в бакете Яндекса.
+# Основная игра не меняется; сохранения превью хранятся отдельно (см. SAVE_NS в challenge.ts).
+on:
+  push:
+    branches-ignore: [main]
+
+concurrency:
+  group: preview-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    env:
+      BUCKET: gorod-dela-play
+      AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ru-central1
+      ENDPOINT: https://storage.yandexcloud.net
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Тесты в превью не блокируют выкладку: ветка может быть в работе
+      - run: npm test || echo "::warning::Тесты в ветке падают"
+      - run: npm run build
+      - name: Выкладка превью
+        run: >
+          aws s3 sync dist "s3://$BUCKET/preview/$GITHUB_REF_NAME"
+          --endpoint-url "$ENDPOINT"
+          --cache-control "no-cache"
+          --delete
+      - name: Ссылка
+        run: echo "Превью → https://$BUCKET.website.yandexcloud.net/preview/$GITHUB_REF_NAME/" >> "$GITHUB_STEP_SUMMARY"
