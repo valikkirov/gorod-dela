@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hm, MINUTES_PER_DAY } from '../src/sim/clock';
-import { ECONOMY } from '../src/sim/economy';
+import { ECONOMY, PREMISES } from '../src/sim/economy';
 import { Simulation } from '../src/sim/simulation';
 
 const DAY = MINUTES_PER_DAY;
@@ -110,7 +110,7 @@ describe('Помещения', () => {
   it('киоск дешевле, без кухни и бара, всё навынос', () => {
     const sim = new Simulation(4);
     expect(sim.openCafe('kiosk')).toBe(true);
-    expect(sim.cash).toBe(ECONOMY.startCash - 150_000);
+    expect(sim.cash).toBe(ECONOMY.startCash - PREMISES.kiosk.openingCost);
     expect(sim.cafe.menu.every((m) => ['coffee', 'snack', 'tea'].includes(m.kind))).toBe(true);
     expect(sim.addMenuItem('beer')).toBe(false);
     expect(sim.addMenuItem('lunch')).toBe(false);

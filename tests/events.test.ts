@@ -6,9 +6,18 @@ import { Simulation } from '../src/sim/simulation';
 
 const DAY = MINUTES_PER_DAY;
 
+/** Классическое кафе для проверок: с плитой и бизнес-ланчем, как до оборудования */
+function withLunch(sim: Simulation): void {
+  if (sim.cafe.premisesId !== 'cafe') return;
+  sim.cafe.equipment.push('stove');
+  sim.cafe.removeItem('latte');
+  sim.cafe.addItem('lunch');
+}
+
 function openKnown(seed = 4): Simulation {
   const sim = new Simulation(seed);
   sim.openCafe('cafe');
+  withLunch(sim);
   for (const r of sim.residents) r.aware = true;
   return sim;
 }

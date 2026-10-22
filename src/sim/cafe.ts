@@ -1,5 +1,5 @@
 import { hm, MINUTES_PER_DAY } from './clock';
-import { CURRENCY, ECONOMY, PREMISES, type Currency, type Premises, type PremisesId } from './economy';
+import { CURRENCY, ECONOMY, EQUIPMENT, equipmentFor, PREMISES, type Currency, type EquipmentId, type Premises, type PremisesId } from './economy';
 import type { AwareSource } from './marketing';
 import { UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
 import { recipeCost, Stock, type IngredientId, type StockSave } from './stock';
@@ -153,7 +153,8 @@ export const CATALOG: readonly MenuItem[] = [
   { id: 'cider', name: 'Сидр', kind: 'bar', price: 320, cost: 120 },
 ];
 
-export const DEFAULT_MENU_IDS = ['americano', 'cappuccino', 'croissant', 'lunch', 'tea'];
+/** Стартовое меню — то, что можно продавать без доп. оборудования */
+export const DEFAULT_MENU_IDS = ['americano', 'cappuccino', 'latte', 'croissant', 'tea'];
 export const MAX_MENU = 8;
 export const MAX_QUEUE = 6;
 
@@ -247,6 +248,7 @@ export interface CafeSave {
   lastPaidMinute: number;
   stock: StockSave;
   upgrades?: UpgradeId[];
+  equipment?: EquipmentId[];
   prepUntil?: number;
   /** Название, которое дал игрок */
   name?: string | null;
@@ -268,6 +270,8 @@ export class Cafe {
   readonly stock = new Stock();
   /** Купленные улучшения */
   upgrades: UpgradeId[] = [];
+  /** Купленное оборудование под категории меню */
+  equipment: EquipmentId[] = [];
   /** Своё название; null — «Твоё кафе» / «Твой киоск» по помещению */
   customName: string | null = null;
   /** Временное замедление (сломалась одна из двух кофемашин) — выставляет симуляция */
@@ -309,6 +313,7 @@ export class Cafe {
       lastPaidMinute: this.lastPaidMinute,
       stock: this.stock.toJSON(),
       upgrades: this.upgrades,
+      equipment: this.equipment,
       prepUntil: this.prepUntil,
       name: this.customName,
     };
@@ -341,6 +346,10 @@ export class Cafe {
     this.lastPaidMinute = d.lastPaidMinute;
     this.stock.load(d.stock);
     this.upgrades = [...(d.upgrades ?? [])];
+    // Сохранения до оборудования: что уже продаётся — то оборудование и стоит
+    this.equipment = d.equipment
+      ? [...d.equipment]
+      : [...new Set(this.menu.map((m) => equipmentFor(m.kind)).filter((e): e is EquipmentId => !!e))];
     this.prepUntil = d.prepUntil ?? -1;
     this.customName = d.name ?? null;
     this.stock.shelfBonus = this.has('showcase') ? UPGRADE_EFFECT.showcaseShelfDays : 0;
@@ -431,7 +440,8 @@ export class Cafe {
   /** Коммуналка за день при текущих часах работы */
   get utilitiesPerDay(): number {
     const hours = Math.min(MINUTES_PER_DAY, this.closeAt - this.openAt) / 60;
-    return Math.round(this.premises.utilitiesPerDay + this.premises.utilitiesPerHour * hours);
+    const perHour = this.premises.utilitiesPerHour + this.equipment.reduce((sum, e) => sum + EQUIPMENT[e].utilitiesPerHour, 0);
+    return Math.round(this.premises.utilitiesPerDay + perHour * hours);
   }
 
   get premises(): Premises {
@@ -447,8 +457,14 @@ export class Cafe {
     return this.menu.some((m) => m.id === id);
   }
 
+  /** Какого оборудования не хватает для позиции (null — всё есть) */
+  missingEquipment(id: string): EquipmentId | null {
+    const need = equipmentFor(catalogItem(id).kind);
+    return need && !this.equipment.includes(need) ? need : null;
+  }
+
   addItem(id: string): boolean {
-    if (this.hasItem(id) || this.menu.length >= MAX_MENU || !this.fits(id)) return false;
+    if (this.hasItem(id) || this.menu.length >= MAX_MENU || !this.fits(id) || this.missingEquipment(id)) return false;
     const it = this.retired.get(id) ?? catalogItem(id);
     this.retired.delete(id);
     // Держим порядок каталога — так меню читается по категориям

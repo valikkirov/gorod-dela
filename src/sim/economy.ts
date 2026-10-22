@@ -4,10 +4,10 @@ export type Currency = 'RUB';
 export const CURRENCY: Currency = 'RUB';
 
 export const ECONOMY = {
-  startCash: 500_000,
-  cafeOpeningCost: 300_000,
+  startCash: 350_000,
+  cafeOpeningCost: 150_000,
   /** 90 000 ₽ в месяц → списывается каждый игровой день */
-  rentPerDay: 3_000,
+  rentPerDay: 2_200,
   utilitiesPerDay: 500,
   /** Бариста почасово. Ночью (22:00–6:00) — с надбавкой, как по ТК */
   baristaWagePerHour: 300,
@@ -78,9 +78,34 @@ export const PREMISES: Record<PremisesId, Premises> = {
     rentPerDay: 1_500,
     utilitiesPerDay: 100,
     utilitiesPerHour: 15,
-    openingCost: 150_000,
+    openingCost: 75_000,
     seats: false,
     kinds: ['coffee', 'snack', 'tea'],
     maxBaristas: 1,
   },
 };
+
+export type EquipmentId = 'stove' | 'tap';
+
+/** Оборудование под категорию меню: без плиты нет обедов, без крана — пива и сидра.
+ *  Кофемашина, витрина и чайник входят в открытие. Покупается один раз, дальше — свет и вода за часы работы. */
+export interface Equipment {
+  id: EquipmentId;
+  name: string;
+  /** Какие категории меню открывает */
+  kinds: readonly ('lunch' | 'bar')[];
+  cost: number;
+  /** Сколько прибавляет к коммуналке за час работы */
+  utilitiesPerHour: number;
+}
+
+export const EQUIPMENT: Record<EquipmentId, Equipment> = {
+  stove: { id: 'stove', name: 'Плита и\u00a0вытяжка', kinds: ['lunch'], cost: 45_000, utilitiesPerHour: 12 },
+  tap: { id: 'tap', name: 'Пивной кран и\u00a0холодильник', kinds: ['bar'], cost: 30_000, utilitiesPerHour: 6 },
+};
+
+/** Какое оборудование нужно для категории (null — входит в открытие) */
+export function equipmentFor(kind: string): EquipmentId | null {
+  const e = Object.values(EQUIPMENT).find((x) => (x.kinds as readonly string[]).includes(kind));
+  return e ? e.id : null;
+}
