@@ -68,6 +68,12 @@ const BUILDING_SPRITE: Record<string, string> = {
   'home-4': 'building-home-b-right',
 };
 
+/** Карта на экране чуть выше мира: сверху полоса, чтобы подпись киоска у края помещалась на его крыше */
+/** Подпись помещения: насколько ниже верхнего края здания её центр */
+const LABEL_ROOF = 10;
+
+const MAP = { top: -48, height: WORLD.height + 48 } as const;
+
 /** Цоколь здания чуть ниже основания, чтобы не было щели до полосы у двери */
 const BASE_SHIFT = 4;
 
@@ -101,9 +107,9 @@ const PROPS: [string, number, number][] = [
 ];
 
 /** Помещения под бизнес игрока: спрайты «сдаётся» и «открыто», окна, подписи */
-const PREMISES_ART: Record<string, { rent: string; open: string; lights: string; rival: string; windows: { x: number; y: number; w: number; h: number }[]; labelX: number; labelY: number }> = {
-  cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', rival: 'building-cafe-rival', windows: [], labelX: 120, labelY: 28 },
-  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', rival: 'building-kiosk-rival', windows: [{ x: 18, y: 40, w: 56, h: 24 }], labelX: 60, labelY: 106 },
+const PREMISES_ART: Record<string, { rent: string; open: string; lights: string; rival: string; windows: { x: number; y: number; w: number; h: number }[] }> = {
+  cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', rival: 'building-cafe-rival', windows: [] },
+  kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', rival: 'building-kiosk-rival', windows: [{ x: 18, y: 40, w: 56, h: 24 }] },
 };
 
 interface Shop {
@@ -215,9 +221,9 @@ export class StreetScene extends Phaser.Scene {
     this.night = this.add.graphics().setDepth(DEPTH.night);
     this.sky = this.add.graphics().setDepth(DEPTH.sky);
     for (const shop of this.shops) {
-      const art = PREMISES_ART[shop.place.id];
-      const x = shop.place.rect.x + art.labelX;
-      const y = shop.place.rect.y + art.labelY;
+      // Одно правило для всех помещений: подпись по центру здания, на краю крыши
+      const x = shop.sprite.x;
+      const y = shop.sprite.getTopCenter().y + LABEL_ROOF;
       shop.name = this.label(x, y, '', 20, true);
       shop.status = this.label(x, y + 25, '', 16, false);
     }
@@ -255,13 +261,13 @@ export class StreetScene extends Phaser.Scene {
   /** Масштаб «по размеру»: на телефоне улица во всю ширину, на компьютере — целиком по высоте */
   private baseZoom(): number {
     const { width: w, height: h } = this.scale;
-    const contain = Math.min(w / WORLD.width, h / WORLD.height);
+    const contain = Math.min(w / WORLD.width, h / MAP.height);
     return this.hooks.wide() ? contain : Math.max(contain, w / WORLD.width);
   }
 
   private zoomLimits(): [number, number] {
     const { width: w, height: h } = this.scale;
-    const contain = Math.min(w / WORLD.width, h / WORLD.height);
+    const contain = Math.min(w / WORLD.width, h / MAP.height);
     return [contain, Math.max(this.baseZoom() * 2.6, 1.4 * this.px)];
   }
 
@@ -398,7 +404,7 @@ export class StreetScene extends Phaser.Scene {
     const vw = cam.width / v.zoom;
     const vh = cam.height / v.zoom;
     v.cx = vw >= WORLD.width ? WORLD.width / 2 : Phaser.Math.Clamp(v.cx, vw / 2, WORLD.width - vw / 2);
-    v.cy = vh >= WORLD.height ? WORLD.height / 2 : Phaser.Math.Clamp(v.cy, vh / 2, WORLD.height - vh / 2);
+    v.cy = vh >= MAP.height ? MAP.top + MAP.height / 2 : Phaser.Math.Clamp(v.cy, MAP.top + vh / 2, MAP.top + MAP.height - vh / 2);
     cam.setZoom(v.zoom);
     cam.centerOn(v.cx, v.cy);
     // Подписи не мельче ~11 px на экране
@@ -593,7 +599,7 @@ export class StreetScene extends Phaser.Scene {
       shop.status.setText(status).setVisible(status !== '');
       shop.status.setColor(mine && open ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');
       // Подпись не уезжает за левый край карты, даже когда длинная
-      const x0 = shop.place.rect.x + art.labelX;
+      const x0 = shop.sprite.x;
       const half = Math.max(shop.name.displayWidth, shop.status.displayWidth) / 2 + 6;
       shop.name.setX(Math.max(x0, half));
       shop.status.setX(Math.max(x0, half));
@@ -643,7 +649,7 @@ export class StreetScene extends Phaser.Scene {
     this.night.clear();
     if (dark > 0) {
       this.night.fillStyle(0x1b2340, dark);
-      this.night.fillRect(0, 0, WORLD.width, WORLD.height);
+      this.night.fillRect(0, MAP.top, WORLD.width, MAP.height);
     }
     const k = dark / MAX_DARK;
     const h = minute / 60;
@@ -681,7 +687,7 @@ export class StreetScene extends Phaser.Scene {
     const t = tint[kind];
     if (t) {
       g.fillStyle(t[0], t[1]);
-      g.fillRect(0, 0, WORLD.width, WORLD.height);
+      g.fillRect(0, MAP.top, WORLD.width, MAP.height);
     }
     if (kind === 'rain') {
       g.lineStyle(2, 0xc9d6ea, 0.55);
@@ -798,16 +804,17 @@ export class StreetScene extends Phaser.Scene {
   private drawGround(): void {
     const S = ART_SCALE;
     const cols = Math.ceil((WORLD.width + GRID.offsetX) / GRID.size);
-    const rows = Math.ceil(WORLD.height / GRID.size);
-    const canvas = this.textures.createCanvas('ground-map', WORLD.width * S, WORLD.height * S);
+    const rows = Math.ceil(MAP.height / GRID.size);
+    const canvas = this.textures.createCanvas('ground-map', WORLD.width * S, MAP.height * S);
     if (!canvas) return;
     const ctx = canvas.getContext();
     const cells: Cell[] = [];
     for (let row = 0; row < rows; row++)
       for (let col = 0; col < cols; col++) cells.push({ x: col * GRID.size - GRID.offsetX, y: row * GRID.size, size: GRID.size });
-    paintGround(this, ctx, S, cells, groundTile);
+    // Полоса над миром продолжает верхний ряд клеток (улица уходит за край)
+    paintGround(this, ctx, S, cells, (x, y) => groundTile(x, Math.max(0, y + MAP.top)));
     canvas.refresh();
-    this.add.image(0, 0, 'ground-map').setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
+    this.add.image(0, MAP.top, 'ground-map').setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
   }
 
   private drawBuildings(): void {
