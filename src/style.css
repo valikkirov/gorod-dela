@@ -2472,3 +2472,49 @@ img.icon {
   padding: 0;
   margin: 0;
 }
+
+/* Склад: можно приготовить и на сколько хватит */
+.cookable li .n {
+  font-size: 18px;
+  min-width: 36px;
+  text-align: right;
+}
+.cookable li.low .n {
+  color: var(--accent);
+}
+.cookable li.out .n,
+.cookable li.out small {
+  color: var(--bad);
+}
+.stock .goes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+}
+.stock .goes small {
+  margin-right: 4px;
+}
+img.icon.mini {
+  width: 24px;
+  height: 24px;
+}
+.stock li .bad {
+  color: var(--bad);
+}
+.stock li.short {
+  background: #fbebeb;
+}
+small.comp {
+  display: block;
+  color: var(--muted);
+  font-style: italic;
+}
+.menu li:has(> small.comp) {
+  flex-wrap: wrap;
+}
+.menu li > small.comp {
+  flex-basis: 100%;
+  padding-left: 44px;
+  margin-top: -2px;
+}

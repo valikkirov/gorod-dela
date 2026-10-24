@@ -28,10 +28,12 @@ import {
 } from '../sim/clock';
 import { analyzeDay, describeLost } from '../sim/analysis';
 import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
-import { INGREDIENTS, orderPrice, recipeCost, recipeOf, type IngredientId } from '../sim/stock';
+import { ingredient, INGREDIENTS, orderPrice, recipeCost, recipeOf, type IngredientId } from '../sim/stock';
 import { LOAN, LOAN_LABEL, LOAN_TERMS, totalInterest, weeklyPayment, type LoanSource } from '../sim/loans';
 import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, summarize, type Period, type PeriodKind } from '../sim/periods';
-import { iconImg } from './icons';
+import { iconImg, namedIcon } from './icons';
+import { compositionOf } from '../sim/composition';
+import { cookable, dailyUse, daysLeft, ingredientOrder, usedIn, USE_DAYS } from '../sim/stockView';
 import { BASES, base as dishBase, addIn as dishAddIn, defaultDishName, dishId, dishPrep, MAX_ADDINS, MAX_OWN, type AddInId, type BaseId } from '../sim/dishes';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
@@ -193,6 +195,36 @@ const OPEN_OPTIONS = Array.from({ length: 25 }, (_, i) => hm(6) + i * 30); // 06
 // 14:00…04:00 следующего дня: после 24:00 — работа через полночь
 const CLOSE_OPTIONS = Array.from({ length: 15 }, (_, i) => hm(14) + i * 60);
 const ALL_DAY = 'all-day';
+/** «Состав: вода, молотый кофе из зёрен, …» — пока только описание */
+const compositionLine = (id: string): string => {
+  const list = compositionOf(id);
+  return list.length ? `<small class="comp">Состав: ${list.join(', ')}</small>` : '';
+};
+/** «упирается в …» */
+const INGREDIENT_ACC: Record<IngredientId, string> = {
+  beans: 'зерно',
+  milk: 'молоко',
+  bakery: 'выпечку',
+  kitchen: 'продукты для кухни',
+  drinks: 'чай и лимонад',
+  bar: 'пиво и сидр',
+  syrup: 'сиропы',
+  chocolate: 'шоколад',
+  honey: 'мёд',
+  spices: 'специи',
+  berries: 'ягоды',
+  cheese: 'сыр',
+  ham: 'ветчину',
+};
+const BASE_INGREDIENTS: IngredientId[] = ['beans', 'milk', 'bakery', 'kitchen', 'drinks', 'bar'];
+const ingredientIcon = (id: IngredientId): string => (BASE_INGREDIENTS.includes(id) ? `ing-${id}` : `add-${id}`);
+/** 1,5 дня → «1,5 дня»; 4 → «4 дня»; 12 → «12 дней» */
+const daysText = (d: number): string => {
+  const v = d >= 10 ? Math.round(d) : Math.floor(d * 2) / 2;
+  const whole = Number.isInteger(v);
+  const word = !whole ? 'дня' : v % 10 === 1 && v % 100 !== 11 ? 'день' : [2, 3, 4].includes(v % 10) && ![12, 13, 14].includes(v % 100) ? 'дня' : 'дней';
+  return `${String(v).replace('.', ',')}${NB}${word}`;
+};
 const DAY_OFF = 'day-off';
 
 export class Hud {
@@ -929,6 +961,7 @@ export class Hud {
           </div>
           <button class="icon" data-action="remove-item" data-item="${m.id}" ${cafe.menu.length <= 1 ? 'disabled' : ''}
             aria-label="Убрать из меню">✕</button>
+          ${compositionLine(m.id)}
         </li>`;
       })
       .join('');
@@ -952,7 +985,7 @@ export class Hud {
                         : noEquip
                           ? `<span class="badge">нужно оборудование</span>`
                           : `<button class="small" data-action="add-item" data-item="${c.id}" ${full ? 'disabled' : ''}>Добавить</button>`
-                  }</li>`;
+                  }${compositionLine(c.id)}</li>`;
               })
               .join('');
             const legal =
@@ -1647,48 +1680,87 @@ export class Hud {
   }
 
   private stockTab(): string {
-    const { stock } = this.sim.cafe;
+    const cafe = this.sim.cafe;
+    const { stock } = cafe;
     const day = dayNumber(this.sim.time);
-    const used = new Set<IngredientId>();
-    for (const m of this.sim.cafe.menu) for (const id of Object.keys(recipeOf(m.id)) as IngredientId[]) used.add(id);
-    const rows = INGREDIENTS.map((ing) => {
-      const q = stock.qty(ing.id);
-      const exp = ing.shelfDays === null ? 0 : stock.expiringToday(ing.id, day);
-      const pend = stock.pending[ing.id] ?? 0;
-      this.live[`st-${ing.id}`] = `${Math.floor(q)}`;
-      this.live[`stx-${ing.id}`] =
+    const menuIds = cafe.menu.map((m) => m.id);
+    const use = dailyUse(this.sim.reports);
+
+    // Сколько можно приготовить: каждая позиция отдельно, ингредиенты у них общие
+    const cook = cafe.menu
+      .map((m) => {
+        const c = cookable(stock, m.id);
+        const low = c.portions < 10;
+        const why =
+          c.limit === null
+            ? ''
+            : c.portions === 0
+              ? c.afterDelivery > 0
+                ? `нет — ${INGREDIENT_ACC[c.limit]} привезут к${NB}6:00`
+                : `нет — кончилось: ${ingredient(c.limit).name.toLowerCase()}`
+              : `упирается в${NB}${INGREDIENT_ACC[c.limit]}`;
+        return `<li class="${c.portions === 0 ? 'out' : low ? 'low' : ''}">${iconImg(m.id)}<div class="grow"><b>${m.name}</b><small>${why}</small></div>
+          <b class="n">${c.portions}</b></li>`;
+      })
+      .join('');
+
+    const rows = ingredientOrder(menuIds).map((id) => {
+      const ing = ingredient(id);
+      const q = stock.qty(id);
+      const exp = ing.shelfDays === null ? 0 : stock.expiringToday(id, day);
+      const pend = stock.pending[id] ?? 0;
+      const goes = usedIn(menuIds, id);
+      const left = daysLeft(stock, id, use);
+      this.live[`st-${id}`] = `${Math.floor(q)}`;
+      this.live[`stx-${id}`] =
         [exp > 0 ? `испортится сегодня: ${Math.round(exp)}` : '', pend > 0 ? `едет к${NB}6:00: ${pend}` : '']
           .filter(Boolean)
-          .join(' · ') || ' ';
-      const step = ing.id === 'bakery' ? 2 : 5;
+          .join(' · ') || ' ';
+      const step = id === 'bakery' ? 2 : 5;
       const keep = (weekend: boolean) => {
-        const v = weekend ? stock.keepWeekend[ing.id] : stock.keep[ing.id];
+        const v = weekend ? stock.keepWeekend[id] : stock.keep[id];
         return `<div class="stepper mini">
-          <button data-action="keep-down" data-item="${ing.id}" data-weekend="${weekend}" data-step="${step}" aria-label="Меньше">−</button>
+          <button data-action="keep-down" data-item="${id}" data-weekend="${weekend}" data-step="${step}" aria-label="Меньше">−</button>
           <span>${v}</span>
-          <button data-action="keep-up" data-item="${ing.id}" data-weekend="${weekend}" data-step="${step}" aria-label="Больше">+</button>
+          <button data-action="keep-up" data-item="${id}" data-weekend="${weekend}" data-step="${step}" aria-label="Больше">+</button>
         </div>`;
       };
       const life = ing.shelfDays === null ? `не${NB}портится` : `хранится ${ing.shelfDays}${NB}дн.`;
-      return `<li class="${used.has(ing.id) ? '' : 'unused'}">
-        <div class="row"><div class="grow"><b>${ing.name}</b>
-          <small>${life} · ${money(ing.unitCost)} за${NB}порцию${used.has(ing.id) ? '' : ` · не${NB}нужно для${NB}меню`}</small></div>
-          <div class="qty"><b data-live="st-${ing.id}"></b><small>порц.</small></div></div>
-        <small class="exp" data-live="stx-${ing.id}"></small>
+      // Главное число — на сколько рабочих дней хватит при нынешнем расходе
+      const lasts =
+        goes.length === 0
+          ? `не${NB}нужно для${NB}меню`
+          : left === null
+            ? use
+              ? `не${NB}расходовалось`
+              : `расход пока неизвестен`
+            : left < 1
+              ? `<b class="bad">хватит меньше чем на${NB}день</b>`
+              : `хватит на${NB}<b>${daysText(left)}</b>`;
+      const u = use?.[id] ?? 0;
+      const perDay = u > 0 ? ` · уходит ${u < 1 ? `меньше 1` : `~${Math.round(u)}`}${NB}в${NB}день` : '';
+      return `<li class="${goes.length ? '' : 'unused'}${left !== null && left < 1 ? ' short' : ''}">
+        <div class="row">${namedIcon(ingredientIcon(id))}<div class="grow"><b>${ing.name}</b>
+          <small>${lasts}${perDay}</small></div>
+          <div class="qty"><b data-live="st-${id}"></b><small>порц.</small></div></div>
+        ${goes.length ? `<div class="goes"><small>идёт в</small>${goes.map((g) => iconImg(g, 'icon mini')).join('')}</div>` : ''}
+        <small class="exp" data-live="stx-${id}"></small>
+        <small>${life} · ${money(ing.unitCost)} за${NB}порцию</small>
         <div class="row keep"><small>Держать: будни</small>${keep(false)}<small>вых.</small>${keep(true)}</div>
         <div class="row orders">
           ${[20, 100, 300]
-            .map(
-              (n) =>
-                `<button class="small" data-action="order" data-item="${ing.id}" data-qty="${n}">+${n} · ${money(orderPrice(ing.id, n))}</button>`,
-            )
+            .map((n) => `<button class="small" data-action="order" data-item="${id}" data-qty="${n}">+${n} · ${money(orderPrice(id, n))}</button>`)
             .join('')}
-          <button class="icon" data-action="cancel-order" data-item="${ing.id}" aria-label="Отменить заказ">✕</button>
+          <button class="icon" data-action="cancel-order" data-item="${id}" aria-label="Отменить заказ">✕</button>
         </div>
       </li>`;
     }).join('');
     return `
-      <small>Поставщик привозит заказ в${NB}6:00. Опт: от${NB}100${NB}порций −10${NB}%, от${NB}300 — −20${NB}%.
+      <h4>Можно приготовить</h4>
+      <small>Сколько порций выйдет, если готовить только эту позицию: ингредиенты у${NB}позиций общие, поэтому числа не${NB}складываются.</small>
+      <ul class="menu cookable">${cook}</ul>
+      <h4>Ингредиенты</h4>
+      <small>«Хватит на» — с${NB}тем, что едет, при расходе последних ${USE_DAYS}${NB}рабочих дней. Поставщик привозит заказ в${NB}6:00. Опт: от${NB}100${NB}порций −10${NB}%, от${NB}300 — −20${NB}%.
         Скоропорт в${NB}конце срока списывается. Автозаказ каждую ночь добирает склад до${NB}уровня «держать» —
         отдельно на${NB}будни и${NB}выходные.</small>
       <ul class="menu stock">${rows}</ul>`;
@@ -1749,7 +1821,6 @@ export class Hud {
       <div class="legend-line"><span><i class="served"></i>${r.opened ? 'обслужены' : ''}</span><span><i class="lost"></i>${r.opened ? 'ушли' : `хотели зайти`}</span></div>`;
   }
 
-  /** Какой отчёт открыт: [номер, первый, последний] — день или номер недели/месяца */
   /** Чьи часы взять для «одинаково каждый день»: сегодняшние, а в выходной — ближайшего рабочего дня */
   private sameAsDay(): number {
     const cafe = this.sim.cafe;
@@ -1769,6 +1840,7 @@ export class Hud {
     return `${cafe.dayOff ? 'Выходной' : 'Закрыто'}, откроемся ${day} в${NB}${at}`;
   }
 
+  /** Какой отчёт открыт: [номер, первый, последний] — день или номер недели/месяца */
   private reportCursor(): [number, number, number] {
     const last = this.sim.reports.at(-1)!.day;
     if (this.reportPeriod === 'day') {
