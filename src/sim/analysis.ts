@@ -119,7 +119,7 @@ const people = (n: number): string => {
 
 /** С чем честно сравнивать: тот же день недели неделю назад, иначе последний день того же типа (будни/выходные) */
 export function comparableDay(reports: DayReport[], r: DayReport): Comparison | null {
-  const earlier = reports.filter((x) => x.day < r.day && x.opened);
+  const earlier = reports.filter((x) => x.day < r.day && x.opened && !x.dayOff);
   const sameWeekday = earlier.filter((x) => x.weekday === r.weekday).at(-1);
   const sameType = earlier.filter((x) => isWeekend(x.day) === isWeekend(r.day)).at(-1);
   const pick = sameWeekday ?? sameType;
@@ -134,6 +134,7 @@ export function comparableDay(reports: DayReport[], r: DayReport): Comparison | 
 }
 
 export function analyzeDay(reports: DayReport[], r: DayReport): DayAnalysis {
+  if (r.dayOff) return dayOffAnalysis(r);
   const comparison = r.opened ? comparableDay(reports, r) : null;
   return {
     comparison,
@@ -143,6 +144,25 @@ export function analyzeDay(reports: DayReport[], r: DayReport): DayAnalysis {
     lost: lostWindow(r),
     byKind: lostByKind(r),
     observations: observations(r),
+  };
+}
+
+/** Выходной: денег не заработали, а аренда и коммуналка идут. Сколько людей пришли к закрытой двери. */
+function dayOffAnalysis(r: DayReport): DayAnalysis {
+  const want = sum(r.lostHour?.closed);
+  const fixed = r.rent + r.utilities + r.wages;
+  const hour = peakHour(r.lostHour?.closed);
+  return {
+    comparison: null,
+    headline: `Выходной. Итог дня ${money(r.profit)}`,
+    compare: `Выходной: точка не${NB}работала`,
+    factor: `Аренда, коммуналка и${NB}зарплата в${NB}выходной — ${money(fixed)}.`,
+    lost: null,
+    byKind: lostByKind(r),
+    observations:
+      want > 0
+        ? [`К${NB}закрытой двери пришли ${want}${NB}раз${hour === null ? '' : `, больше всего ${span(hour, hour + 1)}`}. Реши, нужен ли этот выходной.`]
+        : [],
   };
 }
 
@@ -173,9 +193,9 @@ function factor(r: DayReport, c: Comparison | null): string {
   }
   if (!c) {
     const costs: [string, number][] = [
-      [`аренда и${NB}коммуналка`, r.rent + r.utilities],
-      ['закупка', r.purchases],
-      ['зарплата', r.wages],
+      [`аренду и${NB}коммуналку`, r.rent + r.utilities],
+      ['закупку', r.purchases],
+      ['зарплату', r.wages],
       ['маркетинг', r.marketing],
     ];
     costs.sort((a, b) => b[1] - a[1]);

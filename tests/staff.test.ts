@@ -21,6 +21,26 @@ describe('График бариста', () => {
     expect(staff[14]).toBe(0);
   });
 
+  it('почасовой: свои часы в отдельные дни, остальные — обычные', () => {
+    const sim = new Simulation(1); // день 1 — понедельник
+    sim.openCafe(); // 08:00–20:00
+    sim.hireBarista('hourly');
+    const b = sim.cafe.staff[0];
+    const windows = [null, { from: hm(12), to: hm(18) }, null, null, null, null, null];
+    sim.setStaffSchedule(b.id, { days: ALL, from: hm(8), to: hm(11), windows });
+    expect(b.schedule.windows?.[1]).toEqual({ from: hm(12), to: hm(18) });
+    sim.advance(DAY * 3);
+    const [mon, tue, wed] = sim.reports;
+    expect(mon.wages).toBe(3 * ECONOMY.baristaWagePerHour);
+    expect(tue.wages).toBe(6 * ECONOMY.baristaWagePerHour);
+    expect(wed.wages).toBe(3 * ECONOMY.baristaWagePerHour);
+    expect(tue.staffHour![9]).toBe(0);
+    expect(tue.staffHour![13]).toBeGreaterThan(0);
+    // Все дни как обычно — свои окна убираются
+    sim.setStaffSchedule(b.id, { days: ALL, from: hm(8), to: hm(11), windows: new Array(7).fill(null) });
+    expect(b.schedule.windows).toBeUndefined();
+  });
+
   it('в выходной по графику не выходит и не получает', () => {
     const sim = new Simulation(1); // день 1 — понедельник
     sim.openCafe();

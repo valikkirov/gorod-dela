@@ -7,11 +7,13 @@ import {
   REJECT_LABEL,
   type Barista,
   type Change,
+  type DayHours,
   type DayReport,
   type ItemKind,
   type MenuItem,
   type RejectReason,
   DISH_NAME_MAX,
+  windowOn,
 } from '../sim/cafe';
 import {
   dayNumber,
@@ -191,6 +193,7 @@ const OPEN_OPTIONS = Array.from({ length: 25 }, (_, i) => hm(6) + i * 30); // 06
 // 14:00…04:00 следующего дня: после 24:00 — работа через полночь
 const CLOSE_OPTIONS = Array.from({ length: 15 }, (_, i) => hm(14) + i * 60);
 const ALL_DAY = 'all-day';
+const DAY_OFF = 'day-off';
 
 export class Hud {
   speed = 1;
@@ -211,6 +214,10 @@ export class Hud {
   private catalogOpen = false;
   /** Отчёт: за какой период и какой именно (null — последний) */
   private reportPeriod: 'day' | PeriodKind = 'day';
+  /** Раскрыты часы по дням недели */
+  private hoursByDay = false;
+  /** Почасовые бариста, у которых раскрыты часы по дням */
+  private staffByDay = new Set<number>();
   private reportAt: number | null = null;
   /** Сколько хочет взять в кредит — по источнику */
   private loanAmount: Partial<Record<LoanSource, number>> = {};
@@ -541,6 +548,15 @@ export class Hud {
         if (st) sim.setOnDuty(st.id, !sim.cafe.isWorking(st));
         break;
       }
+      case 'staff-by-day':
+        this.staffByDay.add(Number(item));
+        break;
+      case 'staff-same': {
+        const st = sim.cafe.staff.find((b) => b.id === Number(item));
+        this.staffByDay.delete(Number(item));
+        if (st) sim.setStaffSchedule(st.id, { days: st.schedule.days, from: st.schedule.from, to: st.schedule.to });
+        break;
+      }
       case 'staff-day': {
         const st = sim.cafe.staff.find((b) => b.id === Number(item));
         if (!st) break;
@@ -567,6 +583,15 @@ export class Hud {
         this.reportPeriod = 'day';
         this.reportAt = null;
         break;
+      case 'hours-by-day':
+        this.hoursByDay = true;
+        break;
+      case 'hours-same': {
+        const h = sim.cafe.hoursOn(this.sameAsDay())!;
+        sim.setHours(h.openAt, h.closeAt);
+        this.hoursByDay = false;
+        break;
+      }
       case 'report-period':
         this.reportPeriod = item as 'day' | PeriodKind;
         this.reportAt = null;
@@ -651,8 +676,9 @@ export class Hud {
     }
     if (el.dataset.action === 'open-at') {
       const open = Number(el.value);
+      const h = cafe.week[0] ?? { openAt: cafe.openAt, closeAt: cafe.closeAt };
       // Круглосуточный режим сохраняем; иначе не даём закрытию оказаться раньше открытия
-      const close = cafe.allDay ? open + MINUTES_PER_DAY : Math.max(cafe.closeAt, open + 60);
+      const close = h.closeAt - h.openAt >= MINUTES_PER_DAY ? open + MINUTES_PER_DAY : Math.max(h.closeAt, open + 60);
       this.sim.setHours(open, close);
     }
     if (el.dataset.action?.startsWith('happy-')) {
@@ -673,8 +699,43 @@ export class Hud {
         this.sim.setStaffSchedule(id, { ...st.schedule, from, to });
       }
     }
+    if (el.dataset.action === 'staff-wfrom' || el.dataset.action === 'staff-wto') {
+      const id = Number(el.dataset.item);
+      const d = Number(el.dataset.day);
+      const st = cafe.staff.find((b) => b.id === id);
+      const get = (a: string) =>
+        Number(this.panel.querySelector<HTMLSelectElement>(`select[data-action="${a}"][data-item="${id}"][data-day="${d}"]`)!.value);
+      if (st) {
+        let from = get('staff-wfrom');
+        let to = get('staff-wto');
+        if (to <= from) to = from + 60;
+        if (to - from > MINUTES_PER_DAY) from = to - MINUTES_PER_DAY;
+        const windows = Array.from({ length: 7 }, (_, k) => st.schedule.windows?.[k] ?? null);
+        // Совпало с обычными часами — свой день не нужен
+        windows[d] = from === st.schedule.from && to === st.schedule.to ? null : { from, to };
+        this.sim.setStaffSchedule(id, { ...st.schedule, windows });
+      }
+    }
     if (el.dataset.action === 'close-at') {
-      this.sim.setHours(cafe.openAt, el.value === ALL_DAY ? cafe.openAt + MINUTES_PER_DAY : Number(el.value));
+      const open = cafe.week[0]?.openAt ?? cafe.openAt;
+      this.sim.setHours(open, el.value === ALL_DAY ? open + MINUTES_PER_DAY : Number(el.value));
+    }
+    if (el.dataset.action === 'day-open') {
+      const d = Number(el.dataset.item);
+      const h = cafe.week[d];
+      // Последний рабочий день выходным не сделать — sim откажет, а список вернётся как был
+      if (el.value === DAY_OFF) this.sim.setDayHours(d, null);
+      else {
+        const open = Number(el.value);
+        const was = h ?? cafe.week.find(Boolean) ?? { openAt: hm(8), closeAt: hm(20) };
+        const allDay = was.closeAt - was.openAt >= MINUTES_PER_DAY;
+        this.sim.setDayHours(d, { openAt: open, closeAt: allDay ? open + MINUTES_PER_DAY : Math.max(was.closeAt, open + 60) });
+      }
+    }
+    if (el.dataset.action === 'day-close') {
+      const d = Number(el.dataset.item);
+      const h = cafe.week[d];
+      if (h) this.sim.setDayHours(d, { openAt: h.openAt, closeAt: el.value === ALL_DAY ? h.openAt + MINUTES_PER_DAY : Number(el.value) });
     }
     this.render(true);
   }
@@ -846,11 +907,7 @@ export class Hud {
 
     const minute = this.sim.minute;
     const open = cafe.isOpenAt(minute);
-    this.live.status = cafe.allDay
-      ? 'Круглосуточно'
-      : open
-        ? `Открыто до ${fmtMinute(cafe.closeAt % MINUTES_PER_DAY)}`
-        : `Закрыто до ${fmtMinute(cafe.openAt)}`;
+    this.live.status = this.statusText(minute, open);
     this.live.guests = String(today.guests);
     this.live.revenue = money(today.revenue);
     this.live.queue = String(this.sim.guestsInside);
@@ -918,13 +975,38 @@ export class Hud {
 
     const opt = (list: number[], value: number) =>
       list.map((m) => `<option value="${m}" ${m === value ? 'selected' : ''}>${fmtMinute(m)}</option>`).join('');
-    const closeOpt =
-      CLOSE_OPTIONS.filter((m) => m > cafe.openAt)
-        .map((m) => {
-          const label = m > MINUTES_PER_DAY || m === MINUTES_PER_DAY ? `${fmtMinute(m % MINUTES_PER_DAY)} ночи` : fmtMinute(m);
-          return `<option value="${m}" ${!cafe.allDay && m === cafe.closeAt ? 'selected' : ''}>${label}</option>`;
+    const closeOpt = (h: DayHours) => {
+      const allDay = h.closeAt - h.openAt >= MINUTES_PER_DAY;
+      return (
+        CLOSE_OPTIONS.filter((m) => m > h.openAt)
+          .map((m) => {
+            const label = m >= MINUTES_PER_DAY ? `${fmtMinute(m % MINUTES_PER_DAY)} ночи` : fmtMinute(m);
+            return `<option value="${m}" ${!allDay && m === h.closeAt ? 'selected' : ''}>${label}</option>`;
+          })
+          .join('') + `<option value="${ALL_DAY}" ${allDay ? 'selected' : ''}>круглосуточно</option>`
+      );
+    };
+    const hoursBlock = () => {
+      if (!this.hoursByDay && cafe.sameEveryDay) {
+        const h = cafe.week[0]!;
+        return `<div class="row hours">
+          <select data-action="open-at" aria-label="Открытие">${opt(OPEN_OPTIONS, h.openAt)}</select>
+          <span>—</span>
+          <select data-action="close-at" aria-label="Закрытие">${closeOpt(h)}</select>
+        </div>
+        <button class="link" data-action="hours-by-day">Свои часы и${NB}выходные по${NB}дням недели</button>`;
+      }
+      const rows = cafe.week
+        .map((h, d) => {
+          const open = `<select data-action="day-open" data-item="${d}" aria-label="${WEEKDAY_SHORT[d]}, открытие">
+            <option value="${DAY_OFF}" ${h ? '' : 'selected'}>выходной</option>${opt(OPEN_OPTIONS, h?.openAt ?? -1)}</select>`;
+          const close = h ? `<span>—</span><select data-action="day-close" data-item="${d}" aria-label="${WEEKDAY_SHORT[d]}, закрытие">${closeOpt(h)}</select>` : '';
+          return `<li class="${d === cafe.weekday ? 'today' : ''}${h ? '' : ' off'}"><b>${WEEKDAY_SHORT[d]}</b>${open}${close}</li>`;
         })
-        .join('') + `<option value="${ALL_DAY}" ${cafe.allDay ? 'selected' : ''}>круглосуточно</option>`;
+        .join('');
+      return `<ul class="week-hours">${rows}</ul>
+        <button class="link" data-action="hours-same">Одинаково каждый день${NB}— как${NB}${WEEKDAY_SHORT[this.sameAsDay()].toLowerCase()}</button>`;
+    };
     const staffRows = cafe.staff.map((st, i) => this.staffRow(st, i, open)).join('');
     const last = this.sim.reports.at(-1);
 
@@ -956,11 +1038,7 @@ export class Hud {
       <p class="hint-line" data-live="stock-warn"></p>
       ${this.rivalCard()}
       <h4>Часы работы</h4>
-      <div class="row hours">
-        <select data-action="open-at" aria-label="Открытие">${opt(OPEN_OPTIONS, cafe.openAt)}</select>
-        <span>—</span>
-        <select data-action="close-at" aria-label="Закрытие">${closeOpt}</select>
-      </div>
+      ${hoursBlock()}
       ${last ? `<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}
       ${this.restartBlock()}`;
     } else if (this.tab === 'menu') {
@@ -1071,7 +1149,7 @@ export class Hud {
       text = `${best.rule.text(best.n)}.`;
       button = `<button class="primary" data-action="insight" data-item="${best.rule.tab}">${best.rule.action}</button>`;
     } else if (!cafe.isOpenAt(minute)) {
-      text = `Сейчас закрыто. Откроешься в${NB}${fmtMinute(cafe.openAt % MINUTES_PER_DAY)}.`;
+      text = `${this.statusText(minute, false)}.`;
     } else {
       const served = hours.reduce((n, x) => n + (t.servedHour?.[x] ?? 0), 0);
       time = span;
@@ -1246,9 +1324,10 @@ export class Hud {
           : `выйдет, когда кафе откроется`
         : off
           ? `отпущен до${NB}конца дня`
-          : st.schedule.days[cafe.weekday]
-            ? `по графику с${NB}${fmtMinute(st.schedule.from % MINUTES_PER_DAY)}`
-            : 'сегодня выходной';
+          : (() => {
+              const w = windowOn(st.schedule, cafe.weekday);
+              return w ? `по графику ${fmtMinute(w.from % MINUTES_PER_DAY)}–${fmtMinute(w.to % MINUTES_PER_DAY)}` : 'сегодня выходной';
+            })();
     } else {
       const left = ECONOMY.shiftHours * 60 - st.shiftMinutes;
       status = !st.shiftActive
@@ -1264,15 +1343,31 @@ export class Hud {
       (d, wd) =>
         `<button class="chip ${st.schedule.days[wd] ? 'on' : ''} ${wd >= 5 ? 'we' : ''}" data-action="staff-day" data-item="${st.id}" data-day="${wd}" aria-pressed="${st.schedule.days[wd]}">${d}</button>`,
     ).join('');
-    const hours = (list: number[], value: number, action: string) =>
-      `<select data-action="${action}" data-item="${st.id}" aria-label="${action === 'staff-from' ? 'С' : 'До'}">${list
+    const hours = (list: number[], value: number, action: string, day?: number) =>
+      `<select data-action="${action}" data-item="${st.id}"${day === undefined ? '' : ` data-day="${day}"`} aria-label="${
+        day === undefined ? '' : `${WEEKDAY_SHORT[day]}, `
+      }${action.endsWith('from') ? 'с' : 'до'}">${list
         .map((m) => `<option value="${m}" ${m === value ? 'selected' : ''}>${fmtMinute(m % MINUTES_PER_DAY)}${m >= MINUTES_PER_DAY ? ' ночи' : ''}</option>`)
         .join('')}</select>`;
     const fromList = Array.from({ length: 18 }, (_, k) => hm(6) + k * 60); // 06:00…23:00
     const toList = Array.from({ length: 23 }, (_, k) => hm(7) + k * 60); // 07:00…05:00
+    const s = st.schedule;
+    const byDay = this.staffByDay.has(st.id) || !!s.windows?.some((w, d) => w && s.days[d]);
+    const dayRows = byDay
+      ? `<ul class="week-hours staff-days">${s.days
+          .map((on, d) => {
+            if (!on) return '';
+            const w = windowOn(s, d)!;
+            const own = !!s.windows?.[d];
+            return `<li class="${d === cafe.weekday ? 'today' : ''}${own ? ' own' : ''}"><b>${WEEKDAY_SHORT[d]}</b>${hours(fromList, w.from, 'staff-wfrom', d)}<span>—</span>${hours(toList, w.to, 'staff-wto', d)}</li>`;
+          })
+          .join('')}</ul>
+          <button class="link" data-action="staff-same" data-item="${st.id}">Одинаково каждый день</button>`
+      : `<button class="link" data-action="staff-by-day" data-item="${st.id}">Свои часы по${NB}дням</button>`;
     const hourly =
       st.contract === 'hourly'
-        ? `<div class="row hours staff-hours">${hours(fromList, st.schedule.from, 'staff-from')}<span>—</span>${hours(toList, st.schedule.to, 'staff-to')}</div>
+        ? `${byDay ? `<small>Обычные часы</small>` : ''}<div class="row hours staff-hours">${hours(fromList, s.from, 'staff-from')}<span>—</span>${hours(toList, s.to, 'staff-to')}</div>
+           ${dayRows}
            <div class="row"><small class="grow">Разовый вызов — только на${NB}сегодня, график не${NB}меняется</small>
            <button class="small ${working ? 'ghost' : ''}" data-action="duty" data-item="${st.id}">${working ? 'Отпустить сейчас' : 'Вызвать сейчас'}</button></div>`
         : '';
@@ -1655,6 +1750,25 @@ export class Hud {
   }
 
   /** Какой отчёт открыт: [номер, первый, последний] — день или номер недели/месяца */
+  /** Чьи часы взять для «одинаково каждый день»: сегодняшние, а в выходной — ближайшего рабочего дня */
+  private sameAsDay(): number {
+    const cafe = this.sim.cafe;
+    for (let i = 0; i < 7; i++) if (cafe.hoursOn(cafe.weekday + i)) return (cafe.weekday + i) % 7;
+    return 0;
+  }
+
+  /** «Открыто до 20:00», «Закрыто до 08:00», «Выходной, откроемся в Пн в 08:00» */
+  private statusText(minute: number, open: boolean): string {
+    const cafe = this.sim.cafe;
+    if (open) return cafe.allDay ? 'Круглосуточно' : `Открыто до ${fmtMinute(cafe.closeAt % MINUTES_PER_DAY)}`;
+    const next = cafe.nextOpening(minute);
+    if (!next) return 'Закрыто';
+    const at = fmtMinute(next.at % MINUTES_PER_DAY);
+    if (next.inDays === 0) return `Закрыто до ${at}`;
+    const day = next.inDays === 1 ? 'завтра' : `в${NB}${WEEKDAY_SHORT[(cafe.weekday + next.inDays) % 7]}`;
+    return `${cafe.dayOff ? 'Выходной' : 'Закрыто'}, откроемся ${day} в${NB}${at}`;
+  }
+
   private reportCursor(): [number, number, number] {
     const last = this.sim.reports.at(-1)!.day;
     if (this.reportPeriod === 'day') {

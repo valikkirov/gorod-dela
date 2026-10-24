@@ -1,5 +1,5 @@
 import { canPlace, furniture, type FurnitureId, Interior, INTERIOR, preset, type PresetId } from './interior';
-import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
+import { Cafe, CATALOG, hours24, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
 import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
 import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
 import { tasteMatch } from './character';
@@ -356,10 +356,29 @@ export class Simulation {
   /** closeAt может быть больше 24:00 (работа через полночь); openAt + 24 ч — круглосуточно */
   setHours(openAt: number, closeAt: number): void {
     if (closeAt <= openAt || closeAt - openAt > MINUTES_PER_DAY) return;
-    const from = hoursText(this.cafe.openAt, this.cafe.closeAt);
-    this.cafe.openAt = openAt;
-    this.cafe.closeAt = closeAt;
-    this.note('hours', 'Часы работы', from, hoursText(openAt, closeAt));
+    this.setWeekHours(Array.from({ length: 7 }, () => ({ openAt, closeAt })));
+  }
+
+  /** Часы в один день недели (0 — понедельник); null — выходной */
+  setDayHours(day: number, hours: DayHours | null): void {
+    if (day < 0 || day > 6) return;
+    const week = this.cafe.week.map((h) => (h ? { ...h } : null));
+    week[day] = hours ? { ...hours } : null;
+    this.setWeekHours(week);
+  }
+
+  /** Часы на всю неделю. Хотя бы один рабочий день; ночь не заходит на открытие следующего дня. */
+  setWeekHours(week: (DayHours | null)[]): void {
+    if (week.length !== 7 || week.every((h) => !h)) return;
+    for (let i = 0; i < 7; i++) {
+      const h = week[i];
+      if (!h) continue;
+      if (h.closeAt <= h.openAt || h.closeAt - h.openAt > MINUTES_PER_DAY) return;
+    }
+    const from = weekHoursText(this.cafe.week);
+    this.cafe.week = week.map((h) => (h ? { ...h } : null));
+    const to = weekHoursText(this.cafe.week);
+    if (from !== to) this.note('hours', 'Часы работы', from, to);
   }
 
   hireBarista(contract: Contract): boolean {
@@ -388,7 +407,7 @@ export class Simulation {
   setStaffSchedule(id: number, schedule: StaffSchedule): void {
     const b = this.cafe.staff.find((x) => x.id === id);
     if (!b) return;
-    if (schedule.to <= schedule.from || schedule.to - schedule.from > MINUTES_PER_DAY) return;
+    if (!validWindow(schedule) || schedule.windows?.some((w) => w && !validWindow(w))) return;
     const from = scheduleText(b);
     this.cafe.setSchedule(id, schedule);
     const n = this.cafe.staff.indexOf(b) + 1;
@@ -929,7 +948,8 @@ export class Simulation {
     const spoiled = this.cafe.stock.expire(this.day);
     this.cafe.today.writtenOff = spoiled.value;
     this.cafe.today.writtenOffItems = spoiled.items;
-    if (this.cafe.opened) this.cafe.stock.autoOrder(isWeekend(nextDay));
+    // В выходной поставка не нужна: заказ на рабочий день уйдёт вечером выходного
+    if (this.cafe.opened && this.cafe.hoursOn(weekday(nextDay))) this.cafe.stock.autoOrder(isWeekend(nextDay));
     // Листовки оплачиваются за каждый день, когда их раздавали
     if (this.flyersToday || this.marketing.flyers) {
       this.cash -= MARKETING.flyersPerDay;
@@ -1507,11 +1527,6 @@ export class Simulation {
 
 const pad = (n: number): string => String(n).padStart(2, '0');
 const clockText = (m: number): string => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
-
-function hoursText(openAt: number, closeAt: number): string {
-  if (closeAt - openAt >= MINUTES_PER_DAY) return 'круглосуточно';
-  return `${clockText(openAt)}–${clockText(closeAt)}`;
-}
 
 function happyText(h: HappyHours | null): string {
   return h ? `${clockText(h.from)}–${clockText(h.to)}, −${Math.round(h.discount * 100)}\u00a0%` : 'выкл.';

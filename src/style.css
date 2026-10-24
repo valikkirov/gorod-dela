@@ -492,7 +492,8 @@ body {
 }
 
 .stepper button,
-.hours select {
+.hours select,
+.week-hours select {
   height: 36px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -2423,4 +2424,51 @@ img.icon {
 
 .spark > div {
   min-width: 0;
+}
+
+/* Часы работы по дням недели */
+.week-hours {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.week-hours li,
+.menu .week-hours li {
+  display: grid;
+  grid-template-columns: 32px 1fr 12px 1fr;
+  align-items: center;
+  gap: 6px;
+}
+.week-hours li b {
+  font-size: 14px;
+}
+.week-hours li.today b {
+  color: var(--accent, #c8553d);
+}
+.week-hours li.off select {
+  color: var(--muted, #8a8076);
+  grid-column: 2 / 5;
+}
+.week-hours select {
+  padding: 0 8px;
+  font-size: 15px;
+  min-width: 0;
+}
+.week-hours span {
+  text-align: center;
+}
+.staff-days {
+  margin-top: 6px;
+}
+.week-hours li.own select {
+  border-color: var(--accent);
+}
+
+.week-hours li,
+.menu .week-hours li {
+  border: 0;
+  padding: 0;
+  margin: 0;
 }

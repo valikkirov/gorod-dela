@@ -58,6 +58,8 @@ export const REJECT_LABEL: Record<RejectReason, string> = {
 export interface DayReport {
   day: number;
   opened: boolean;
+  /** Точка открыта, но этот день недели — выходной по часам работы */
+  dayOff?: boolean;
   guests: number;
   revenue: number;
   /** Себестоимость проданного — для справки */
@@ -192,6 +194,12 @@ const catalogItem = (id: string): MenuItem => {
   return { ...it, cost: recipeCost(id) };
 };
 
+/** Часы работы в один день недели. closeAt может быть больше 24:00 — через полночь; openAt + 24 ч — круглосуточно. */
+export interface DayHours {
+  openAt: number;
+  closeAt: number;
+}
+
 /** Ночные часы для надбавки +20 % */
 export const isNightMinute = (m: number): boolean => m >= hm(22) || m < hm(6);
 
@@ -203,7 +211,24 @@ export interface StaffSchedule {
   /** Минута дня начала и конца окна. to может быть больше 24:00 — работа через полночь */
   from: number;
   to: number;
+  /** Почасовой: свои часы в отдельные дни недели; null или нет — обычные from–to */
+  windows?: (StaffWindow | null)[];
 }
+
+export interface StaffWindow {
+  from: number;
+  to: number;
+}
+
+/** Окно почасового в день недели: null — выходной */
+export function windowOn(s: StaffSchedule, weekday: number): StaffWindow | null {
+  const wd = ((weekday % 7) + 7) % 7;
+  if (!s.days[wd]) return null;
+  return s.windows?.[wd] ?? { from: s.from, to: s.to };
+}
+
+/** Окно в рамках суток: начало раньше конца, не дольше 24 часов */
+export const validWindow = (w: StaffWindow): boolean => w.to > w.from && w.to - w.from <= MINUTES_PER_DAY;
 
 /** Бариста: на смене (фикс за до 12 часов с открытия) или почасово (платим за часы в окне графика) */
 export interface Barista {
@@ -236,10 +261,47 @@ export function daysText(days: boolean[]): string {
   return on.map((i) => DAY_SHORT[i]).join(', ');
 }
 
+/** «08:00–20:00», «круглосуточно», «выходной» */
+export function dayHoursText(h: DayHours | null): string {
+  if (!h) return 'выходной';
+  if (h.closeAt - h.openAt >= MINUTES_PER_DAY) return 'круглосуточно';
+  return `${clock(h.openAt)}–${clock(h.closeAt)}`;
+}
+
+/** Неделя одной строкой: «Пн–Пт 08:00–20:00, Сб–Вс 10:00–22:00» — подряд идущие одинаковые дни склеиваются */
+export function weekHoursText(week: (DayHours | null)[]): string {
+  const texts = week.map(dayHoursText);
+  if (texts.every((t) => t === texts[0])) return texts[0] === 'выходной' ? 'выходной всю неделю' : `каждый день ${texts[0]}`;
+  const parts: string[] = [];
+  for (let i = 0; i < 7; ) {
+    let j = i;
+    while (j + 1 < 7 && texts[j + 1] === texts[i]) j++;
+    const days = j === i ? DAY_SHORT[i] : j === i + 1 ? `${DAY_SHORT[i]}, ${DAY_SHORT[j]}` : `${DAY_SHORT[i]}–${DAY_SHORT[j]}`;
+    parts.push(`${days} ${texts[i]}`);
+    i = j + 1;
+  }
+  return parts.join(', ');
+}
+
 export function scheduleText(b: Barista): string {
-  const days = daysText(b.schedule.days);
+  const s = b.schedule;
+  const days = daysText(s.days);
   if (b.contract === 'shift') return days;
-  return `${days}, ${clock(b.schedule.from)}–${clock(b.schedule.to)}`;
+  const texts = s.days.map((_, wd) => {
+    const w = windowOn(s, wd);
+    return w ? `${clock(w.from)}–${clock(w.to)}` : null;
+  });
+  const on = texts.filter((t): t is string => t !== null);
+  if (on.length === 0 || on.every((t) => t === on[0])) return on.length ? `${days}, ${on[0]}` : days;
+  // Разные часы: «Пн–Пт 08:00–16:00, Сб 10:00–18:00»
+  const parts: string[] = [];
+  for (let i = 0; i < 7; ) {
+    let j = i;
+    while (j + 1 < 7 && texts[j + 1] === texts[i]) j++;
+    if (texts[i]) parts.push(`${j === i ? DAY_SHORT[i] : j === i + 1 ? `${DAY_SHORT[i]}, ${DAY_SHORT[j]}` : `${DAY_SHORT[i]}–${DAY_SHORT[j]}`} ${texts[i]}`);
+    i = j + 1;
+  }
+  return parts.join(', ');
 }
 
 interface Slot {
@@ -266,6 +328,8 @@ export interface CafeSave {
   menu: MenuItem[];
   openAt: number;
   closeAt: number;
+  /** Часы по дням недели (0 — понедельник), null — выходной. Старые сохранения — без них. */
+  week?: (DayHours | null)[];
   staff: Barista[];
   nextStaffId: number;
   queue: { residentId: number; itemId: string }[];
@@ -297,9 +361,8 @@ export class Cafe {
   /** Где игрок открылся: формат начинается с помещения */
   premisesId: PremisesId = 'cafe';
   menu: MenuItem[] = DEFAULT_MENU_IDS.map(catalogItem);
-  openAt = hm(8);
-  /** Может быть больше 24:00 — работа через полночь. openAt + 1440 = круглосуточно. */
-  closeAt = hm(20);
+  /** Часы по дням недели (0 — понедельник), null — выходной */
+  week: (DayHours | null)[] = Array.from({ length: 7 }, () => ({ openAt: hm(8), closeAt: hm(20) }));
   staff: Barista[] = [];
   readonly stock = new Stock();
   /** Купленные улучшения */
@@ -341,6 +404,7 @@ export class Cafe {
       menu: this.menu,
       openAt: this.openAt,
       closeAt: this.closeAt,
+      week: this.week,
       staff: this.staff,
       nextStaffId: this.nextStaffId,
       queue: this.queue,
@@ -363,8 +427,7 @@ export class Cafe {
     this.opened = d.opened;
     this.premisesId = d.premisesId ?? 'cafe';
     this.menu = d.menu;
-    this.openAt = d.openAt;
-    this.closeAt = d.closeAt;
+    this.week = d.week ? d.week.map((h) => (h ? { ...h } : null)) : Array.from({ length: 7 }, () => ({ openAt: d.openAt, closeAt: d.closeAt }));
     // Сохранения до графиков: почасовой работал, пока его не отпустят
     this.staff = d.staff.map((raw) => {
       const b = raw as Barista & { onDuty?: boolean };
@@ -453,16 +516,64 @@ export class Cafe {
     };
   }
 
-  get allDay(): boolean {
-    return this.closeAt - this.openAt >= MINUTES_PER_DAY;
+  /** Часы в день недели; null — выходной */
+  hoursOn(weekday: number): DayHours | null {
+    return this.week[((weekday % 7) + 7) % 7];
   }
 
+  /** Сегодняшние часы, а в выходной — ближайшего рабочего дня */
+  private get shownHours(): DayHours {
+    for (let i = 0; i < 7; i++) {
+      const h = this.hoursOn(this.weekday + i);
+      if (h) return h;
+    }
+    return { openAt: hm(8), closeAt: hm(20) };
+  }
+
+  /** Открытие сегодня (в выходной — ближайшего рабочего дня) */
+  get openAt(): number {
+    return this.shownHours.openAt;
+  }
+
+  get closeAt(): number {
+    return this.shownHours.closeAt;
+  }
+
+  /** Одинаковые часы всю неделю, без выходных */
+  get sameEveryDay(): boolean {
+    const [a] = this.week;
+    return !!a && this.week.every((h) => h && h.openAt === a.openAt && h.closeAt === a.closeAt);
+  }
+
+  /** Сегодня работаем круглосуточно */
+  get allDay(): boolean {
+    const h = this.hoursOn(this.weekday);
+    return !!h && h.closeAt - h.openAt >= MINUTES_PER_DAY;
+  }
+
+  /** Сегодня выходной */
+  get dayOff(): boolean {
+    return !this.hoursOn(this.weekday);
+  }
+
+  /** Открыто ли в эту минуту сегодняшнего дня: по часам сегодня и хвосту вчерашней ночи */
   isOpenAt(minute: number): boolean {
     if (!this.opened) return false;
-    if (this.allDay) return true;
     const m = ((minute % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-    if (this.closeAt <= MINUTES_PER_DAY) return m >= this.openAt && m < this.closeAt;
-    return m >= this.openAt || m < this.closeAt - MINUTES_PER_DAY;
+    const today = this.hoursOn(this.weekday);
+    if (today && (today.closeAt - today.openAt >= MINUTES_PER_DAY || (m >= today.openAt && m < today.closeAt))) return true;
+    const yesterday = this.hoursOn(this.weekday - 1);
+    return !!yesterday && yesterday.closeAt > MINUTES_PER_DAY && m < yesterday.closeAt - MINUTES_PER_DAY;
+  }
+
+  /** Когда откроемся в следующий раз: через сколько дней (0 — сегодня) и во сколько */
+  nextOpening(minute: number): { inDays: number; at: number } | null {
+    const m = ((minute % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+    for (let i = 0; i < 8; i++) {
+      const h = this.hoursOn(this.weekday + i);
+      if (h && (i > 0 || h.openAt > m)) return { inDays: i, at: h.openAt };
+    }
+    return null;
   }
 
   item(id: string): MenuItem {
@@ -494,7 +605,13 @@ export class Cafe {
 
   /** Коммуналка за день при текущих часах работы */
   get utilitiesPerDay(): number {
-    const hours = Math.min(MINUTES_PER_DAY, this.closeAt - this.openAt) / 60;
+    return this.utilitiesOn(this.weekday);
+  }
+
+  /** Коммуналка в день недели: база всегда, свет и вода — за часы работы */
+  utilitiesOn(weekday: number): number {
+    const h = this.hoursOn(weekday);
+    const hours = h ? Math.min(MINUTES_PER_DAY, h.closeAt - h.openAt) / 60 : 0;
     const perHour = this.premises.utilitiesPerHour + this.equipment.reduce((sum, e) => sum + EQUIPMENT[e].utilitiesPerHour, 0);
     return Math.round(this.premises.utilitiesPerDay + perHour * hours);
   }
@@ -589,18 +706,19 @@ export class Cafe {
     const b = this.staff.find((s) => s.id === id);
     if (!b) return;
     b.schedule = { days: [...schedule.days], from: schedule.from, to: schedule.to };
+    if (schedule.windows?.some(Boolean)) b.schedule.windows = schedule.windows.map((w) => (w ? { ...w } : null));
     // Сменный, которому сегодня выходной по новому графику, на смену не выходит (если ещё не начал)
     if (b.contract === 'shift' && !b.shiftPaid) b.shiftActive = b.schedule.days[this.weekday];
   }
 
   /** По графику ли бариста сейчас (без учёта разового вызова) */
   scheduledNow(b: Barista, minute = this.nowMinute): boolean {
-    const { days, from, to } = b.schedule;
     const m = Math.floor(minute);
-    if (days[this.weekday] && m >= from && m < Math.min(to, MINUTES_PER_DAY)) return true;
+    const today = windowOn(b.schedule, this.weekday);
+    if (today && m >= today.from && m < Math.min(today.to, MINUTES_PER_DAY)) return true;
     // Хвост окна после полуночи — по графику вчерашнего дня
-    const yesterday = (this.weekday + 6) % 7;
-    return to > MINUTES_PER_DAY && days[yesterday] && m < to - MINUTES_PER_DAY;
+    const yesterday = windowOn(b.schedule, this.weekday - 1);
+    return !!yesterday && yesterday.to > MINUTES_PER_DAY && m < yesterday.to - MINUTES_PER_DAY;
   }
 
   fire(id: number): void {
@@ -708,7 +826,8 @@ export class Cafe {
     if (whole === this.lastPaidMinute) return;
     this.lastPaidMinute = whole;
     // Новая смена начинается с открытием кафе
-    if (whole === this.openAt % MINUTES_PER_DAY) {
+    const todayHours = this.hoursOn(this.weekday);
+    if (todayHours && whole === todayHours.openAt % MINUTES_PER_DAY) {
       for (const b of this.staff) {
         b.shiftMinutes = 0;
         b.shiftPaid = false;
@@ -750,6 +869,7 @@ export class Cafe {
     const r = this.today;
     if (this.opened) {
       r.opened = true;
+      if (this.dayOff) r.dayOff = true;
       r.rent = this.premises.rentPerDay;
       r.utilities = this.utilitiesPerDay;
       r.wages = Math.round(this.wagesToday);
