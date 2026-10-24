@@ -1,5 +1,6 @@
 import { canPlace, furniture, type FurnitureId, Interior, INTERIOR, preset, type PresetId } from './interior';
 import { Cafe, CATALOG, hours24, scheduleText, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
+import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
 import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
 import { tasteMatch } from './character';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
@@ -32,6 +33,8 @@ import {
 const STEP = 0.2;
 /** Меняется, когда сохранения старой версии больше нельзя загрузить */
 export const SAVE_VERSION = 2;
+const NB = '\u00a0';
+
 /** Сколько порций новой добавки заказать и держать, когда придумано блюдо */
 const DISH_STARTER = 15;
 /** Совпадение вкуса, с которого житель считается поклонником позиции */
@@ -65,6 +68,8 @@ export interface SaveData {
   lastEvent?: Partial<Record<EventId, number>>;
   eventRng?: number;
   milestones?: Partial<Record<MilestoneId, number>>;
+  loan?: Loan | null;
+  loanHistory?: LoanHistory;
   residents: {
     pos: Point;
     placeId: string;
@@ -131,6 +136,9 @@ export class Simulation {
   private readonly regularById = new Map<number, Regular>();
   /** Достигнутые вехи: id → день */
   readonly milestones: Partial<Record<MilestoneId, number>> = {};
+  /** Текущий кредит (один за раз) и кредитная история */
+  loan: Loan | null = null;
+  loanHistory: LoanHistory = emptyHistory();
   /** Событие, по которому ждём решения игрока */
   pendingEvent: PendingEvent | null = null;
   effects: Effect[] = [];
@@ -208,6 +216,8 @@ export class Simulation {
       effects: this.effects,
       lastEvent: { ...this.lastEvent },
       eventRng: this.eventRng.snapshot,
+      loan: this.loan,
+      loanHistory: this.loanHistory,
       residents: this.residents.map((r) => {
         const weekend = r.weekend.includes(r.entry);
         return {
@@ -263,6 +273,8 @@ export class Simulation {
     sim.effects = d.effects ?? [];
     sim.lastEvent = { ...(d.lastEvent ?? {}) };
     if (d.eventRng !== undefined) sim.eventRng.snapshot = d.eventRng;
+    sim.loan = d.loan ?? null;
+    sim.loanHistory = { ...emptyHistory(), ...(d.loanHistory ?? {}) };
     sim.applyDaySchedules();
     d.residents.forEach((s, i) => {
       const r = sim.residents[i];
@@ -944,6 +956,7 @@ export class Simulation {
     report.forecast = this.weather;
     // Выручка и закупка уже прошли через кассу — списываем постоянные расходы и налог
     this.cash -= report.rent + report.utilities + report.wages + report.tax;
+    this.payLoan(report);
     report.cashAfter = this.cash;
     this.reports.push(report);
     const reached = this.checkMilestones(report.day);
@@ -960,6 +973,87 @@ export class Simulation {
     if (this.daysInRed >= ECONOMY.bankruptDays) {
       this.bankrupt = true;
       this.events.push({ type: 'bankrupt' });
+    }
+  }
+
+  // ——— Кредит ———
+
+  /** Что предлагает банк или частник прямо сейчас: сколько максимум и почему нельзя */
+  loanOffer(source: LoanSource): LoanOffer {
+    const no = (refusal: string): LoanOffer => ({ source, refusal, max: 0 });
+    if (!this.cafe.opened || this.bankrupt) return no('Сначала открой точку');
+    if (this.loan) return no('Сначала верни текущий кредит');
+    const h = this.loanHistory;
+    if (h.repaidDay !== null && this.day < h.repaidDay + LOAN.cooldownDays) {
+      return no(`Новый кредит${NB}— через ${h.repaidDay + LOAN.cooldownDays - this.day}${NB}дн. после погашения прошлого`);
+    }
+    if (source === 'private') {
+      if (h.privateTaken >= LOAN.privateTimes) return no(`Частник выручал уже ${LOAN.privateTimes}${NB}раза и${NB}больше не${NB}даёт`);
+      return { source, refusal: null, max: LOAN.privateMax };
+    }
+    const worked = this.day - this.openedDay;
+    if (worked < LOAN.bankFromDay) return no(`Банк смотрит историю: приходи через ${LOAN.bankFromDay - worked}${NB}дн. работы`);
+    const opened = this.reports.filter((r) => r.opened);
+    const lastWeek = opened.slice(-7).reduce((s, r) => s + r.profit, 0);
+    if (lastWeek < -LOAN.bankRefuseLoss) return no(`Банк не${NB}кредитует точку в${NB}убытке: за${NB}неделю ${formatMoney(lastWeek)}`);
+    let goodWeeks = 0;
+    for (let i = 0; i + 7 <= opened.length; i += 7) if (opened.slice(i, i + 7).reduce((s, r) => s + r.profit, 0) > 0) goodWeeks += 1;
+    const milestones = Object.keys(this.milestones).length;
+    // Просрочки портят историю: минус неделя в плюсе за каждую
+    const credit = Math.max(0, goodWeeks - h.late);
+    const max = Math.min(LOAN.bankMax, LOAN.bankBase + credit * LOAN.bankPerGoodWeek + milestones * LOAN.bankPerMilestone);
+    return { source, refusal: null, max };
+  }
+
+  /** Взять кредит: деньги сразу в кассу, платежи раз в неделю с этого дня */
+  takeLoan(source: LoanSource, amount: number): boolean {
+    const o = this.loanOffer(source);
+    const sum = Math.round(amount / LOAN.step) * LOAN.step;
+    if (o.refusal || sum < LOAN_TERMS[source].min || sum > o.max) return false;
+    this.loan = { source, amount: sum, left: sum, takenDay: this.day, nextDue: this.day + 7, paidWeeks: 0, late: 0 };
+    if (source === 'private') this.loanHistory.privateTaken += 1;
+    this.cash += sum;
+    this.cafe.today.loanTaken = (this.cafe.today.loanTaken ?? 0) + sum;
+    this.note('loan', `Кредит: ${LOAN_LABEL[source].toLowerCase()}`, undefined, formatMoney(sum));
+    return true;
+  }
+
+  /** Погасить досрочно: остаток долга, проценты дальше не идут */
+  repayLoan(): boolean {
+    const l = this.loan;
+    if (!l || this.cash < l.left) return false;
+    this.cash -= l.left;
+    this.cafe.today.loanPaid = (this.cafe.today.loanPaid ?? 0) + l.left;
+    this.note('loan', 'Кредит погашен досрочно', undefined, formatMoney(l.left));
+    this.loan = null;
+    this.loanHistory.repaidDay = this.day;
+    return true;
+  }
+
+  /** Платёж по кредиту в конце дня, когда подошёл срок. Пустая касса — просрочка и штраф */
+  private payLoan(report: DayReport): void {
+    const l = this.loan;
+    if (!l || report.day < l.nextDue) return;
+    const pay = weeklyPayment(l);
+    const principal = Math.min(l.left, pay.principal);
+    this.cash -= principal + pay.interest;
+    l.left -= principal;
+    l.paidWeeks += 1;
+    l.nextDue += 7;
+    // Проценты — расход дня, возврат долга в прибыль не входит
+    report.interest = (report.interest ?? 0) + pay.interest;
+    report.loanPaid = (report.loanPaid ?? 0) + principal;
+    report.profit -= pay.interest;
+    if (this.cash < 0) {
+      l.late += 1;
+      this.loanHistory.late += 1;
+      const fine = Math.round(l.left * LOAN_TERMS[l.source].penalty);
+      l.left += fine;
+      report.loanFine = fine;
+    } else this.loanHistory.onTime += 1;
+    if (l.left <= 0) {
+      this.loan = null;
+      this.loanHistory.repaidDay = report.day;
     }
   }
 

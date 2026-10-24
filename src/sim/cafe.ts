@@ -122,6 +122,11 @@ export interface DayReport {
   other?: number;
   /** Что случилось за день и что выбрали */
   events?: string[];
+  /** Кредит: взяли, вернули тела долга, проценты (расход дня), штраф за просрочку */
+  loanTaken?: number;
+  loanPaid?: number;
+  interest?: number;
+  loanFine?: number;
 }
 
 /** Запись в истории изменений: «Капучино: 220 ₽ → 200 ₽» */

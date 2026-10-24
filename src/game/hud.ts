@@ -27,6 +27,7 @@ import {
 import { analyzeDay, describeLost } from '../sim/analysis';
 import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { INGREDIENTS, orderPrice, recipeCost, recipeOf, type IngredientId } from '../sim/stock';
+import { LOAN, LOAN_LABEL, LOAN_TERMS, totalInterest, weeklyPayment, type LoanSource } from '../sim/loans';
 import { BASES, base as dishBase, addIn as dishAddIn, defaultDishName, dishId, dishPrep, MAX_ADDINS, MAX_OWN, type AddInId, type BaseId } from '../sim/dishes';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
@@ -191,6 +192,8 @@ export class Hud {
   private readonly panel = $('#panel');
   private readonly note = $('#street-note');
   private catalogOpen = false;
+  /** Сколько хочет взять в кредит — по источнику */
+  private loanAmount: Partial<Record<LoanSource, number>> = {};
   /** Конструктор своего блюда: null — закрыт */
   private dish: { base: BaseId | null; addIns: AddInId[]; name: string | null; price: number | null } | null = null;
   /** Игрок вводит название заведения; на это время игра на паузе */
@@ -373,6 +376,20 @@ export class Hud {
         break;
       case 'toggle-catalog':
         this.catalogOpen = !this.catalogOpen;
+        break;
+      case 'loan-up':
+      case 'loan-down': {
+        const src = item as LoanSource;
+        const o = sim.loanOffer(src);
+        const now = this.loanAmount[src] ?? 30_000;
+        this.loanAmount[src] = Math.min(o.max, Math.max(LOAN_TERMS[src].min, now + (action === 'loan-up' ? 1 : -1) * LOAN.step));
+        break;
+      }
+      case 'loan-take':
+        if (sim.takeLoan(item as LoanSource, this.loanAmount[item as LoanSource] ?? 30_000)) goal('loan', { source: item });
+        break;
+      case 'loan-repay':
+        sim.repayLoan();
         break;
       case 'dish-open':
         this.dish = { base: null, addIns: [], name: null, price: null };
@@ -1318,7 +1335,47 @@ export class Hud {
       <ul class="menu milestones">${ms}</ul>
       <h4>Улучшения</h4>
       <small>Покупаются один раз и${NB}меняют возможности заведения. Это вложение: в${NB}прибыль дня не${NB}входит, но${NB}из${NB}кассы уходит.</small>
-      <ul class="menu upgrades">${ups}</ul>`;
+      <ul class="menu upgrades">${ups}</ul>
+      ${this.loanBlock()}`;
+  }
+
+  /** Кредит: текущий долг и платежи или предложения банка и частника */
+  private loanBlock(): string {
+    const sim = this.sim;
+    if (!sim.cafe.opened) return '';
+    const head = `<h4 id="loan">Кредит</h4><small>Помощь, чтобы пережить трудную неделю или вложиться в${NB}рост. Один кредит за${NB}раз, проценты${NB}— расход дня.</small>`;
+    const l = sim.loan;
+    if (l) {
+      const pay = weeklyPayment(l);
+      const next = Math.min(l.left, pay.principal) + pay.interest;
+      return `${head}<div class="loan on">
+          <div class="row"><b class="grow">${LOAN_LABEL[l.source]} · ${money(l.amount)}</b><span class="badge">${l.paidWeeks}${NB}из${NB}${LOAN_TERMS[l.source].weeks}${NB}нед.</span></div>
+          <small>Осталось вернуть ${money(l.left)}. Следующий платёж ${money(next)} (из${NB}них проценты ${money(pay.interest)})${NB}— в${NB}конце дня ${l.nextDue}.${
+            l.late ? ` Просрочек: ${l.late}${NB}— каждая добавляет штраф к${NB}долгу.` : ''
+          }</small>
+          <button class="small" data-action="loan-repay" ${sim.cash < l.left ? 'disabled' : ''}>${sim.cash < l.left ? `На${NB}досрочное погашение нужно ${money(l.left)}` : `Погасить досрочно · ${money(l.left)}`}</button>
+        </div>`;
+    }
+    const offers = (['bank', 'private'] as LoanSource[])
+      .map((src) => {
+        const o = sim.loanOffer(src);
+        const t = LOAN_TERMS[src];
+        const terms = `${t.weeks}${NB}нед., ${Math.round(t.weeklyRate * 100)}${NB}% в${NB}неделю`;
+        const about = src === 'bank' ? `Сумма зависит от${NB}истории: недели в${NB}плюсе, вехи, платежи вовремя.` : `Даёт сразу и${NB}всем, но${NB}дорого. Не${NB}больше ${LOAN.privateTimes}${NB}раз за${NB}игру, просрочка${NB}— штраф 10${NB}% долга.`;
+        if (o.refusal) return `<li class="loan"><div class="row"><b class="grow">${LOAN_LABEL[src]}</b><span class="badge">${terms}</span></div><small>${o.refusal}</small></li>`;
+        const amount = Math.min(o.max, Math.max(t.min, this.loanAmount[src] ?? Math.min(o.max, 30_000)));
+        this.loanAmount[src] = amount;
+        const extra = totalInterest(src, amount);
+        return `<li class="loan"><div class="row"><b class="grow">${LOAN_LABEL[src]}</b><span class="badge">${terms}</span></div>
+            <small>${about} Сейчас дадут до${NB}${money(o.max)}.</small>
+            <div class="row"><span class="grow">Сумма</span><div class="stepper">
+              <button data-action="loan-down" data-item="${src}" aria-label="Меньше">−</button><span>${money(amount)}</span>
+              <button data-action="loan-up" data-item="${src}" aria-label="Больше">+</button></div></div>
+            <small>Вернёшь ${money(amount + extra)}: ${t.weeks}${NB}${t.weeks % 10 >= 2 && t.weeks % 10 <= 4 && (t.weeks < 10 || t.weeks > 20) ? 'платежа' : 'платежей'} по${NB}${money(weeklyPayment({ source: src, amount }).principal + weeklyPayment({ source: src, amount }).interest)}, переплата ${money(extra)}.</small>
+            <button class="small" data-action="loan-take" data-item="${src}">Взять ${money(amount)}</button></li>`;
+      })
+      .join('');
+    return `${head}<ul class="menu loans">${offers}</ul>`;
   }
 
   /** История знакомого лица для карточки жителя */
@@ -1518,12 +1575,13 @@ export class Hud {
       head = `Денег хватит примерно на${NB}${o.days}${NB}дн. постоянных расходов — ${money(o.daily)} в${NB}день.`;
     } else return '';
     const options: string[] = [];
+    if (!sim.loan) options.push(`<button class="small" data-action="goto-tab" data-item="growth">Кредит</button>`);
     if (sim.marketing.flyers) options.push(`<button class="small" data-action="flyers">Остановить листовки</button>`);
     if (sim.cafe.staff.length) options.push(`<button class="small" data-action="goto-tab" data-item="staff">Персонал</button>`);
     options.push(`<button class="small" data-action="goto-tab" data-item="stock">Снизить запасы</button>`);
     options.push(`<button class="small" data-action="goto-tab" data-item="overview">Часы работы</button>`);
     return `<div class="cash-warn"><b>${head}</b>
-      <small>Что можно сделать: меньше часов в${NB}пустое время, отпустить бариста, не${NB}держать лишний запас, остановить платную рекламу.</small>
+      <small>Что можно сделать: меньше часов в${NB}пустое время, отпустить бариста, не${NB}держать лишний запас, остановить платную рекламу. Пережить трудную неделю поможет кредит${NB}— вкладка «Развитие».</small>
       <div class="hire">${options.join('')}</div></div>`;
   }
 
@@ -1636,8 +1694,12 @@ export class Hud {
         ${row(`Налог 6${NB}%`, -r.tax)}
         ${r.marketing ? row('Маркетинг', -r.marketing) : ''}
         ${r.other ? row('События', -r.other) : ''}
+        ${r.interest ? row('Проценты по${NB}кредиту', -r.interest) : ''}
         ${row('Итог дня', r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
         ${r.invested ? row('Вложено в улучшения', -r.invested) : ''}
+        ${r.loanTaken ? row('Взят кредит', r.loanTaken) : ''}
+        ${r.loanPaid ? row('Возврат долга', -r.loanPaid) : ''}
+        ${r.loanFine ? row('Штраф за${NB}просрочку (к${NB}долгу)', -r.loanFine) : ''}
         ${row('В кассе', r.cashAfter, 'cash')}
       </table>
       <small>Себестоимость проданного: ${money(r.cogs)}${r.extras ? ` · дозаказов: ${r.extras}` : ''}${
