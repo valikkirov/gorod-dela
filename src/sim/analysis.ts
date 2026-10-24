@@ -93,6 +93,8 @@ export interface DayAnalysis {
   comparison: Comparison | null;
   /** Итог одной фразой: «Итог −2 300 ₽ — на 1 800 ₽ лучше, чем в прошлый вторник» */
   headline: string;
+  /** Сравнение отдельной строкой под итогом: «на 1 800 ₽ лучше, чем в прошлый вторник» */
+  compare: string;
   /** Главный фактор результата */
   factor: string;
   /** Где потеряли больше всего гостей */
@@ -136,6 +138,7 @@ export function analyzeDay(reports: DayReport[], r: DayReport): DayAnalysis {
   return {
     comparison,
     headline: headline(r, comparison),
+    compare: compareText(r, comparison),
     factor: factor(r, comparison),
     lost: lostWindow(r),
     byKind: lostByKind(r),
@@ -153,6 +156,14 @@ function headline(r: DayReport, c: Comparison | null): string {
   const d = r.profit - c.report.profit;
   if (Math.abs(d) < 100) return `${result} — так же, как ${c.label}`;
   return `${result} — на${NB}${money(Math.abs(d))} ${d > 0 ? 'лучше' : 'хуже'}, чем ${c.label}`;
+}
+
+function compareText(r: DayReport, c: Comparison | null): string {
+  if (!r.opened) return '';
+  if (!c) return `Сравнивать пока не${NB}с${NB}чем`;
+  const d = r.profit - c.report.profit;
+  if (Math.abs(d) < 100) return `Так же, как ${c.label}`;
+  return `На${NB}${money(Math.abs(d))} ${d > 0 ? 'лучше' : 'хуже'}, чем ${c.label}`;
 }
 
 function factor(r: DayReport, c: Comparison | null): string {

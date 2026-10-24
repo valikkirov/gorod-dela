@@ -2131,3 +2131,296 @@ button.small.danger {
   display: grid;
   gap: 6px;
 }
+
+/* ——— Отчёты: день, неделя, месяц ——— */
+.period-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 10px;
+}
+
+.period-bar .chips {
+  flex: 1;
+  margin: 0;
+}
+
+.period-bar .icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.period-bar .icon:disabled {
+  opacity: 0.3;
+}
+
+/* Итог крупно, знак и цвет — сразу видно плюс или минус */
+.result {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid;
+}
+
+.result > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.result span {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.result b {
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+}
+
+.result small {
+  color: var(--muted);
+}
+
+.result.pos {
+  background: #e6f2e9;
+  border-color: #9ccbab;
+}
+
+.result.pos b {
+  color: var(--good);
+}
+
+.result.neg {
+  background: #f8e7e4;
+  border-color: #e3a79d;
+}
+
+.result.neg b {
+  color: var(--bad);
+}
+
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 120px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.bar i {
+  width: 70%;
+  max-width: 22px;
+  border-radius: 4px;
+}
+
+.bar.pos i {
+  background: var(--good);
+}
+
+.bar.neg i {
+  background: var(--bad);
+}
+
+.bar.pos small {
+  color: var(--good);
+}
+
+.bar.neg small {
+  color: var(--bad);
+}
+
+.spark {
+  display: flex;
+  gap: 2px;
+  height: 64px;
+  margin-top: 8px;
+}
+
+.spark > div {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  border-bottom: 0;
+}
+
+.spark i {
+  display: block;
+  border-radius: 2px;
+}
+
+.spark .up {
+  align-self: end;
+  background: var(--good);
+}
+
+.spark .down {
+  align-self: start;
+  background: var(--bad);
+}
+
+.split {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.split small {
+  color: var(--muted);
+}
+
+.split .neg {
+  color: var(--bad);
+}
+
+.split-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.split ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.split li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.split li > i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.split li b {
+  font-variant-numeric: tabular-nums;
+}
+
+.split li b.pos {
+  color: var(--good);
+}
+
+/* Статьи расходов: свой цвет у каждой, прибыль — зелёная */
+.c-purchases { background: #a8754a; }
+.c-rent { background: #4d6a9c; }
+.c-utilities { background: #f2be4a; }
+.c-wages { background: #c2463a; }
+.c-tax { background: #a99d90; }
+.c-marketing { background: #e8875c; }
+.c-other { background: #6b7080; }
+.c-interest { background: #7a4d8c; }
+.c-profit { background: var(--good); }
+
+.meter {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.meter > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--good);
+}
+
+.meter.accent > i {
+  background: var(--accent);
+}
+
+.meter.bad > i {
+  background: var(--bad);
+  opacity: 0.6;
+}
+
+.items-margin,
+.funnel,
+.reason-bars {
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.items-margin li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.items-margin .grow {
+  display: grid;
+  gap: 3px;
+}
+
+.items-margin small {
+  color: var(--muted);
+}
+
+.items-margin .pos {
+  color: var(--good);
+}
+
+.funnel li {
+  display: grid;
+  gap: 4px;
+}
+
+.reason-bars li {
+  display: grid;
+  grid-template-columns: minmax(150px, max-content) 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.reason-bars b {
+  color: var(--bad);
+}
+
+/* Иконки предметов в строках */
+img.icon {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  object-fit: contain;
+}
+
+.spark > div {
+  min-width: 0;
+}

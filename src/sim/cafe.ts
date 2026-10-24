@@ -89,6 +89,9 @@ export interface DayReport {
   /** Чего не нашли в меню: категория → сколько раз */
   missingKinds: Partial<Record<ItemKind, number>>;
   sold: Record<string, number>;
+  /** Выручка и себестоимость по позициям — для аналитики за период (в старых отчётах нет) */
+  revenueBy?: Record<string, number>;
+  cogsBy?: Record<string, number>;
   weekday?: number;
   weather?: Weather;
   /** Прогноз на завтра */
@@ -468,6 +471,13 @@ export class Cafe {
     return it;
   }
 
+  /** Выручка и себестоимость по позиции за день */
+  countItem(id: string, revenue: number, cost: number): void {
+    const t = this.today;
+    (t.revenueBy ??= {})[id] = (t.revenueBy[id] ?? 0) + revenue;
+    (t.cogsBy ??= {})[id] = (t.cogsBy[id] ?? 0) + cost;
+  }
+
   /** Дозаказ гостя, который уже сидит: вторая кружка, выпечка к кофе. Гостем второй раз не считается. */
   sellExtra(itemId: string, minute: number): number {
     if (!this.hasItem(itemId) || !this.stock.canMake(itemId)) return 0;
@@ -477,6 +487,7 @@ export class Cafe {
     this.today.revenue += price;
     this.today.cogs += it.cost;
     this.today.sold[it.id] = (this.today.sold[it.id] ?? 0) + 1;
+    this.countItem(it.id, price, it.cost);
     this.today.extras = (this.today.extras ?? 0) + 1;
     return price;
   }
@@ -684,6 +695,7 @@ export class Cafe {
       this.today.revenue += price;
       this.today.cogs += it.cost;
       this.today.sold[it.id] = (this.today.sold[it.id] ?? 0) + 1;
+      this.countItem(it.id, price, it.cost);
       (this.today.servedHour ??= hours24())[h] += 1;
       result.sales.push({ residentId: s.residentId, itemId: it.id, price });
     }

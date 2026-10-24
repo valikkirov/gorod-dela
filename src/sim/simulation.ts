@@ -1205,6 +1205,7 @@ export class Simulation {
       this.cash += e.pay;
       t.revenue += e.pay;
       t.sold[e.itemId] = (t.sold[e.itemId] ?? 0) + e.qty;
+      cafe.countItem(e.itemId, e.pay, 0);
       (t.events ??= []).push(`🏢 Заказ офиса: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`);
     }
   }

@@ -28,6 +28,8 @@ import { analyzeDay, describeLost } from '../sim/analysis';
 import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { INGREDIENTS, orderPrice, recipeCost, recipeOf, type IngredientId } from '../sim/stock';
 import { LOAN, LOAN_LABEL, LOAN_TERMS, totalInterest, weeklyPayment, type LoanSource } from '../sim/loans';
+import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, summarize, type Period, type PeriodKind } from '../sim/periods';
+import { iconImg } from './icons';
 import { BASES, base as dishBase, addIn as dishAddIn, defaultDishName, dishId, dishPrep, MAX_ADDINS, MAX_OWN, type AddInId, type BaseId } from '../sim/dishes';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
 import { WANT_LABEL, type WantKind } from '../sim/demand';
@@ -124,11 +126,26 @@ const WANT_VISIT: Record<WantKind, string> = {
 };
 
 const isFemale = (r: Resident): boolean => femaleName(r.name);
+/** 1 186 → «1 186» с неразрывным пробелом */
+const num = (n: number): string => Math.round(n).toLocaleString('ru-RU').replace(/\s/g, NB);
 const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Свои блюда игрока — для названий; обновляется при каждой отрисовке */
 let OWN: MenuItem[] = [];
 const itemName = (id: string): string => CATALOG.find((c) => c.id === id)?.name ?? OWN.find((m) => m.id === id)?.name ?? id;
+/** «не зашли, потому что …» — для выводов отчёта за период */
+const REASON_BECAUSE: Partial<Record<RejectReason, string>> = {
+  closed: 'было закрыто',
+  'no-item': `не${NB}было нужного в${NB}меню`,
+  expensive: 'дорого',
+  'off-route': `не${NB}по${NB}пути`,
+  queue: 'очередь',
+  'no-time': 'долго ждать заказа',
+  'out-of-stock': 'закончились продукты',
+  rival: 'выбрали конкурента',
+  taste: `не${NB}по${NB}вкусу`,
+};
+
 /** «студентам», «молодёжи» — кому блюдо по вкусу */
 const FANS_DATIVE: Record<ResidentKind, string> = {
   office: 'офисным',
@@ -192,6 +209,9 @@ export class Hud {
   private readonly panel = $('#panel');
   private readonly note = $('#street-note');
   private catalogOpen = false;
+  /** Отчёт: за какой период и какой именно (null — последний) */
+  private reportPeriod: 'day' | PeriodKind = 'day';
+  private reportAt: number | null = null;
   /** Сколько хочет взять в кредит — по источнику */
   private loanAmount: Partial<Record<LoanSource, number>> = {};
   /** Конструктор своего блюда: null — закрыт */
@@ -290,7 +310,11 @@ export class Hud {
     for (const id of this.sim.reports.at(-1)?.milestones ?? []) goal('milestone', { id });
     sound.play('ui-day-end', 0.8);
     if (this.sim.reports.at(-1)?.milestones?.length) setTimeout(() => sound.play('ui-milestone'), 900);
-    if (this.view !== 'resident') this.view = 'report';
+    if (this.view !== 'resident') {
+      this.view = 'report';
+      this.reportPeriod = 'day';
+      this.reportAt = null;
+    }
     this.render(true);
   }
 
@@ -540,7 +564,21 @@ export class Hud {
         break;
       case 'report':
         this.view = 'report';
+        this.reportPeriod = 'day';
+        this.reportAt = null;
         break;
+      case 'report-period':
+        this.reportPeriod = item as 'day' | PeriodKind;
+        this.reportAt = null;
+        this.panel.scrollTop = 0;
+        break;
+      case 'report-prev':
+      case 'report-next': {
+        const [now, , max] = this.reportCursor();
+        const to = now + (action === 'report-next' ? 1 : -1);
+        this.reportAt = to >= max ? null : Math.max(1, to);
+        break;
+      }
       case 'goto-tab':
         this.view = 'cafe';
         this.tab = item as CafeTab;
@@ -663,7 +701,7 @@ export class Hud {
         : this.view === 'place' && this.selectedPlace
           ? this.placeView(this.selectedPlace)
         : this.view === 'report' && this.sim.reports.length > 0
-          ? this.reportView(this.sim.reports.at(-1)!)
+          ? this.reportScreen()
           : this.cafeView();
     // Пересобираем DOM только когда изменилась структура — иначе обновляем «живые» числа.
     // Так не сбиваются клики, прокрутка и открытые списки.
@@ -824,6 +862,7 @@ export class Hud {
         this.live[`oos-${m.id}`] = cafe.stock.canMake(m.id) ? '' : ` · нет в${NB}наличии`;
         return `
         <li>
+          ${iconImg(m.id)}
           <div class="grow"><b>${m.name}</b>
             <small>${itemTaste(m.id) ? `${itemTaste(m.id)} · ` : ''}по${NB}вкусу ${this.sim.tasteFans(m.id).fans} · себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span><span class="oos" data-live="oos-${m.id}"></span></small></div>
           <div class="stepper">
@@ -846,7 +885,7 @@ export class Hud {
                 const inMenu = cafe.hasItem(c.id);
                 const fits = cafe.fits(c.id);
                 const noEquip = fits && !!cafe.missingEquipment(c.id);
-                return `<li><div class="grow"><b>${c.name}</b>
+                return `<li>${iconImg(c.id)}<div class="grow"><b>${c.name}</b>
                   <small>${itemTaste(c.id) ? `${itemTaste(c.id)} · ` : ''}от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
                   ${
                     inMenu
@@ -1615,6 +1654,154 @@ export class Hud {
       <div class="legend-line"><span><i class="served"></i>${r.opened ? 'обслужены' : ''}</span><span><i class="lost"></i>${r.opened ? 'ушли' : `хотели зайти`}</span></div>`;
   }
 
+  /** Какой отчёт открыт: [номер, первый, последний] — день или номер недели/месяца */
+  private reportCursor(): [number, number, number] {
+    const last = this.sim.reports.at(-1)!.day;
+    if (this.reportPeriod === 'day') {
+      const first = this.sim.reports[0].day;
+      return [this.reportAt ?? last, first, last];
+    }
+    const max = periodOf(this.reportPeriod, last).index;
+    return [this.reportAt ?? max, 1, max];
+  }
+
+  /** Отчёт: день, неделя или месяц */
+  private reportScreen(): string {
+    const [at] = this.reportCursor();
+    if (this.reportPeriod === 'day') {
+      const r = this.sim.reports.find((x) => x.day === at) ?? this.sim.reports.at(-1)!;
+      return this.reportView(r);
+    }
+    return this.periodView(periodByIndex(this.reportPeriod, at));
+  }
+
+  /** Переключатель периода и стрелки назад-вперёд */
+  private periodBar(): string {
+    const [at, first, last] = this.reportCursor();
+    const tabs = ([['day', 'День'], ['week', 'Неделя'], ['month', 'Месяц']] as const)
+      .map(([id, label]) => `<button class="chip${this.reportPeriod === id ? ' on' : ''}" data-action="report-period" data-item="${id}">${label}</button>`)
+      .join('');
+    return `<div class="period-bar">
+        <button class="icon" data-action="report-prev" aria-label="Раньше" ${at <= first ? 'disabled' : ''}>‹</button>
+        <div class="chips">${tabs}</div>
+        <button class="icon" data-action="report-next" aria-label="Позже" ${at >= last ? 'disabled' : ''}>›</button>
+      </div>`;
+  }
+
+  /** «Итог недели: +18 024 ₽» — знак и цвет сразу, сравнение строкой ниже */
+  private resultBlock(label: string, value: number, compare: string): string {
+    const pos = value >= 0;
+    return `<div class="result ${pos ? 'pos' : 'neg'}">
+        <div><span>${label}:</span> <b>${pos ? '+' : '−'}${money(Math.abs(value))}</b></div>
+        ${compare ? `<small>${compare}</small>` : ''}
+      </div>`;
+  }
+
+  /** Неделя или месяц: итог, деньги по статьям, позиции, гости */
+  private periodView(p: Period): string {
+    const sim = this.sim;
+    const priceOf = (id: string) => {
+      const m = sim.cafe.menu.find((x) => x.id === id) ?? sim.cafe.own.find((x) => x.id === id) ?? CATALOG.find((x) => x.id === id);
+      return m ? { price: m.price, cost: m.cost } : null;
+    };
+    const s = summarize(sim.reports, p, priceOf);
+    const prev = p.index > 1 ? summarize(sim.reports, periodByIndex(p.kind, p.index - 1), priceOf) : null;
+    const name = p.kind === 'week' ? `Неделя ${p.index}` : `Месяц ${p.index}`;
+    const lastDay = s.days.at(-1)?.day ?? p.from;
+    const head = `<div class="card-head"><div><b>${name}</b><small>${p.from}–${Math.min(p.to, lastDay)}${NB}день${
+      s.complete ? '' : ` · идёт`
+    } · ${num(s.guests)}${NB}гостей из${NB}${num(s.wanted)}, кто хотел зайти</small></div>
+        <button data-action="back" aria-label="Закрыть">✕</button></div>`;
+    if (s.openDays === 0) return `${head}${this.periodBar()}<p class="hint-line">В${NB}этот период точка ещё не${NB}работала.</p>`;
+
+    const avg = s.guests ? Math.round(s.revenue / s.guests) : 0;
+    const kpis = `<div class="kpis">
+        <div><small>Гостей</small><b>${num(s.guests)}</b></div>
+        <div><small>Выручка</small><b>${money(s.revenue)}</b></div>
+        ${p.kind === 'week' ? `<div><small>Средний чек</small><b>${money(avg)}</b></div>` : ''}
+      </div>`;
+
+    // Столбики: неделя — по дням, месяц — по неделям
+    const short = (v: number) => `${v >= 0 ? '+' : '−'}${String(Math.round(Math.abs(v) / 100) / 10).replace('.', ',')}к`;
+    const columns: [string, number][] =
+      p.kind === 'week'
+        ? s.days.map((r) => [WEEKDAY_SHORT[r.weekday ?? 0], r.profit])
+        : [0, 1, 2, 3].map((i) => {
+            const days = s.days.filter((r) => r.day >= p.from + i * 7 && r.day < p.from + (i + 1) * 7);
+            return [`${i + 1}${NB}нед.`, days.reduce((x, r) => x + r.profit, 0)] as [string, number];
+          }).filter((_, i) => s.days.some((r) => r.day >= p.from + i * 7));
+    const top = Math.max(1, ...columns.map(([, v]) => Math.abs(v)));
+    const bars = `<div class="bars">${columns
+      .map(([label, v]) => `<div class="bar ${v >= 0 ? 'pos' : 'neg'}"><small>${short(v)}</small><i style="height:${Math.max(4, Math.round((Math.abs(v) / top) * 100))}%"></i><span>${label}</span></div>`)
+      .join('')}</div>`;
+    // Месяц: ещё итог каждого дня — над чертой плюс, под ней минус; выброс (день открытия) не ломает шкалу
+    let daily = '';
+    if (p.kind === 'month') {
+      const vals = s.days.map((r) => r.profit);
+      const sorted = vals.map(Math.abs).sort((a, b) => b - a);
+      const scale = Math.max(1, sorted[1] ?? sorted[0] ?? 1);
+      const clipped = (sorted[0] ?? 0) > scale * 1.5;
+      daily = `<div class="split"><div class="spark">${vals
+        .map((v) => {
+          const h = Math.min(100, Math.round((Math.abs(v) / scale) * 100));
+          return `<div><i class="up" style="height:${v >= 0 ? h : 0}%"></i><i class="down" style="height:${v < 0 ? h : 0}%"></i></div>`;
+        })
+        .join('')}</div><small>Итог каждого дня: над чертой${NB}— в${NB}плюсе, под${NB}ней${NB}— в${NB}минусе${
+        clipped ? `. Самый большой день (${money(Math.round(vals.find((v) => Math.abs(v) === sorted[0])!))}) не${NB}влез в${NB}шкалу` : ''
+      }.</small></div>`;
+    }
+
+    // Куда ушли деньги: из каждых 100 ₽ выручки
+    const base = Math.max(1, s.revenue);
+    const parts = COST_LINES.filter(([k]) => s.costs[k] > 0).map(([k, label]) => [k, label, s.costs[k]] as [string, string, number]);
+    if (s.profit > 0) parts.push(['profit', 'Прибыль', s.profit]);
+    const pct = (v: number) => Math.round((v / base) * 100);
+    const split = `<div class="split"><small>Из каждых 100${NB}₽ выручки</small>
+        <div class="split-bar">${parts.map(([k, , v]) => `<i class="c-${k}" style="flex:${Math.max(0.5, pct(v))}"></i>`).join('')}</div>
+        <ul>${parts
+          .map(([k, label, v]) => `<li><i class="c-${k}"></i><span>${label}</span><small>${pct(v)}${NB}%</small><b class="${k === 'profit' ? 'pos' : ''}">${k === 'profit' ? '+' : '−'}${money(v)}</b></li>`)
+          .join('')}</ul>
+        ${s.profit < 0 ? `<small class="neg">Расходы больше выручки: итог −${money(-s.profit)}</small>` : ''}
+      </div>`;
+
+    const notes = insights(s, itemName, (r) => REASON_BECAUSE[r] ?? REJECT_LABEL[r].toLowerCase());
+    const maxMargin = Math.max(1, ...s.items.map((i) => i.margin));
+    const items = s.items
+      .map(
+        (i) => `<li>${iconImg(i.id)}<div class="grow"><div class="row"><b class="grow">${escapeHtml(itemName(i.id))}</b><b class="pos">${money(i.margin)}</b></div>
+          <i class="meter"><i style="width:${Math.max(2, Math.round((Math.max(0, i.margin) / maxMargin) * 100))}%"></i></i>
+          <small>продано ${i.sold} · выручка ${money(i.revenue)}</small></div></li>`,
+      )
+      .join('');
+    const fun = funnel(s);
+    const funMax = Math.max(1, fun[0][1]);
+    const funnelHtml = fun
+      .map(([label, v]) => `<li><div class="row"><span class="grow">${label}</span><b>${num(v)}</b></div><i class="meter accent"><i style="width:${Math.round((v / funMax) * 100)}%"></i></i></li>`)
+      .join('');
+    const reasons = (Object.entries(s.missed) as [RejectReason, number][])
+      .filter(([r]) => r !== 'not-open' && r !== 'mood')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
+    const rMax = Math.max(1, reasons[0]?.[1] ?? 1);
+    const reasonsHtml = reasons
+      .map(([r, n]) => `<li><span>${REJECT_LABEL[r]}</span><i class="meter bad"><i style="width:${Math.round((n / rMax) * 100)}%"></i></i><b>${num(n)}</b></li>`)
+      .join('');
+
+    return `${head}
+      ${this.periodBar()}
+      ${this.resultBlock(p.kind === 'week' ? 'Итог недели' : 'Итог месяца', s.profit, compareLine(s, prev))}
+      ${kpis}
+      <h4>${p.kind === 'week' ? `Итог по${NB}дням` : `По${NB}неделям`}</h4>
+      ${bars}
+      ${daily}
+      <h4>Куда ушли деньги</h4>
+      ${split}
+      ${notes.length ? `<h4>Главное</h4><ul class="observations">${notes.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
+      ${items ? `<h4>Что приносит деньги</h4><ul class="items-margin">${items}</ul><small>Зелёное${NB}— маржа: выручка минус себестоимость</small>` : ''}
+      <h4>Гости: от${NB}желания до${NB}покупки</h4><ul class="funnel">${funnelHtml}</ul>
+      ${reasonsHtml ? `<h4>Почему не${NB}зашли</h4><ul class="reason-bars">${reasonsHtml}</ul>` : ''}`;
+  }
+
   private reportView(r: DayReport): string {
     const row = (label: string, value: number, cls = '') =>
       `<tr class="${cls}"><td>${label}</td><td>${money(value)}</td></tr>`;
@@ -1665,8 +1852,10 @@ export class Hud {
       } · ${r.guests} гостей из ${r.wanted}, кто хотел зайти</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button></div>
       ${this.cashWarning()}
+      ${this.periodBar()}
+      ${r.opened ? this.resultBlock('Итог дня', r.profit, a.compare) : ''}
       <div class="insight">
-        <b>${a.headline}</b>
+        ${r.opened ? '' : `<b>${a.headline}</b>`}
         ${a.factor ? `<p>${a.factor}</p>` : ''}
         ${this.firstWeekNote(r)}
       </div>
