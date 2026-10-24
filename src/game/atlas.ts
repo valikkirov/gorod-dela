@@ -7,6 +7,8 @@ import extraUrl from './art/extra.png';
 import groundUrl from './art/ground.png';
 import lightsUrl from './art/lights.png';
 import peopleUrl from './art/people.png';
+import animalsUrl from './art/animals.png';
+import { ANIMAL_FRAMES } from './animalFrames';
 import sadovayaUrl from './art/sadovaya.png';
 import texAsphaltUrl from './art/tex-asphalt.png';
 import texGrassUrl from './art/tex-grass.png';
@@ -130,6 +132,8 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
   'tex-sidewalk': { url: texSidewalkUrl, frames: { 'tex-sidewalk': TEXTURE_FRAMES['tex-sidewalk'] } },
   'tex-asphalt': { url: texAsphaltUrl, frames: { 'tex-asphalt': TEXTURE_FRAMES['tex-asphalt'] } },
   people: { url: peopleUrl, frames: peopleFrames() },
+  // Животные рисует кодом scripts/draw_animals.py
+  animals: { url: animalsUrl, frames: ANIMAL_FRAMES },
 };
 
 /** Кадр жителя 28×44, стопы на линии y = 42 */

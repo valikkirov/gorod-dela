@@ -119,7 +119,7 @@ const fmtMinute = (m: number): string =>
 
 const money = formatMoney;
 
-const weatherShort = (w: Weather): string => `${WEATHER_ICON[w.kind]}${NB}${w.temp > 0 ? '+' : ''}${w.temp}°`;
+const weatherShort = (w: Weather): string => `${WEATHER_ICON[w.kind]}${NB}${w.temp > 0 ? '+' : ''}${w.temp}°${w.wind === 2 ? ` · 💨${NB}ветрено` : ''}`;
 
 const WANT_VISIT: Record<WantKind, string> = {
   coffee: `за${NB}кофе`,

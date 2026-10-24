@@ -7,6 +7,9 @@ import { WANT_LABEL } from '../sim/demand';
 import { formatMoney } from '../sim/economy';
 import { CROSSWALK_Y, GRID, place, PLACES, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type Place } from '../sim/world';
 import { COLORS, RESIDENT_COLOR } from './palette';
+import { WeatherFx, type FxKind } from './weatherFx';
+import { Animals } from './animals';
+import type { WindLevel } from '../sim/weather';
 import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accessory, type Facing } from './atlas';
 import { Traffic } from './traffic';
 import { sound } from './sound';
@@ -90,6 +93,17 @@ const BASE_SHIFT = 4;
 
 /** Слои глубины: всё на улице сортируется по y основания, сверху — ночь, свет и подписи */
 const DEPTH = { ground: -1000, night: 5000, lights: 5001, sky: 5002, labels: 5003, floats: 5004 } as const;
+
+/** Погода для просмотра из адресной строки: только картинка, симуляция не меняется */
+const WEATHER_OVERRIDE: { kind?: FxKind; wind?: WindLevel } = (() => {
+  const q = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
+  const kind = q.get('weather');
+  const wind = q.get('wind');
+  return {
+    kind: kind && ['sunny', 'hot', 'cloudy', 'rain', 'snow'].includes(kind) ? (kind as FxKind) : undefined,
+    wind: wind && ['0', '1', '2'].includes(wind) ? (Number(wind) as WindLevel) : undefined,
+  };
+})();
 
 /** Дорожки сквера по сетке: ряд от входа с Кленовой и столбец к выходу на Садовую */
 const PARK_PATH = { row: 880, col: 660 } as const;
@@ -211,7 +225,11 @@ export class StreetScene extends Phaser.Scene {
   private faces!: Phaser.GameObjects.Graphics;
   private guests!: Phaser.GameObjects.Graphics;
   private night!: Phaser.GameObjects.Graphics;
-  private sky!: Phaser.GameObjects.Graphics;
+  private weatherFx!: WeatherFx;
+  private animals!: Animals;
+  /** Деревья качаются на ветру */
+  private trees: { img: Phaser.GameObjects.Image; phase: number }[] = [];
+  private treeBases: { x: number; y: number }[] = [];
   private shops: Shop[] = [];
   private menuBoard!: Phaser.GameObjects.Image;
   /** Деревянный настил с кашпо и скамьёй — у кафе с залом, когда в нём кто-то работает */
@@ -257,7 +275,13 @@ export class StreetScene extends Phaser.Scene {
     }
     this.drawGround();
     this.drawBuildings();
-    for (const [frame, x, y] of PROPS) this.prop(frame, x, y);
+    for (const [frame, x, y] of PROPS) {
+      const img = this.prop(frame, x, y);
+      if (frame.startsWith('prop-tree')) {
+        this.trees.push({ img, phase: x * 0.013 + y * 0.007 });
+        this.treeBases.push({ x, y });
+      }
+    }
     const c = place('cafe');
     this.menuBoard = this.prop('prop-menu-board', 246, c.rect.y + c.rect.h + 34);
     const cBase = c.rect.y + c.rect.h;
@@ -283,7 +307,8 @@ export class StreetScene extends Phaser.Scene {
     this.marks = this.add.graphics();
     this.faces = this.add.graphics().setDepth(DEPTH.labels);
     this.night = this.add.graphics().setDepth(DEPTH.night);
-    this.sky = this.add.graphics().setDepth(DEPTH.sky);
+    this.weatherFx = new WeatherFx(this, DEPTH.sky);
+    this.animals = new Animals(this, this.hooks.sim.residents, this.treeBases);
     for (const shop of this.shops) {
       // Одно правило для всех помещений: подпись по центру здания, на краю крыши
       const x = shop.sprite.x;
@@ -496,8 +521,17 @@ export class StreetScene extends Phaser.Scene {
     this.handleEvents();
     this.drawCafe();
     this.drawNight();
-    this.drawSky(time);
+    // Животные и погода живут в реальном времени, но замирают на паузе и не носятся на ускорении
+    const live = realSeconds * Math.min(this.hooks.getSpeed(), 1.5);
+    this.drawSky(time, live);
     this.drawPeople(time);
+    this.animals.update(live, {
+      residents: this.hooks.sim.residents,
+      night: darkness(this.hooks.sim.minute) / MAX_DARK,
+      rain: this.fxKind() === 'rain',
+      snow: this.fxKind() === 'snow',
+      trees: this.treeBases,
+    });
     this.traffic.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
     this.updateSound();
     this.hooks.onFrame();
@@ -740,30 +774,22 @@ export class StreetScene extends Phaser.Scene {
     }
   }
 
-  /** Погода: оттенок улицы и капли дождя */
-  private drawSky(time: number): void {
-    const kind = this.hooks.sim.weather.kind;
-    const g = this.sky;
-    g.clear();
-    const tint: Record<string, [number, number]> = {
-      rain: [0x4d5f7a, 0.16],
-      cloudy: [0x7d8a99, 0.1],
-      hot: [0xffa040, 0.08],
-    };
-    const t = tint[kind];
-    if (t) {
-      g.fillStyle(t[0], t[1]);
-      g.fillRect(0, MAP.top, WORLD.width, MAP.height);
-    }
-    if (kind === 'rain') {
-      g.lineStyle(2, 0xc9d6ea, 0.55);
-      const fall = (time / 4) % WORLD.height;
-      for (let i = 0; i < 70; i++) {
-        const x = (i * 97) % WORLD.width;
-        const y = ((i * 211) % WORLD.height + fall) % WORLD.height;
-        g.lineBetween(x, y, x - 6, y + 18);
-      }
-    }
+  /** Погода для картинки. ?weather=snow|rain|cloudy|hot|sunny и ?wind=0|1|2 — посмотреть без ожидания */
+  private fxKind(): FxKind {
+    return WEATHER_OVERRIDE.kind ?? this.hooks.sim.weather.kind;
+  }
+
+  private fxWind(): WindLevel {
+    return WEATHER_OVERRIDE.wind ?? this.hooks.sim.weather.wind ?? 0;
+  }
+
+  /** Погода: оттенок, дождь, снег, листья и качание деревьев */
+  private drawSky(time: number, dt: number): void {
+    const cam = this.cameras.main;
+    const wind = this.fxWind();
+    this.weatherFx.update(dt, time, this.fxKind(), wind, cam.worldView, this.px / cam.zoom, new Phaser.Geom.Rectangle(0, MAP.top, WORLD.width, MAP.height));
+    const amp = [0.006, 0.016, 0.035][wind];
+    for (const t of this.trees) t.img.setRotation(Math.sin(time / (wind === 2 ? 520 : 900) + t.phase) * amp + (wind === 2 ? amp * 0.4 : 0));
   }
 
   private label(x: number, y: number, text: string, size: number, bold: boolean): Phaser.GameObjects.Text {

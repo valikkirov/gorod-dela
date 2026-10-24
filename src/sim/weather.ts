@@ -8,6 +8,25 @@ export interface Weather {
   kind: WeatherKind;
   /** °C днём */
   temp: number;
+  /** Ветер: 0 — тихо, 1 — ветерок, 2 — ветрено. Пока только для картинки и прогноза. */
+  wind?: WindLevel;
+}
+
+export type WindLevel = 0 | 1 | 2;
+
+export const WIND_LABEL: Record<WindLevel, string> = { 0: 'тихо', 1: 'ветерок', 2: 'ветрено' };
+
+/**
+ * Ветер в день: из seed и номера дня, без общего генератора погоды — так он не сдвигает
+ * последовательность погоды и баланс. В дождь ветрено чаще.
+ */
+export function windFor(seed: number, day: number, kind: WeatherKind): WindLevel {
+  let h = (seed * 374761393 + day * 668265263) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  const u = (h >>> 0) / 4294967296;
+  const [strong, any] = kind === 'rain' ? [0.35, 0.75] : kind === 'hot' ? [0.08, 0.35] : [0.15, 0.5];
+  return u < strong ? 2 : u < any ? 1 : 0;
 }
 
 export const WEATHER_LABEL: Record<WeatherKind, string> = {

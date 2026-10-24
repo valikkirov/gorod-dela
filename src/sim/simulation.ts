@@ -15,7 +15,7 @@ import { Rival, RIVAL, type RivalSave } from './rival';
 import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type Regular } from './regulars';
 import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
 import { card, EVENTS, resultLine, supplierPrice, type EventId, type PendingEvent } from './events';
-import { rollWeather, type Weather } from './weather';
+import { rollWeather, windFor, type Weather } from './weather';
 import {
   entrancesOf,
   nearestFront,
@@ -171,8 +171,8 @@ export class Simulation {
     this.day = dayNumber(startTime);
     this.cafe.today = Cafe.emptyDay(this.day);
     // Первый день — ясно, дальше как повезёт
-    this.weather = { kind: 'sunny', temp: 21 };
-    this.forecast = rollWeather(this.skyRng, this.weather);
+    this.weather = { kind: 'sunny', temp: 21, wind: 0 };
+    this.forecast = this.rollForecast(this.day + 1);
     this.residents = generateResidents(this.rng, seed);
     this.regulars = pickRegulars(this.residents);
     for (const g of this.regulars) this.regularById.set(g.residentId, g);
@@ -972,7 +972,7 @@ export class Simulation {
     report.weather = this.weather;
     // Новый день: погода из прогноза, новый прогноз, будни или выходные
     this.weather = this.forecast;
-    this.forecast = rollWeather(this.skyRng, this.weather);
+    this.forecast = this.rollForecast(nextDay + 1);
     report.forecast = this.weather;
     // Выручка и закупка уже прошли через кассу — списываем постоянные расходы и налог
     this.cash -= report.rent + report.utilities + report.wages + report.tax;
@@ -1394,6 +1394,12 @@ export class Simulation {
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
     this.note('hall', 'Зал', undefined, `комплектация «${preset(id).name}»`);
     return true;
+  }
+
+  /** Погода на день: вид и температура — из генератора погоды, ветер — из seed и дня */
+  private rollForecast(day: number): Weather {
+    const w = rollWeather(this.skyRng, this.weather);
+    return { ...w, wind: windFor(this.seed, day, w.kind) };
   }
 
   /** Будни или выходные: каждому жителю — расписание на сегодня */
