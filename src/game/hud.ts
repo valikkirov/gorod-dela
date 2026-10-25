@@ -195,6 +195,14 @@ const OPEN_OPTIONS = Array.from({ length: 25 }, (_, i) => hm(6) + i * 30); // 06
 // 14:00…04:00 следующего дня: после 24:00 — работа через полночь
 const CLOSE_OPTIONS = Array.from({ length: 15 }, (_, i) => hm(14) + i * 60);
 const ALL_DAY = 'all-day';
+/** Откуда узнали о точке — иконка */
+const AWARE_ICON: Record<AwareSource, string> = {
+  start: 'aware-start',
+  walk: 'aware-walk',
+  flyers: 'mk-flyers',
+  social: 'mk-social',
+  word: 'mk-word',
+};
 /** «Состав: вода, молотый кофе из зёрен, …» — пока только описание */
 const compositionLine = (id: string): string => {
   const list = compositionOf(id);
@@ -1477,7 +1485,7 @@ export class Hud {
           ? `<div class="meter"><i style="width:${Math.min(100, Math.round((done / target) * 100))}%"></i></div>`
           : '';
       return `<li class="milestone ${reached !== undefined ? 'done' : ''}">
-        <div class="row"><b class="grow">${reached !== undefined ? '✓ ' : ''}${m.title}</b>${progress}</div>
+        <div class="row">${namedIcon(`ms-${m.id}`, 'icon ms')}<b class="grow">${reached !== undefined ? '✓ ' : ''}${m.title}</b>${progress}</div>
         <small>${m.hint}${now && reached === undefined ? ` · ${now}` : ''}${opens ? ` · открывает: ${opens.name.toLowerCase()}` : ''}</small>
         ${bar}
       </li>`;
@@ -1494,7 +1502,7 @@ export class Hud {
             : `<button class="small" data-action="buy-upgrade" data-item="${u.id}" ${st === 'money' ? 'disabled' : ''}>${
                 st === 'money' ? `Не${NB}хватает денег` : `Купить за${NB}${money(u.cost)}`
               }</button>`;
-      return `<li class="upgrade"><div class="row"><b class="grow">${u.name}</b>${badge}</div><small>${u.effect}</small>${control}</li>`;
+      return `<li class="upgrade"><div class="row">${namedIcon(`eq-${u.id}`)}<b class="grow">${u.name}</b>${badge}</div><small>${u.effect}</small>${control}</li>`;
     }).join('');
     const count = Object.keys(sim.milestones).length;
     return `
@@ -1584,8 +1592,8 @@ export class Hud {
     const disc = [0, 0.1, 0.2, 0.3]
       .map((d) => `<option value="${d}" ${(happy?.discount ?? 0) === d ? 'selected' : ''}>${d === 0 ? 'выкл.' : `−${d * 100}${NB}%`}</option>`)
       .join('');
-    const channel = (title: string, note: string, control: string) =>
-      `<li><div class="grow"><b>${title}</b><small>${note}</small></div>${control}</li>`;
+    const channel = (title: string, note: string, control: string, icon: string) =>
+      `<li>${namedIcon(icon)}<div class="grow"><b>${title}</b><small>${note}</small></div>${control}</li>`;
     return `
       <div class="aware">
         <div class="row"><span class="grow">Знают о${NB}кафе</span><b data-live="aware"></b></div>
@@ -1598,11 +1606,13 @@ export class Hud {
           'Вывеска',
           `Прохожие замечают кафе втрое чаще. Разово ${money(MARKETING.signCost)}`,
           mk.sign ? '<span class="badge on">висит</span>' : `<button class="small" data-action="sign">Повесить</button>`,
+          'mk-sign',
         )}
         ${channel(
           `Листовки у${NB}метро`,
           `Утром и${NB}вечером — узнают офисные. ${money(MARKETING.flyersPerDay)} в${NB}день`,
           `<button class="small ${mk.flyers ? 'ghost' : ''}" data-action="flyers">${mk.flyers ? 'Остановить' : 'Раздавать'}</button>`,
+          'mk-flyers',
         )}
         ${channel(
           'Соцсети',
@@ -1610,12 +1620,13 @@ export class Hud {
           mk.socialDaysLeft > 0
             ? `<span class="badge on">ещё ${mk.socialDaysLeft}${NB}дн.</span>`
             : `<button class="small" data-action="social">Запустить</button>`,
+          'mk-social',
         )}
-        ${channel('Сарафан', `Постоянные гости сами рассказывают соседям и${NB}коллегам. Бесплатно`, '<span class="badge on">работает</span>')}
+        ${channel('Сарафан', `Постоянные гости сами рассказывают соседям и${NB}коллегам. Бесплатно`, '<span class="badge on">работает</span>', 'mk-word')}
       </ul>
       <h4>Акции</h4>
       <ul class="menu">
-        <li><div class="grow"><b>Счастливые часы</b><small>Скидка на${NB}всё меню в${NB}выбранное время — чтобы заполнить пустые часы</small>
+        <li>${namedIcon('mk-happy')}<div class="grow"><b>Счастливые часы</b><small>Скидка на${NB}всё меню в${NB}выбранное время — чтобы заполнить пустые часы</small>
           <div class="row hours happy">
             <select data-action="happy-from" aria-label="С">${opt(happy?.from ?? hm(15))}</select><span>—</span>
             <select data-action="happy-to" aria-label="До">${opt(happy?.to ?? hm(17))}</select>
@@ -1625,6 +1636,7 @@ export class Hud {
           'Карта лояльности',
           `Каждый ${MARKETING.loyaltyEvery}-й кофе в${NB}подарок. Постоянные возвращаются чаще и${NB}охотнее рассказывают о${NB}тебе`,
           `<button class="small ${mk.loyaltyCard ? 'ghost' : ''}" data-action="card">${mk.loyaltyCard ? 'Выключить' : 'Включить'}</button>`,
+          'mk-loyalty',
         )}
       </ul>
       <p class="wages">Сегодня на${NB}маркетинг: <b data-live="mkt"></b></p>`;
@@ -2011,7 +2023,7 @@ export class Hud {
       .join('');
     const learnedEntries = (Object.entries(r.newAware) as [AwareSource, number][]).filter(([src]) => src !== 'start');
     const learnedTotal = learnedEntries.reduce((x, [, n]) => x + n, 0);
-    const learned = learnedEntries.map(([src, n]) => `<li><span>${AWARE_LABEL[src]}</span><b>${n}</b></li>`).join('');
+    const learned = learnedEntries.map(([src, n]) => `<li>${namedIcon(AWARE_ICON[src], 'icon mini')}<span>${AWARE_LABEL[src]}</span><b>${n}</b></li>`).join('');
     const spoiled = (Object.entries(r.writtenOffItems) as [IngredientId, number][])
       .map(([id, q]) => `${INGREDIENTS.find((i) => i.id === id)!.name.toLowerCase()} ${q}`)
       .join(', ');
