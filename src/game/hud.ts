@@ -33,6 +33,7 @@ import { LOAN, LOAN_LABEL, LOAN_TERMS, totalInterest, weeklyPayment, type LoanSo
 import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, summarize, type Period, type PeriodKind } from '../sim/periods';
 import { iconImg, namedIcon } from './icons';
 import { compositionOf } from '../sim/composition';
+import { placeInterior, portrait } from './portraits';
 import { cookable, dailyUse, daysLeft, ingredientOrder, usedIn, USE_DAYS } from '../sim/stockView';
 import { BASES, base as dishBase, addIn as dishAddIn, defaultDishName, dishId, dishPrep, MAX_ADDINS, MAX_OWN, type AddInId, type BaseId } from '../sim/dishes';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
@@ -43,7 +44,6 @@ import { statusText, type Regular } from '../sim/regulars';
 import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
 import type { Simulation } from '../sim/simulation';
 import { place, type Place } from '../sim/world';
-import { RESIDENT_COLOR, toCss } from './palette';
 import { clearSave, exportSave, importSave } from './save';
 import { openFeedback } from './feedback';
 import { showTutorial } from './tutorial';
@@ -851,14 +851,14 @@ export class Hud {
         <i class="place-dot place-${p.kind}"></i>
         <div><b>${title}</b><small>${sub}</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button>
-      </div>`;
+      </div>${placeInterior(p)}`;
     const people = (list: Resident[], title: string) =>
       list.length
         ? `<h5>${title}</h5><div class="people">${list
             .slice(0, 24)
             .map(
               (r) =>
-                `<button class="person${sim.cafe.opened && !r.aware ? ' unaware' : ''}" data-action="face" data-item="${r.id}" title="${r.name}"><i style="background:${toCss(RESIDENT_COLOR[r.kind as ResidentKind])}"></i>${r.name.split(' ')[0]}</button>`,
+                `<button class="person${sim.cafe.opened && !r.aware ? ' unaware' : ''}" data-action="face" data-item="${r.id}" title="${r.name}">${portrait(r, !!sim.regularOf(r.id))}${r.name.split(' ')[0]}</button>`,
             )
             .join('')}${list.length > 24 ? `<small>и${NB}ещё ${list.length - 24}</small>` : ''}</div>`
         : '';
@@ -1446,7 +1446,7 @@ export class Hud {
         const fav = itemName(r.favorites[g.usual]);
         const cls = g.status === 'regular' ? 'on' : g.status === 'lost' ? 'neg' : '';
         return `<li class="face" data-action="face" data-item="${r.id}">
-          <i style="background:${toCss(RESIDENT_COLOR[r.kind])}"></i>
+          ${portrait(r, true, 'md')}
           <div class="grow"><b>${r.name}</b><small>${g.trait} · любит: ${fav.toLowerCase()}</small></div>
           <span class="badge ${cls}">${statusText(g.status, r.name)}</span>
         </li>`;
@@ -2031,7 +2031,7 @@ export class Hud {
       .slice(0, 5)
       .map(
         ([kind, n, reason]) =>
-          `<li><i style="background:${toCss(RESIDENT_COLOR[kind])}"></i><span>${KIND_LABEL[kind]}</span><small>${REJECT_LABEL[reason].toLowerCase()}</small><b>${n}</b></li>`,
+          `<li>${namedIcon(`job-${kind}`, 'icon mini')}<span>${KIND_LABEL[kind]}</span><small>${REJECT_LABEL[reason].toLowerCase()}</small><b>${n}</b></li>`,
       )
       .join('');
     const changes = (r.changes ?? []).map((c) => this.changeRow(c)).join('');
@@ -2158,7 +2158,7 @@ export class Hud {
       .join('');
     return `
       <div class="card-head">
-        <i style="background:${toCss(RESIDENT_COLOR[r.kind as ResidentKind])}"></i>
+        ${portrait(r, !!reg, 'lg')}
         <div><b>${r.name}</b><small>${KIND_LABEL[r.kind]}</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button>
       </div>

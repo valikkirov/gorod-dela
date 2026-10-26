@@ -2550,3 +2550,68 @@ small.comp {
 .hall.mini .hall-piece {
   cursor: default;
 }
+
+/* Портреты жителей: лицо в ободке цвета типа, значок занятия в углу */
+.portrait {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--ring, #ccc);
+}
+.portrait img.face {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center 30%;
+}
+.portrait img.job {
+  position: absolute;
+  right: -6px;
+  bottom: -4px;
+  width: 45%;
+  height: 45%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1.5px #fff);
+}
+.portrait.sm {
+  width: 22px;
+  height: 22px;
+}
+.portrait.md {
+  width: 40px;
+  height: 40px;
+}
+.portrait.lg {
+  width: 52px;
+  height: 52px;
+  margin-right: 8px;
+}
+.person .portrait.sm {
+  margin: -1px 0;
+}
+.person {
+  padding-left: 4px;
+}
+.faces li .portrait {
+  margin-right: 4px;
+}
+
+/* Здание изнутри: широкая полоса под заголовком карточки */
+.place-interior {
+  margin: 10px 0 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 16 / 8;
+  background: #efe7da;
+}
+.place-interior img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.12);
+}
