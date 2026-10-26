@@ -2527,3 +2527,26 @@ small.comp {
 .milestone.done img.icon.ms {
   filter: none;
 }
+
+/* Комплектации зала: миниатюра слева, описание справа */
+.menu.presets .preset {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  column-gap: 12px;
+  align-items: start;
+}
+.menu.presets .preset > :not(.hall) {
+  grid-column: 2;
+}
+.hall.mini {
+  grid-row: 1 / span 3;
+  width: 132px;
+  margin: 2px 0 0;
+  border-radius: 8px;
+  overflow: hidden;
+  pointer-events: none;
+  background-color: #efe7da;
+}
+.hall.mini .hall-piece {
+  cursor: default;
+}

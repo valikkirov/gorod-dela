@@ -93,7 +93,7 @@ function fullness(sim: Simulation): '' | 'half' | 'full' {
   return now * 2 <= seats ? 'half' : 'full';
 }
 
-function pieceHtml(slot: string, f: FurnitureId, state: string, rug: boolean, sel: boolean): string {
+function pieceHtml(slot: string, f: FurnitureId, state: string, rug: boolean, sel: boolean, live = true): string {
   const base = `${slot}-${f}`;
   const withState = state && SEATED.includes(f) && HALL_FRAMES[`${base}-${state}`] ? `${base}-${state}` : base;
   const name = rug && HALL_FRAMES[`${withState}~rug`] ? `${withState}~rug` : withState;
@@ -103,7 +103,18 @@ function pieceHtml(slot: string, f: FurnitureId, state: string, rug: boolean, se
   // Слой: коврик внизу, стены за мебелью, остальное — чем ниже на полу, тем ближе
   const z = slot === 'rug' ? 1 : slot.startsWith('wall') ? 2 : 10 + y + h;
   const style = `left:${pct(x, HALL_ROOM.w)};top:${pct(y, HALL_ROOM.h)};width:${pct(w, HALL_ROOM.w)};z-index:${z}`;
-  return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(name)}" alt="${furniture(f).name}" data-action="hall-slot" data-item="${slot}" style="${style}">`;
+  const act = live ? ` data-action="hall-slot" data-item="${slot}"` : '';
+  return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(name)}" alt="${live ? furniture(f).name : ''}"${act} style="${style}">`;
+}
+
+/** Миниатюра комплектации: тот же зал из тех же кусков, без кнопок и гостей */
+function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
+  const rug = layout.rug === 'rug';
+  const things = HALL_SLOTS.map(({ id }) => {
+    const f = layout[id];
+    return f ? pieceHtml(id, f, '', rug, false, false) : '';
+  }).join('');
+  return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${things}</div>`;
 }
 
 /** Вкладка целиком; selected — выбранное место для своего дизайна */
@@ -141,6 +152,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
     const cost = hall.presetCost(p.id);
     const label = on ? 'Стоит сейчас' : cost >= 0 ? `Поставить за${NB}${money(cost)}` : `Поставить, вернётся ${money(-cost)}`;
     return `<li class="preset${on ? ' on' : ''}">
+      ${miniHall(p.layout)}
       <div class="row"><b class="grow">${p.name}</b><span class="badge">${facts(probe.seats, probe.cozy)}</span></div>
       <small>${p.hint}</small>
       <button class="small" data-action="hall-preset" data-item="${p.id}" ${on || sim.cash < cost ? 'disabled' : ''}>${
