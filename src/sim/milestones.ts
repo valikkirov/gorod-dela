@@ -111,15 +111,18 @@ export const MILESTONES: Milestone[] = [
 export const milestone = (id: MilestoneId): Milestone => MILESTONES.find((m) => m.id === id)!;
 
 /** 'interior' — старое улучшение, теперь это зал (interior.ts); остаётся ради старых сохранений */
-export type UpgradeId = 'machine' | 'showcase' | 'interior';
+export type UpgradeId = 'machine' | 'showcase' | 'interior' | KioskFitId;
+
+/** Вещи стойки киоска (GDD §13.4, блок 1): покупаются во вкладке «Стойка» */
+export type KioskFitId = 'terminal' | 'board' | 'pastry' | 'shelves' | 'awning';
 
 export interface Upgrade {
   id: UpgradeId;
   name: string;
   cost: number;
   effect: string;
-  /** Какая веха открывает покупку */
-  unlock: MilestoneId;
+  /** Какая веха открывает покупку; нет — доступно сразу */
+  unlock?: MilestoneId;
   /** Где возможно (интерьер — только там, где есть зал) */
   premises: PremisesId[];
 }
@@ -141,7 +144,46 @@ export const UPGRADES: Upgrade[] = [
     unlock: 'week-plus',
     premises: ['cafe', 'kiosk'],
   },
+  // Стойка киоска
+  {
+    id: 'terminal',
+    name: 'Терминал для карт',
+    cost: 5_000,
+    effect: 'Оплата быстрее: на\u00a0гостя −15\u00a0% времени, очередь короче',
+    premises: ['kiosk'],
+  },
+  {
+    id: 'board',
+    name: 'Меню-доска с\u00a0подсветкой',
+    cost: 5_000,
+    effect: 'Прохожие замечают киоск в\u00a01,5 раза чаще, вечером\u00a0— вдвое. Меню видно издалека: заходят охотнее',
+    premises: ['kiosk'],
+  },
+  {
+    id: 'pastry',
+    name: 'Витринка с\u00a0выпечкой на\u00a0стойке',
+    cost: 6_000,
+    effect: 'Выпечка на\u00a0виду: примерно 1\u00a0из\u00a07 гостей докупает её к\u00a0кофе или чаю',
+    premises: ['kiosk'],
+  },
+  {
+    id: 'shelves',
+    name: 'Полки с\u00a0зерном и\u00a0цветок',
+    cost: 4_000,
+    effect: 'Киоск выглядит обжитым: заходят чуть охотнее, постоянными становятся быстрее',
+    premises: ['kiosk'],
+  },
+  {
+    id: 'awning',
+    name: 'Навес над\u00a0окном',
+    cost: 6_000,
+    effect: 'Снаружи. Без навеса в\u00a0дождь у\u00a0окна не\u00a0стоят в\u00a0очереди больше трёх человек',
+    premises: ['kiosk'],
+  },
 ];
+
+/** Порядок на стойке киоска: номер на картинке = место в списке */
+export const KIOSK_FITS: UpgradeId[] = ['terminal', 'board', 'pastry', 'shelves', 'machine', 'showcase', 'awning'];
 
 export const upgrade = (id: UpgradeId): Upgrade => UPGRADES.find((u) => u.id === id)!;
 
@@ -150,4 +192,18 @@ export const UPGRADE_EFFECT = {
   /** Множитель времени приготовления */
   machineService: 0.75,
   showcaseShelfDays: 1,
+  /** Терминал: время на гостя */
+  terminalService: 0.85,
+  /** Доска с подсветкой: во сколько раз чаще замечают днём и вечером (с 17:00) */
+  boardNotice: 1.5,
+  boardNoticeEvening: 2,
+  /** Доска и полки: насколько охотнее заходят те, кто знает о киоске */
+  boardPull: 0.12,
+  shelvesPull: 0.04,
+  /** Витринка: шанс докупить выпечку к кофе или чаю */
+  pastryChance: 0.15,
+  /** Полки: прибавка к привязанности за визит */
+  shelvesLoyalty: 0.05,
+  /** Без навеса в дождь очередь у окна короче на столько человек */
+  rainQueue: 3,
 } as const;

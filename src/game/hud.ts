@@ -34,6 +34,7 @@ import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, sum
 import { iconImg, namedIcon } from './icons';
 import { compositionOf } from '../sim/composition';
 import { placeInterior, portrait } from './portraits';
+import { standTab } from './stand';
 import { cookable, dailyUse, daysLeft, ingredientOrder, usedIn, USE_DAYS } from '../sim/stockView';
 import { BASES, base as dishBase, addIn as dishAddIn, defaultDishName, dishId, dishPrep, MAX_ADDINS, MAX_OWN, type AddInId, type BaseId } from '../sim/dishes';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
@@ -66,7 +67,7 @@ const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
 
 type View = 'cafe' | 'resident' | 'report' | 'place';
-type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'guests' | 'hall' | 'growth';
+type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'guests' | 'hall' | 'stand' | 'growth';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -256,6 +257,8 @@ export class Hud {
   private reportPeriod: 'day' | PeriodKind = 'day';
   /** Раскрыты часы по дням недели */
   private hoursByDay = false;
+  /** Выбранная вещь на стойке киоска */
+  private standPick: UpgradeId | null = null;
   /** Почасовые бариста, у которых раскрыты часы по дням */
   private staffByDay = new Set<number>();
   private reportAt: number | null = null;
@@ -609,6 +612,11 @@ export class Hud {
       case 'face':
         this.selectInScene(sim.residents[Number(item)]);
         return;
+      case 'stand-pick':
+        this.standPick = this.standPick === item ? null : (item as UpgradeId);
+        // Показать строку улучшения под картинкой
+        setTimeout(() => document.getElementById(`fit-${item}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 0);
+        break;
       case 'buy-upgrade':
         if (sim.buyUpgrade(item as UpgradeId)) {
           goal('upgrade', { id: item });
@@ -1058,6 +1066,7 @@ export class Hud {
       ['staff', 'Персонал'],
       ['guests', 'Гости'],
       ...(this.sim.hasHall ? ([['hall', 'Зал']] as [CafeTab, string][]) : []),
+      ...(cafe.premisesId === 'kiosk' ? ([['stand', 'Стойка']] as [CafeTab, string][]) : []),
       ['growth', 'Развитие'],
     ];
     const tabBar = `<nav class="tabs${tabs.length > 6 ? ' tabs-7' : ''}">${tabs
@@ -1098,6 +1107,8 @@ export class Hud {
       body = this.growthTab();
     } else if (this.tab === 'hall') {
       body = hallTab(this.sim, this.hallSlot);
+    } else if (this.tab === 'stand') {
+      body = standTab(this.sim, this.standPick);
     } else {
       body = `
       <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}${cafe.has('machine') ? '3' : '4'}${NB}мин на${NB}гостя. С${NB}бариста — ${cafe.has('machine') ? '1,5' : '2'}${NB}мин, и${NB}обслуживают параллельно.</small>
@@ -1490,15 +1501,17 @@ export class Hud {
         ${bar}
       </li>`;
     }).join('');
+    const kiosk = sim.cafe.premisesId === 'kiosk';
     const ups = UPGRADES.map((u) => {
       const st = sim.upgradeState(u.id);
-      if (st === 'premises') return '';
+      // У киоска улучшения живут во вкладке «Стойка»
+      if (st === 'premises' || kiosk) return '';
       const badge = st === 'owned' ? '<span class="badge on">куплено</span>' : `<span class="badge">${money(u.cost)}</span>`;
       const control =
         st === 'owned'
           ? ''
           : st === 'locked'
-            ? `<small class="lock">Откроется после вехи «${milestone(u.unlock).title}»</small>`
+            ? `<small class="lock">Откроется после вехи «${milestone(u.unlock!).title}»</small>`
             : `<button class="small" data-action="buy-upgrade" data-item="${u.id}" ${st === 'money' ? 'disabled' : ''}>${
                 st === 'money' ? `Не${NB}хватает денег` : `Купить за${NB}${money(u.cost)}`
               }</button>`;
@@ -1509,8 +1522,13 @@ export class Hud {
       <h4>Вехи первой точки · ${count}${NB}из${NB}${MILESTONES.length}</h4>
       <ul class="menu milestones">${ms}</ul>
       <h4>Улучшения</h4>
-      <small>Покупаются один раз и${NB}меняют возможности заведения. Это вложение: в${NB}прибыль дня не${NB}входит, но${NB}из${NB}кассы уходит.</small>
-      <ul class="menu upgrades">${ups}</ul>
+      ${
+        kiosk
+          ? `<small>Улучшения киоска${NB}— во${NB}вкладке «Стойка»: там видно, где что стоит.</small>
+             <button class="secondary" data-action="tab" data-item="stand">Открыть стойку</button>`
+          : `<small>Покупаются один раз и${NB}меняют возможности заведения. Это вложение: в${NB}прибыль дня не${NB}входит, но${NB}из${NB}кассы уходит.</small>
+      <ul class="menu upgrades">${ups}</ul>`
+      }
       ${this.loanBlock()}`;
   }
 

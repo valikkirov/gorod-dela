@@ -2615,3 +2615,49 @@ small.comp {
   object-fit: cover;
   transform: scale(1.12);
 }
+
+/* Стойка киоска: пустая комната и слои вещей друг на друге, номера мест поверх */
+.stand {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  margin: 4px 0 6px;
+}
+.stand img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.stand-pin {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  z-index: 2;
+}
+.stand-pin.owned {
+  background: var(--good);
+}
+.stand-pin.selected {
+  transform: scale(1.25);
+  box-shadow: 0 0 0 3px rgba(217, 100, 63, 0.35);
+}
+.menu.upgrades li.selected {
+  background: #fdf0e9;
+  border-radius: 10px;
+}
+.stand img:first-child {
+  mix-blend-mode: multiply;
+}

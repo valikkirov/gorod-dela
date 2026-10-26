@@ -675,6 +675,10 @@ export class Simulation {
 
   /** Уютный зал тянет: посидеть идут охотнее, чем взять с собой; любимая вещь в зале — ещё немного */
   private cozyPull(r: Resident, want: Want): number {
+    if (this.cafe.premisesId === 'kiosk') {
+      // Стойка киоска: меню видно издалека, обжитый вид тоже тянет
+      return 1 + (this.cafe.has('board') ? UPGRADE_EFFECT.boardPull : 0) + (this.cafe.has('shelves') ? UPGRADE_EFFECT.shelvesPull : 0);
+    }
     if (this.cafe.premisesId !== 'cafe') return 1;
     const hall = this.cafe.interior;
     const sit = want.mode === 'replace';
@@ -708,7 +712,9 @@ export class Simulation {
       if (r.decision) r.decision = { ...r.decision, itemId: alt.id, price: alt.price };
     }
     // Торопливый, зашедший по пути, не встанет в длинную очередь
-    const limit = v.want.mode === 'stopover' ? MAX_QUEUE - Math.round(2 * r.character.hurry) : MAX_QUEUE;
+    let limit = v.want.mode === 'stopover' ? MAX_QUEUE - Math.round(2 * r.character.hurry) : MAX_QUEUE;
+    // У окна киоска под дождём долго не стоят — если нет навеса
+    if (this.cafe.premisesId === 'kiosk' && this.weather.kind === 'rain' && !this.cafe.has('awning')) limit -= UPGRADE_EFFECT.rainQueue;
     if (this.cafe.busy >= limit || !this.cafe.join(r.id, v.itemId)) {
       r.loyalty = Math.max(0, r.loyalty - 0.1);
       this.recall(r, v.itemId, -0.5, ['queue']);
@@ -723,7 +729,11 @@ export class Simulation {
     this.cash += price; // продукты уже оплачены при закупке
     const card = this.marketing.loyaltyCard;
     const hall = this.cafe.premisesId === 'cafe' ? this.cafe.interior : null;
-    const cozy = hall ? hall.cozyLevel * INTERIOR.loyalty + (hall.likes(r.kind) ? INTERIOR.liked : 0) : 0;
+    const cozy = hall
+      ? hall.cozyLevel * INTERIOR.loyalty + (hall.likes(r.kind) ? INTERIOR.liked : 0)
+      : this.cafe.has('shelves')
+        ? UPGRADE_EFFECT.shelvesLoyalty
+        : 0;
     // Как понравилось: вкус, цена, ожидание. Хороший визит привязывает сильнее, плохой — почти нет
     const item = this.cafe.item(itemId);
     const wait = r.visit ? this.time - (r.visit.queuedAt ?? r.visit.since) : 0;
@@ -765,6 +775,23 @@ export class Simulation {
     r.visit.stage = 'dining';
     r.visit.until = this.time + r.visit.want.dwell;
     this.extraOrder(r, itemId);
+    this.pastryImpulse(r, itemId);
+  }
+
+  /** Витринка с выпечкой на стойке киоска: к кофе или чаю иногда берут выпечку */
+  private pastryImpulse(r: Resident, itemId: string): void {
+    if (!this.cafe.has('pastry') || !r.visit) return;
+    const kind = this.cafe.item(itemId).kind;
+    if (kind !== 'coffee' && kind !== 'tea') return;
+    const options = this.cafe.menu.filter((m) => m.kind === 'snack' && this.cafe.stock.canMake(m.id));
+    if (!options.length || !this.rng.chance(UPGRADE_EFFECT.pastryChance)) return;
+    const pick = evaluate(r, { kind: 'snack', mode: 'stopover', dwell: 0 }, options, r.pos, r.pos, r.pos, this.weather.kind).item;
+    if (!pick) return;
+    const price = this.cafe.sellExtra(pick.id, this.minute);
+    if (price > 0) {
+      this.cash += price;
+      this.events.push({ type: 'sale', residentId: r.id, price, itemId: pick.id });
+    }
   }
 
   /** Кто сидит, тот заказывает ещё: вторую кружку в баре, выпечку к кофе, напиток к обеду */
@@ -1319,7 +1346,7 @@ export class Simulation {
     const u = upgrade(id);
     if (this.cafe.has(id)) return 'owned';
     if (!u.premises.includes(this.cafe.premisesId)) return 'premises';
-    if (this.milestones[u.unlock] === undefined) return 'locked';
+    if (u.unlock && this.milestones[u.unlock] === undefined) return 'locked';
     if (this.cash < u.cost) return 'money';
     return 'ok';
   }
@@ -1467,7 +1494,9 @@ export class Simulation {
         r.noticed = true;
         // Любопытный замечает новое место чаще, торопливый — реже
         const look = 1 + 0.8 * (r.character.curiosity - 0.5) - 0.3 * (r.character.hurry - 0.5);
-        const p = (this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase) * look;
+        // Доска с подсветкой у киоска: замечают чаще, особенно вечером
+        const board = this.cafe.has('board') ? (this.minute >= hm(17) ? UPGRADE_EFFECT.boardNoticeEvening : UPGRADE_EFFECT.boardNotice) : 1;
+        const p = (this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase) * look * board;
         if (this.rng.chance(Math.min(1, p))) this.learn(r, 'walk');
       }
     }

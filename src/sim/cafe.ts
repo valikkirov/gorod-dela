@@ -749,7 +749,8 @@ export class Cafe {
   /** Минут на одного гостя у одного «места за стойкой» */
   get serviceMinutes(): number {
     const base = this.baristas > 0 ? 2 : 4;
-    return (this.has('machine') ? base * UPGRADE_EFFECT.machineService : base) * this.serviceFactor;
+    const terminal = this.has('terminal') ? UPGRADE_EFFECT.terminalService : 1;
+    return (this.has('machine') ? base * UPGRADE_EFFECT.machineService : base) * terminal * this.serviceFactor;
   }
 
   get counters(): number {
