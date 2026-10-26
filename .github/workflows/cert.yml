@@ -1,4 +1,4 @@
-# Продление HTTPS для www.gorod-dela.ru (зеркало в Selectel).
+# Продление HTTPS для www.gorod-dela.ru (зеркало в Selectel) и копия сертификата в Yandex для gorod-dela.ru.
 # Let's Encrypt продлевается сам в Менеджере сертификатов, а S3 принимает сертификат только загрузкой:
 # раз в неделю скрипт сравнивает сроки и, если в Менеджере свежее, загружает его в S3 и удаляет старый.
 name: Сертификат Selectel
@@ -35,3 +35,22 @@ jobs:
             exit 0
           fi
           python3 scripts/renew_s3_cert.py
+      # gorod-dela.ru без www — бакет Yandex с переадресацией на www; ему нужна копия того же сертификата
+      - name: Скопировать сертификат в Yandex
+        env:
+          SEL_USER: ${{ secrets.SELECTEL_CERT_USER }}
+          SEL_PASSWORD: ${{ secrets.SELECTEL_CERT_PASSWORD }}
+          SEL_ACCOUNT: '707129'
+          SEL_PROJECT: 50bcfc8b78544fceb9ecb4425075060b
+          YC_KEY: ${{ secrets.YC_CERT_SYNC_KEY }}
+          # Каталог default в облаке gorod-dela
+          YC_FOLDER: b1gso51k1tr20fvd9nvg
+          CERT_DOMAIN: gorod-dela.ru
+          FORCE: ${{ inputs.force && '1' || '0' }}
+        run: |
+          if [ -z "$YC_KEY" ] || [ -z "$SEL_USER" ]; then
+            echo "::notice title=Сертификат::Нет секрета YC_CERT_SYNC_KEY — пропускаю копию в Yandex"
+            exit 0
+          fi
+          pip install --quiet pyjwt cryptography
+          python3 scripts/sync_yc_cert.py
