@@ -1,6 +1,9 @@
+import { isTelegram } from './telegram';
+
 // Яндекс Метрика: где тестеры бросают игру и что выбирают. Счётчик «Город дела».
 // Работает только на боевом сайте — локальная разработка и превью статистику не портят.
 const COUNTER = 113502190;
+
 
 type Ym = (id: number, method: string, ...args: unknown[]) => void;
 
@@ -26,7 +29,8 @@ export function initMetrika(): void {
   s.async = true;
   s.src = 'https://mc.yandex.ru/metrika/tag.js';
   document.head.append(s);
-  ym(COUNTER, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: true });
+  // Откуда играют: сайт или Telegram — параметр визита, отчёты можно делить
+  ym(COUNTER, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true, webvisor: true, params: { platform: isTelegram() ? 'telegram' : 'web' } });
 }
 
 /** Цель в Метрике. Ошибки счётчика никогда не ломают игру */

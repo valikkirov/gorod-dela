@@ -1,4 +1,5 @@
 // «Предложить идею»: текст тестера + контекст игры → в буфер обмена и в Telegram-группу игры.
+import { openExternal } from './telegram';
 import { dayNumber, formatClock, WEEKDAY_SHORT, weekday } from '../sim/clock';
 import { formatMoney } from '../sim/economy';
 import type { Simulation } from '../sim/simulation';
@@ -56,7 +57,7 @@ export function openFeedback(sim: Simulation): void {
       area.select();
     }
     if (FEEDBACK_URL) {
-      window.open(FEEDBACK_URL, '_blank', 'noopener');
+      openExternal(FEEDBACK_URL);
       done.textContent = copied
         ? `Текст скопирован${NB}— вставь его в${NB}группе, в${NB}тему «Идеи» или «Что-то сломалось».`
         : `Скопируй текст выше и${NB}вставь в${NB}группе, в${NB}тему «Идеи» или «Что-то сломалось».`;

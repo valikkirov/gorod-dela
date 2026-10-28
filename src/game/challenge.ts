@@ -1,6 +1,7 @@
 // «Испытание недели»: все играют в один и тот же город (один seed — те же жители, погода и события),
 // итог — касса на конец последнего дня. Результатом можно поделиться в группе.
 // Обычная игра и испытание сохраняются отдельно.
+import { openExternal } from './telegram';
 import { formatMoney, PREMISES } from '../sim/economy';
 import { MILESTONES } from '../sim/milestones';
 import type { Simulation } from '../sim/simulation';
@@ -113,7 +114,7 @@ export function showChallengeResult(r: ChallengeResult, hud: SpeedControl): void
       }
       done.hidden = false;
       goal('challenge_share');
-      window.open(FEEDBACK_URL, '_blank', 'noopener');
+      openExternal(FEEDBACK_URL);
     }
   });
 }

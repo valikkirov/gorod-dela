@@ -6,12 +6,14 @@ import { autosave, loadGame } from './game/save';
 import { showTutorial, tutorialDone } from './game/tutorial';
 import { Simulation } from './sim/simulation';
 import { initMetrika } from './game/metrika';
+import { initTelegram } from './game/telegram';
 import { CHALLENGE, isChallenge, saveKeyFor } from './game/challenge';
 import { Drawer, isWide } from './game/drawer';
 import { sound } from './game/sound';
 import { initSoundPanel } from './game/soundPanel';
 
 initMetrika();
+void initTelegram();
 
 const params = new URLSearchParams(location.search);
 // ?seed=N — новый город с этим seed (без загрузки сохранения); ?challenge — испытание недели
