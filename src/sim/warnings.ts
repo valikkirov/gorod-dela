@@ -65,14 +65,50 @@ export function daysText(days: number[]): string {
   return parts.join(', ');
 }
 
+const cap = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
+
 const fmt = (m: number): string => {
   const x = ((m % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   return `${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')}`;
 };
 
+/** Сколько минут в этот день недели точка открыта без бариста — их стоит владелец */
+export function uncoveredMinutes(cafe: Cafe, d: number): number {
+  const h = cafe.hoursOn(d);
+  if (!h) return 0;
+  const end = Math.min(h.closeAt, h.openAt + MINUTES_PER_DAY);
+  let free = 0;
+  for (let m = h.openAt; m < end; m += 5) {
+    const covered = cafe.staff.some((b) => {
+      if (b.contract === 'shift') return b.schedule.days[d] && m < h.openAt + ECONOMY.shiftHours * 60;
+      const w = windowOn(b.schedule, d);
+      return !!w && m >= w.from && m < w.to;
+    });
+    if (!covered) free += 5;
+  }
+  return free;
+}
+
 /** Часы точки и графики бариста не сходятся */
 export function staffWarnings(cafe: Cafe): string[] {
   const out: string[] = [];
+  // Владелец стоит за стойкой не больше ECONOMY.ownerHours в день
+  const limit = ECONOMY.ownerHours * 60;
+  const over: number[] = [];
+  let most = 0;
+  for (let d = 0; d < 7; d++) {
+    const free = uncoveredMinutes(cafe, d);
+    if (free > limit) {
+      over.push(d);
+      most = Math.max(most, free - limit);
+    }
+  }
+  if (over.length) {
+    const hours = Math.ceil(most / 30) / 2;
+    out.push(
+      `${cap(daysText(over))} без бариста точка открыта дольше, чем ты можешь стоять сам (${ECONOMY.ownerHours}${NB}ч): до${NB}${String(hours).replace('.', ',')}${NB}ч в${NB}день гостей некому обслужить`,
+    );
+  }
   const shiftMin = ECONOMY.shiftHours * 60;
   cafe.staff.forEach((b, i) => {
     const who = cafe.staff.length > 1 ? `Бариста ${i + 1}` : 'Бариста';

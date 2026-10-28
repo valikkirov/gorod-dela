@@ -36,6 +36,7 @@ const REASON_WHY: Record<RejectReason, string> = {
   unaware: `не${NB}знали о${NB}кафе`,
   rival: `ушли к${NB}конкуренту`,
   taste: `не${NB}их вкус`,
+  'no-staff': `некому было обслужить`,
 };
 
 /** Кому: «Студентам дорого» */

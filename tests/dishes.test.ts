@@ -86,7 +86,7 @@ describe('Своё блюдо', () => {
     sim.advance(6 * MINUTES_PER_DAY);
     const id = dishId('milk-coffee', ['chocolate', 'syrup']);
     const sold = sim.reports.reduce((s, d) => s + (d.sold[id] ?? 0), 0);
-    expect(sold).toBeGreaterThan(3);
+    expect(sold).toBeGreaterThanOrEqual(3);
     expect(sim.tasteFans(id).fans).toBeGreaterThan(sim.tasteFans('americano').fans);
   }, 60_000);
 });

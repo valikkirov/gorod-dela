@@ -629,6 +629,8 @@ export class Simulation {
     // Дорога до кафе занимает несколько минут — проверяем с запасом
     else if (!cafe.isOpenAt(minute) || !cafe.isOpenAt(minuteOfDay(minute + 10))) reason = 'closed';
     else if (!r.aware) reason = 'unaware';
+    // Открыто, но за стойкой никого: владелец отработал свои часы, бариста нет — видно издалека
+    else if (cafe.unstaffed) reason = 'no-staff';
     else {
       // Житель видит цены с учётом счастливых часов
       const menu = cafe.menu.filter((m) => !this.blocked(m.kind)).map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
@@ -703,6 +705,7 @@ export class Simulation {
     const v = r.visit;
     if (r.placeId !== this.shopId || v?.stage !== 'going') return;
     if (!this.cafe.isOpenAt(this.minute)) return this.dropVisit(r, 'closed');
+    if (this.cafe.unstaffed) return this.dropVisit(r, 'no-staff');
     // Пришёл, а нужного нет: берёт замену, если есть, иначе уходит недовольным
     if (!this.cafe.stock.canMake(v.itemId) || this.blocked(this.cafe.item(v.itemId).kind)) {
       const available = this.cafe.menu.filter((m) => this.cafe.stock.canMake(m.id) && !this.blocked(m.kind));
@@ -743,7 +746,9 @@ export class Simulation {
     r.memory = remember(r.memory, { day: this.day, itemId, score: rated.score, notes: rated.notes });
     // Средний визит (балл ≈0,15) даёт прежний прирост; отличный — до ×1,5, плохой — ×0,3
     const gain = (card ? 0.15 : 0.1) * Math.min(1.5, Math.max(0.3, 0.9 + 0.6 * rated.score));
-    r.loyalty = Math.max(0, Math.min(card ? 0.5 : 0.4, r.loyalty + gain + cozy));
+    // Уютный зал привязывает сильнее: постоянные гости приходят всё чаще, потолок привязанности выше
+    const cap = (card ? 0.5 : 0.4) + (hall ? INTERIOR.loyaltyCap * hall.cozyLevel : 0);
+    r.loyalty = Math.max(0, Math.min(cap, r.loyalty + gain + cozy));
     r.lastVisit = this.day;
     this.noteRegular(r, true, undefined, itemId);
     // Карта лояльности: каждый N-й кофе — в подарок

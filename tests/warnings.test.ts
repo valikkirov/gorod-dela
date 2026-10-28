@@ -81,3 +81,35 @@ describe('Кредит против недельной прибыли', () => {
     expect(paymentLeft(d, 0)).toBe(7_000);
   });
 });
+
+describe('Владелец за стойкой и широкое меню', () => {
+  it('владелец стоит не больше 12 часов — дальше гостей некому обслужить', () => {
+    const solo = opened();
+    for (const r of solo.residents) r.aware = true;
+    solo.setHours(hm(7), hm(23));
+    expect(staffWarnings(solo.cafe)[0]).toMatch(/некому обслужить/);
+    solo.advance(24 * 60);
+    expect(solo.reports[0].missed['no-staff'] ?? 0).toBeGreaterThan(0);
+    expect(solo.cafe.ownerMinutes).toBe(12 * 60);
+
+    const helped = opened();
+    for (const r of helped.residents) r.aware = true;
+    helped.setHours(hm(7), hm(23));
+    helped.hireBarista('hourly');
+    const b = helped.cafe.staff[0];
+    helped.setStaffSchedule(b.id, { days: [true, true, true, true, true, true, true], from: hm(7), to: hm(11) });
+    expect(staffWarnings(helped.cafe)).toEqual([]);
+    helped.advance(24 * 60);
+    expect(helped.reports[0].missed['no-staff'] ?? 0).toBe(0);
+  });
+
+  it('каждая категория сверх трёх замедляет стойку на 15 %', () => {
+    const sim = opened(); // кофе, выпечка, чай — три категории
+    expect(sim.cafe.menuSlowdown).toBe(1);
+    sim.buyEquipment('stove');
+    sim.buyEquipment('tap');
+    sim.addMenuItem('soup');
+    sim.addMenuItem('beer');
+    expect(sim.cafe.menuSlowdown).toBeCloseTo(1.3, 5);
+  });
+});

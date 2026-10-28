@@ -1,9 +1,8 @@
 // Прогоны стратегий: несколько форматов на одинаковых условиях и разных seed.
-// Запуск: npx vite-node scripts/strategies.ts [дней] [seed-ов] [--nofocus]
+// Запуск: npx vite-node scripts/strategies.ts [дней] [seed-ов] [--only=id,id] [--nomarketing]
 // Игрок в прогоне — «разумный»: вывеска в первый день, закупка подстраивается под расход,
 // оборудование и зал — по формату. Цены — по умолчанию. Больше ничего не трогает.
 import { hm, MINUTES_PER_DAY } from '../src/sim/clock';
-import { FOCUS } from '../src/sim/demand';
 import type { EquipmentId, PremisesId } from '../src/sim/economy';
 import type { PresetId } from '../src/sim/interior';
 import { KIOSK_FITS, upgrade } from '../src/sim/milestones';
@@ -64,7 +63,8 @@ export const STRATEGIES: Strategy[] = [
     menu: ['americano', 'cappuccino', 'latte', 'raf', 'croissant', 'syrniki', 'tea', 'lemonade'],
     preset: 'cozy',
     week: every({ openAt: hm(8), closeAt: hm(21) }),
-    staff: [{ contract: 'shift', from: hm(8), to: hm(20) }],
+    // Владелец — 10 ч, вечер добирает почасовой
+    staff: [{ contract: 'hourly', from: hm(18), to: hm(21) }],
   },
   {
     id: 'evening',
@@ -83,10 +83,8 @@ export const STRATEGIES: Strategy[] = [
     menu: ['americano', 'cappuccino', 'croissant', 'sandwich', 'soup', 'lunch', 'tea', 'beer'],
     equipment: ['stove', 'tap'],
     week: every({ openAt: hm(7), closeAt: hm(23) }),
-    staff: [
-      { contract: 'shift', from: hm(7), to: hm(19) },
-      { contract: 'hourly', from: hm(17), to: hm(23) },
-    ],
+    // Утро — бариста на пик, остальное — владелец
+    staff: [{ contract: 'hourly', from: hm(7), to: hm(13) }],
   },
   {
     id: 'kiosk',
@@ -94,23 +92,23 @@ export const STRATEGIES: Strategy[] = [
     premises: 'kiosk',
     menu: ['americano', 'cappuccino', 'latte', 'croissant', 'tea'],
     week: every({ openAt: hm(7), closeAt: hm(20) }),
-    staff: [],
+    staff: [{ contract: 'hourly', from: hm(7), to: hm(10) }],
     kioskFits: true,
   },
 ];
 
 // Варианты: те же форматы без наёмного бариста (за стойкой сам владелец)
-for (const id of ['togo', 'cozy', 'evening', 'all']) {
+for (const id of ['togo', 'cozy', 'all', 'kiosk', 'evening', 'lunch']) {
   const b = STRATEGIES.find((x) => x.id === id)!;
   STRATEGIES.push({ ...b, id: `${id}-solo`, name: `${b.name} (сам)`, staff: [] });
 }
 STRATEGIES.push({ ...STRATEGIES.find((x) => x.id === 'kiosk')!, id: 'kiosk-bare-solo', name: 'Киоск без стойки', kioskFits: false });
+// Сильная, но тяжёлая для владельца альтернатива: всё сразу с бариста на смене
 STRATEGIES.push({
-  ...STRATEGIES.find((x) => x.id === 'kiosk')!,
-  id: 'kiosk-8-solo',
-  name: 'Киоск 8–20 без стойки',
-  kioskFits: false,
-  week: every({ openAt: hm(8), closeAt: hm(20) }),
+  ...STRATEGIES.find((x) => x.id === 'all')!,
+  id: 'all-shift-solo',
+  name: 'Всё сразу, смена',
+  staff: [{ contract: 'shift', from: hm(7), to: hm(19) }],
 });
 
 export interface RunResult {
@@ -222,7 +220,6 @@ function main(): void {
   const args = process.argv.slice(2);
   const days = Number(args.find((a) => /^\d+$/.test(a)) ?? 42);
   const seeds = Number(args.filter((a) => /^\d+$/.test(a))[1] ?? 4);
-  if (args.includes('--nofocus')) FOCUS.breadth = [1, 1, 1, 1] as unknown as typeof FOCUS.breadth;
   const only = args.find((a) => a.startsWith('--only='))?.slice(7).split(',');
   const rows: string[] = [];
   const all: RunResult[] = [];
@@ -271,7 +268,7 @@ function main(): void {
       ].join(' │ '),
     );
   }
-  console.log(`Дней: ${days}, seed: 1…${seeds}${args.includes('--nofocus') ? ', БЕЗ коэффициента формата' : ''}`);
+  console.log(`Дней: ${days}, seed: 1…${seeds}`);
   console.log(
     [
       'Формат'.padEnd(17),
@@ -291,4 +288,4 @@ function main(): void {
   if (args.includes('--json')) console.log(JSON.stringify(all));
 }
 
-main();
+if (!process.env.NO_MAIN) main();

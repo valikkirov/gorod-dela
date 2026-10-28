@@ -201,23 +201,19 @@ export function evaluate(
 }
 
 /**
- * Понятный формат привлекает сильнее: «кофейня», «бар», «столовая» лучше, чем «всё подряд».
- * Узкое меню (1–2 категории) — плюс, 4–5 категорий — минус; выбор внутри категории (3+ позиции) — плюс.
+ * Выбор внутри категории (3+ позиции) привлекает: за кофе идут туда, где есть из чего выбрать.
+ * Скрытого штрафа за широкое меню нет — у него видимая цена: стойка медленнее (Cafe.menuSlowdown),
+ * больше запасов и списаний, оборудование.
  */
 export const FOCUS = {
   /** Базовая охота зайти у незнакомого с кафе жителя (лояльность прибавляется) */
   base: 1.0,
-  /** Множитель за число категорий в меню: 1–2, 3, 4, 5 */
-  breadth: [1.4, 1.2, 0.85, 0.6],
   /** За выбор внутри категории (3+ позиции) */
-  depth: 1.15,
+  depth: 1.3,
 };
 
 export function focusFactor(menu: MenuItem[], kind: ItemKind): number {
-  const categories = new Set(menu.map((m) => m.kind)).size;
-  const depth = menu.filter((m) => m.kind === kind).length;
-  const breadth = FOCUS.breadth[Math.min(3, Math.max(0, categories - 2))];
-  return breadth * (depth >= 3 ? FOCUS.depth : 1);
+  return menu.filter((m) => m.kind === kind).length >= 3 ? FOCUS.depth : 1;
 }
 
 /** Почему житель не зашёл — объясняем честно, без «дорого» при нормальной цене */

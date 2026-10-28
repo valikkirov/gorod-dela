@@ -150,6 +150,7 @@ const REASON_BECAUSE: Partial<Record<RejectReason, string>> = {
   'out-of-stock': 'закончились продукты',
   rival: 'выбрали конкурента',
   taste: `не${NB}по${NB}вкусу`,
+  'no-staff': `некому было обслужить`,
 };
 
 /** «студентам», «молодёжи» — кому блюдо по вкусу */
@@ -183,6 +184,7 @@ const REASON_HINT: Record<RejectReason, string> = {
   mood: `Цена и${NB}дорога устраивали, но${NB}не${NB}каждый день хочется в${NB}кафе. Постоянные гости заходят чаще`,
   rival: `Готовы были зайти, но${NB}выбрали конкурента: у${NB}него дешевле, ближе по${NB}пути или нужная позиция`,
   taste: `Цена и${NB}дорога устраивали, но${NB}в${NB}меню не${NB}нашлось ничего на${NB}их вкус. Посмотри, что любят твои гости, в${NB}их карточках`,
+  'no-staff': `Точка открыта, но${NB}за${NB}стойкой никого: ты отстоял свои ${ECONOMY.ownerHours}${NB}ч, а${NB}бариста не${NB}было. Найми бариста на${NB}эти часы или сократи часы работы`,
 };
 
 const USUAL: Record<WantKind, string> = {
@@ -963,6 +965,7 @@ export class Hud {
     this.live.revenue = money(today.revenue);
     this.live.queue = String(this.sim.guestsInside);
     this.live.wages = money(cafe.wagesSoFar);
+    this.live['owner-hours'] = (Math.floor(cafe.ownerMinutes / 6) / 10).toFixed(1).replace('.', ',');
 
     const items = cafe.menu
       .map((m) => {
@@ -1115,7 +1118,8 @@ export class Hud {
       body = standTab(this.sim, this.standPick);
     } else {
       body = `
-      <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}${cafe.has('machine') ? '3' : '4'}${NB}мин на${NB}гостя. С${NB}бариста — ${cafe.has('machine') ? '1,5' : '2'}${NB}мин, и${NB}обслуживают параллельно.</small>
+      <small>Когда бариста нет, за${NB}стойкой ты сам${NB}— бесплатно, но${NB}${cafe.has('machine') ? '3' : '4'}${NB}мин на${NB}гостя и${NB}не${NB}больше ${ECONOMY.ownerHours}${NB}ч в${NB}день. С${NB}бариста${NB}— ${cafe.has('machine') ? '1,5' : '2'}${NB}мин, и${NB}обслуживают параллельно, а${NB}ты отдыхаешь.</small>
+      <p class="hint-line">Сегодня ты за${NB}стойкой: <b data-live="owner-hours"></b> из${NB}${ECONOMY.ownerHours}${NB}ч</p>
       ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
       <ul class="menu staff">${staffRows}</ul>
       ${
@@ -1362,11 +1366,13 @@ export class Hud {
   private focusLine(): string {
     const n = new Set(this.sim.cafe.menu.map((m) => m.kind)).size;
     const word = n === 1 ? 'категория' : n <= 4 ? 'категории' : 'категорий';
-    const k = FOCUS.breadth[Math.min(3, Math.max(0, n - 2))];
-    const pct = (x: number): string => `${x >= 1 ? '+' : '−'}${Math.round(Math.abs(x - 1) * 100)}${NB}%`;
-    const deep = `Если в${NB}категории 3+${NB}позиции${NB}— на${NB}неё ещё ${pct(FOCUS.depth)}`;
-    const mood = n <= 2 ? 'понятный' : n === 3 ? 'обычный' : 'размытый';
-    return `Формат ${mood}: ${n}${NB}${word}${NB}— гости заходят ${k >= 1 ? 'охотнее' : 'реже'} (${pct(k)}). Узкое меню привлекает сильнее, «всё подряд»${NB}— слабее. ${deep}`;
+    const slow = Math.round((this.sim.cafe.menuSlowdown - 1) * 100);
+    const deep = `Где в${NB}категории 3+${NB}позиции, за${NB}ней заходят охотнее (+${Math.round((FOCUS.depth - 1) * 100)}${NB}%)${NB}— есть из${NB}чего выбрать.`;
+    const pace =
+      slow > 0
+        ? `${n}${NB}${word} в${NB}меню: стойка работает медленнее на${NB}${slow}${NB}%${NB}— каждая категория сверх трёх добавляет 15${NB}%.`
+        : `${n}${NB}${word} в${NB}меню. Больше трёх${NB}— и${NB}стойка начнёт работать медленнее.`;
+    return `${pace} ${deep}`;
   }
 
   /** Бариста: статус, дни недели, для почасового — часы и разовый вызов */

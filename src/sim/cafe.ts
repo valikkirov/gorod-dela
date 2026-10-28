@@ -38,7 +38,8 @@ export type RejectReason =
   | 'out-of-stock'
   | 'unaware'
   | 'rival'
-  | 'taste';
+  | 'taste'
+  | 'no-staff';
 
 export const REJECT_LABEL: Record<RejectReason, string> = {
   'not-open': 'Кафе ещё не открыто',
@@ -53,6 +54,7 @@ export const REJECT_LABEL: Record<RejectReason, string> = {
   unaware: 'Не знает о кафе',
   rival: 'Ушёл к конкуренту',
   taste: 'Не\u00a0его вкус',
+  'no-staff': 'Некому обслужить',
 };
 
 export interface DayReport {
@@ -173,6 +175,8 @@ export const CATALOG: readonly MenuItem[] = [
 export const DEFAULT_MENU_IDS = ['americano', 'cappuccino', 'latte', 'croissant', 'tea'];
 export const MAX_MENU = 8;
 export const MAX_QUEUE = 6;
+/** На сколько каждая категория меню сверх трёх замедляет обслуживание */
+export const MENU_SLOWDOWN = 0.15;
 
 /** Категория позиции каталога или своего блюда */
 export function kindOf(id: string): ItemKind {
@@ -346,6 +350,8 @@ export interface CafeSave {
   prepUntil?: number;
   /** Название, которое дал игрок */
   name?: string | null;
+  /** Сколько минут владелец уже простоял за стойкой с открытия */
+  ownerMinutes?: number;
   /** Свои блюда — и те, что сейчас в меню, и убранные */
   own?: MenuItem[];
 }
@@ -375,6 +381,8 @@ export class Cafe {
   customName: string | null = null;
   /** Временное замедление (сломалась одна из двух кофемашин) — выставляет симуляция */
   serviceFactor = 1;
+  /** Сколько минут владелец простоял за стойкой с открытия: дольше ECONOMY.ownerHours не может */
+  ownerMinutes = 0;
   /** До этой минуты дня стойка занята большим заказом и новых гостей не берёт */
   prepUntil = -1;
   /** Цена в момент продажи (счастливые часы) — подставляет симуляция */
@@ -420,6 +428,7 @@ export class Cafe {
       prepUntil: this.prepUntil,
       name: this.customName,
       own: this.own,
+      ownerMinutes: this.ownerMinutes,
     };
   }
 
@@ -447,6 +456,7 @@ export class Cafe {
     this.today = d.today;
     this.wagesToday = d.wagesToday;
     this.lastPaidMinute = d.lastPaidMinute;
+    this.ownerMinutes = d.ownerMinutes ?? 0;
     this.stock.load(d.stock);
     this.upgrades = [...(d.upgrades ?? [])];
     // Сохранения до оборудования: что уже продаётся — то оборудование и стоит
@@ -750,11 +760,28 @@ export class Cafe {
   get serviceMinutes(): number {
     const base = this.baristas > 0 ? 2 : 4;
     const terminal = this.has('terminal') ? UPGRADE_EFFECT.terminalService : 1;
-    return (this.has('machine') ? base * UPGRADE_EFFECT.machineService : base) * terminal * this.serviceFactor;
+    return (this.has('machine') ? base * UPGRADE_EFFECT.machineService : base) * terminal * this.serviceFactor * this.menuSlowdown;
+  }
+
+  /** Широкое меню медленнее готовить: каждая категория сверх трёх — +15 % ко времени на гостя */
+  get menuSlowdown(): number {
+    const categories = new Set(this.menu.map((m) => m.kind)).size;
+    return 1 + MENU_SLOWDOWN * Math.max(0, categories - 3);
+  }
+
+  /** Владелец отстоял своё за день */
+  get ownerTired(): boolean {
+    return this.ownerMinutes >= ECONOMY.ownerHours * 60;
+  }
+
+  /** Сейчас за стойкой никого: бариста нет, а владелец уже отработал свои часы */
+  get unstaffed(): boolean {
+    return this.baristas === 0 && this.ownerTired;
   }
 
   get counters(): number {
-    return Math.max(1, this.baristas);
+    if (this.baristas > 0) return this.baristas;
+    return this.ownerTired ? 0 : 1;
   }
 
   get busy(): number {
@@ -834,7 +861,10 @@ export class Cafe {
         b.shiftPaid = false;
         b.shiftActive = b.schedule.days[this.weekday];
       }
+      this.ownerMinutes = 0;
     }
+    // Нет бариста — за стойкой владелец, пока не отработал свои часы
+    if (this.baristas === 0 && !this.ownerTired) this.ownerMinutes += 1;
     const night = isNightMinute(whole) ? ECONOMY.nightBonus : 0;
     const shiftHourly = ECONOMY.shiftWage / (ECONOMY.shiftHours * 60);
     for (const b of this.staff) {
