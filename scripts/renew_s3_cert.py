@@ -199,7 +199,8 @@ def main() -> None:
     full = full.strip()
 
     # 4. Загрузка в S3 и ожидание проверки
-    name = f"gorod-dela-{new_end:%Y%m%d}"
+    # S3 принимает в имени только латиницу, цифры и «_»
+    name = f"gorod_dela_{new_end:%Y%m%d}"
     created = request('POST', S3_SSL_URL, t, {'name': name, 'certificate': full, 'private_key': key})
     new_id = (created or {}).get('id')
     log(f'Загружен {name} (id {new_id}), жду проверки…')

@@ -37,6 +37,8 @@ jobs:
           python3 scripts/renew_s3_cert.py
       # gorod-dela.ru без www — бакет Yandex с переадресацией на www; ему нужна копия того же сертификата
       - name: Скопировать сертификат в Yandex
+        # Копия в Yandex не зависит от того, получилось ли с S3
+        if: ${{ !cancelled() }}
         env:
           SEL_USER: ${{ secrets.SELECTEL_CERT_USER }}
           SEL_PASSWORD: ${{ secrets.SELECTEL_CERT_PASSWORD }}
