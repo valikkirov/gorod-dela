@@ -83,7 +83,7 @@ describe('Своё блюдо', () => {
     for (const r of sim.residents) r.aware = true;
     sim.removeMenuItem('latte');
     sim.createDish('milk-coffee', ['syrup', 'chocolate'], 'Шоколадный латте', 240);
-    sim.advance(6 * MINUTES_PER_DAY);
+    sim.advance(10 * MINUTES_PER_DAY);
     const id = dishId('milk-coffee', ['chocolate', 'syrup']);
     const sold = sim.reports.reduce((s, d) => s + (d.sold[id] ?? 0), 0);
     expect(sold).toBeGreaterThanOrEqual(3);

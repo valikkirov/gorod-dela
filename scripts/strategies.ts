@@ -61,10 +61,10 @@ export const STRATEGIES: Strategy[] = [
     name: 'Районная кофейня',
     premises: 'cafe',
     menu: ['americano', 'cappuccino', 'latte', 'raf', 'croissant', 'syrniki', 'tea', 'lemonade'],
-    preset: 'cozy',
-    week: every({ openAt: hm(8), closeAt: hm(21) }),
-    // Владелец — 10 ч, вечер добирает почасовой
-    staff: [{ contract: 'hourly', from: hm(18), to: hm(21) }],
+    preset: 'premium',
+    week: every({ openAt: hm(8), closeAt: hm(20) }),
+    // Владелец — 12 ч, бариста на вечерний пик, когда зал полный
+    staff: [{ contract: 'hourly', from: hm(17), to: hm(20) }],
   },
   {
     id: 'evening',

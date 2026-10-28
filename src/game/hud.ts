@@ -2141,7 +2141,7 @@ export class Hud {
         ${r.loanFine ? row('Штраф за${NB}просрочку (к${NB}долгу)', -r.loanFine) : ''}
         ${row('В кассе', r.cashAfter, 'cash')}
       </table>
-      <small>Себестоимость проданного: ${money(r.cogs)}${r.extras ? ` · дозаказов: ${r.extras}` : ''}${
+      <small>Себестоимость проданного: ${money(r.cogs)}${r.extras ? ` · дозаказов: ${r.extras}` : ''}${r.company ? ` · пришли с${NB}постоянными: ${r.company}` : ''}${
         r.writtenOff ? ` · списано (испортилось): ${money(r.writtenOff)} — ${spoiled}` : ''
       }</small>`
           : ''

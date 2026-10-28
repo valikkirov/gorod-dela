@@ -7,7 +7,7 @@ import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from 
 import { evaluate, rejectReason, rollWant, type Want } from './demand';
 import { ECONOMY, EQUIPMENT, formatMoney, PREMISES, type EquipmentId, type PremisesId } from './economy';
 import { rateVisit, remember, type Memory } from './character';
-import { currentEntry, generateResidents, type Resident, type ResidentKind, type ScheduleEntry } from './residents';
+import { currentEntry, generateResidents, isFemale, type Resident, type ResidentKind, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
 import { INGREDIENTS, ingredient, recipeCost, recipeOf, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
@@ -779,8 +779,47 @@ export class Simulation {
     }
     r.visit.stage = 'dining';
     r.visit.until = this.time + r.visit.want.dwell;
+    this.bringCompany(r, itemId);
     this.extraOrder(r, itemId);
     this.pastryImpulse(r, itemId);
+  }
+
+  /**
+   * Постоянный гость сел в зале и привёл коллегу, соседа или друга. Чем уютнее зал, тем чаще.
+   * Тот узнаёт о кафе, заказывает по своему вкусу и сам немного привязывается.
+   */
+  private bringCompany(r: Resident, itemId: string): void {
+    if (this.cafe.premisesId !== 'cafe' || r.loyalty < LOYAL) return;
+    const hall = this.cafe.interior;
+    if (this.seated() >= hall.seats) return;
+    if (!this.rng.chance(INTERIOR.companyBase + INTERIOR.companyCozy * hall.cozyLevel)) return;
+    const near = (o: Resident): 'work' | 'home' | 'kind' | null =>
+      r.workId !== null && o.workId === r.workId ? 'work' : o.homeId === r.homeId && r.homeId !== 'metro' ? 'home' : o.kind === r.kind ? 'kind' : null;
+    const options = this.residents.filter((o) => o.id !== r.id && !o.visit && !o.rivalVisit && near(o) !== null);
+    if (!options.length) return;
+    const friend = this.rng.pick(options);
+    const kind = this.cafe.item(itemId).kind;
+    const menu = this.cafe.menu.filter((m) => m.kind === kind && this.cafe.stock.canMake(m.id) && !this.blocked(m.kind));
+    const pick = evaluate(friend, { kind, mode: 'replace', dwell: 0 }, menu, r.pos, r.pos, r.pos, this.weather.kind).item;
+    if (!pick) return;
+    const price = this.cafe.sellExtra(pick.id, this.minute);
+    if (price <= 0) return;
+    const t = this.cafe.today;
+    t.extras = Math.max(0, (t.extras ?? 1) - 1);
+    t.guests += 1;
+    t.company = (t.company ?? 0) + 1;
+    this.cash += price;
+    if (!friend.aware) this.learn(friend, 'word');
+    friend.loyalty = Math.min(0.4, friend.loyalty + 0.05);
+    friend.lastVisit = this.day;
+    this.events.push({ type: 'sale', residentId: friend.id, price, itemId: pick.id });
+    // Знакомое лицо — история в отчёт
+    if (this.regularById.has(r.id)) {
+      const f = isFemale(friend.name);
+      const who = { work: 'коллегу', home: f ? 'соседку' : 'соседа', kind: f ? 'подругу' : 'друга' }[near(friend)!];
+      const first = r.name.split(' ')[0];
+      (t.news ??= []).push(`${first} ${isFemale(r.name) ? 'привела' : 'привёл'} ${who}${NB}— ${friend.name.split(' ')[0]} взял${f ? 'а' : ''} ${pick.name.toLowerCase()}`);
+    }
   }
 
   /** Витринка с выпечкой на стойке киоска: к кофе или чаю иногда берут выпечку */
@@ -998,7 +1037,7 @@ export class Simulation {
     if (this.pendingEvent) this.applyChoice(card(this.pendingEvent).fallback, true);
     this.effects = this.effects.filter((e) => !(e.type === 'boost' && e.day <= this.day) && !(e.type === 'broken' && e.until <= nextDay * MINUTES_PER_DAY - MINUTES_PER_DAY));
     const news = this.updateRegulars();
-    if (news.length) this.cafe.today.news = news;
+    if (news.length) this.cafe.today.news = [...(this.cafe.today.news ?? []), ...news];
     const report = this.cafe.closeDay(nextDay);
     report.weekday = weekday(report.day);
     report.weather = this.weather;
