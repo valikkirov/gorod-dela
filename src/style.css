@@ -2661,3 +2661,32 @@ small.comp {
 .stand img:first-child {
   mix-blend-mode: multiply;
 }
+
+/* Предупреждение до решения: строка под пунктом */
+#panel small.warn {
+  display: block;
+  flex-basis: 100%;
+  margin-top: 4px;
+  color: var(--bad);
+  line-height: 1.3;
+}
+.menu li:has(> small.warn) {
+  flex-wrap: wrap;
+}
+.menu li > small.warn {
+  padding-left: 44px;
+}
+.menu.stock li > small.warn {
+  padding-left: 0;
+}
+.loan-diag {
+  font-size: 13px;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.04);
+}
+.loan-diag.loss {
+  background: #f8dedb;
+  color: var(--bad);
+}

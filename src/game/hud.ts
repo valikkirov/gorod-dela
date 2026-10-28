@@ -29,7 +29,8 @@ import {
 import { analyzeDay, describeLost } from '../sim/analysis';
 import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { ingredient, INGREDIENTS, orderPrice, recipeCost, recipeOf, type IngredientId } from '../sim/stock';
-import { LOAN, LOAN_LABEL, LOAN_TERMS, totalInterest, weeklyPayment, type LoanSource } from '../sim/loans';
+import { cashDiagnosis, LOAN, LOAN_LABEL, LOAN_TERMS, paymentLeft, totalInterest, weeklyPayment, type LoanSource } from '../sim/loans';
+import { menuAddWarning, orderWarning, priceWarning, staffWarnings } from '../sim/warnings';
 import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, summarize, type Period, type PeriodKind } from '../sim/periods';
 import { iconImg, namedIcon } from './icons';
 import { compositionOf } from '../sim/composition';
@@ -38,7 +39,7 @@ import { standTab } from './stand';
 import { cookable, dailyUse, daysLeft, ingredientOrder, usedIn, USE_DAYS } from '../sim/stockView';
 import { BASES, base as dishBase, addIn as dishAddIn, defaultDishName, dishId, dishPrep, MAX_ADDINS, MAX_OWN, type AddInId, type BaseId } from '../sim/dishes';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
-import { WANT_LABEL, type WantKind } from '../sim/demand';
+import { FOCUS, WANT_LABEL, type WantKind } from '../sim/demand';
 import { ECONOMY, EQUIPMENT, equipmentFor, formatMoney, PREMISES, type EquipmentId, type PremisesId } from '../sim/economy';
 import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
 import { statusText, type Regular } from '../sim/regulars';
@@ -209,6 +210,8 @@ const compositionLine = (id: string): string => {
   const list = compositionOf(id);
   return list.length ? `<small class="comp">Состав: ${list.join(', ')}</small>` : '';
 };
+/** Предупреждение до решения: «⚠ …» отдельной строкой под пунктом */
+const warnLine = (text: string | null): string => (text ? `<small class="warn">⚠ ${text}</small>` : '');
 /** «упирается в …» */
 const INGREDIENT_ACC: Record<IngredientId, string> = {
   beans: 'зерно',
@@ -977,7 +980,7 @@ export class Hud {
           </div>
           <button class="icon" data-action="remove-item" data-item="${m.id}" ${cafe.menu.length <= 1 ? 'disabled' : ''}
             aria-label="Убрать из меню">✕</button>
-          ${compositionLine(m.id)}
+          ${compositionLine(m.id)}${warnLine(priceWarning(m))}
         </li>`;
       })
       .join('');
@@ -1001,7 +1004,7 @@ export class Hud {
                         : noEquip
                           ? `<span class="badge">нужно оборудование</span>`
                           : `<button class="small" data-action="add-item" data-item="${c.id}" ${full ? 'disabled' : ''}>Добавить</button>`
-                  }${compositionLine(c.id)}</li>`;
+                  }${compositionLine(c.id)}${inMenu || !fits || noEquip ? '' : warnLine(menuAddWarning(cafe, c.id))}</li>`;
               })
               .join('');
             const legal =
@@ -1089,6 +1092,7 @@ export class Hud {
       ${this.rivalCard()}
       <h4>Часы работы</h4>
       ${hoursBlock()}
+      ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
       ${last ? `<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}
       ${this.restartBlock()}`;
     } else if (this.tab === 'menu') {
@@ -1112,6 +1116,7 @@ export class Hud {
     } else {
       body = `
       <small>Ты сам всегда за${NB}стойкой — бесплатно, но${NB}${cafe.has('machine') ? '3' : '4'}${NB}мин на${NB}гостя. С${NB}бариста — ${cafe.has('machine') ? '1,5' : '2'}${NB}мин, и${NB}обслуживают параллельно.</small>
+      ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
       <ul class="menu staff">${staffRows}</ul>
       ${
         cafe.staff.length < cafe.premises.maxBaristas
@@ -1357,10 +1362,11 @@ export class Hud {
   private focusLine(): string {
     const n = new Set(this.sim.cafe.menu.map((m) => m.kind)).size;
     const word = n === 1 ? 'категория' : n <= 4 ? 'категории' : 'категорий';
-    const deep = `Если в${NB}категории 3+${NB}позиции — к${NB}ней ещё +10${NB}%`;
-    if (n <= 2) return `Формат понятный: ${n}${NB}${word} — гости заходят охотнее (+10${NB}%). ${deep}`;
-    if (n === 3) return `Формат обычный: ${n}${NB}${word}. Узкое меню привлекает сильнее, «всё подряд» — слабее. ${deep}`;
-    return `Формат размытый: ${n}${NB}${word} — гости заходят реже (−${n === 4 ? 10 : 20}${NB}%). ${deep}`;
+    const k = FOCUS.breadth[Math.min(3, Math.max(0, n - 2))];
+    const pct = (x: number): string => `${x >= 1 ? '+' : '−'}${Math.round(Math.abs(x - 1) * 100)}${NB}%`;
+    const deep = `Если в${NB}категории 3+${NB}позиции${NB}— на${NB}неё ещё ${pct(FOCUS.depth)}`;
+    const mood = n <= 2 ? 'понятный' : n === 3 ? 'обычный' : 'размытый';
+    return `Формат ${mood}: ${n}${NB}${word}${NB}— гости заходят ${k >= 1 ? 'охотнее' : 'реже'} (${pct(k)}). Узкое меню привлекает сильнее, «всё подряд»${NB}— слабее. ${deep}`;
   }
 
   /** Бариста: статус, дни недели, для почасового — часы и разовый вызов */
@@ -1549,6 +1555,17 @@ export class Hud {
           <button class="small" data-action="loan-repay" ${sim.cash < l.left ? 'disabled' : ''}>${sim.cash < l.left ? `На${NB}досрочное погашение нужно ${money(l.left)}` : `Погасить досрочно · ${money(l.left)}`}</button>
         </div>`;
     }
+    const diag = cashDiagnosis(sim.reports);
+    const span = `${diag.span}${NB}дн.`;
+    const diagText =
+      diag.kind === 'early'
+        ? `Точка работает меньше трёх дней${NB}— пока не${NB}видно, хватит ли прибыли на${NB}платежи.`
+        : diag.kind === 'profit'
+          ? `За${NB}последние ${span} точка заработала <b>${money(diag.weekProfit)}</b>${
+              diag.invested > 0 ? `, а${NB}${money(diag.invested)} ушло во${NB}вложения. Кредит поможет пережить разрыв, пока они окупаются.` : `${NB}— платить есть из${NB}чего.`
+            }`
+          : `За${NB}последние ${span} точка сама в${NB}минусе: <b>${money(diag.weekProfit)}</b>. Кредит отложит закрытие, но${NB}не${NB}исправит его${NB}— сначала посмотри в${NB}отчёте, почему гости не${NB}заходят.`;
+    const diagBlock = `<p class="loan-diag ${diag.kind}">${diagText}</p>`;
     const offers = (['bank', 'private'] as LoanSource[])
       .map((src) => {
         const o = sim.loanOffer(src);
@@ -1559,16 +1576,26 @@ export class Hud {
         const amount = Math.min(o.max, Math.max(t.min, this.loanAmount[src] ?? Math.min(o.max, 30_000)));
         this.loanAmount[src] = amount;
         const extra = totalInterest(src, amount);
+        const pay = weeklyPayment({ source: src, amount });
+        const weekly = pay.principal + pay.interest;
+        const left = paymentLeft(diag, weekly);
+        const fit =
+          left === null
+            ? ''
+            : left >= 0
+              ? `<small>При${NB}прибыли как за${NB}последнюю неделю после платежа останется ${money(left)} в${NB}неделю.</small>`
+              : warnLine(`Платёж ${money(weekly)} в${NB}неделю больше недельной прибыли (${money(left + weekly)})${NB}— платить придётся из${NB}кассы`);
         return `<li class="loan"><div class="row"><b class="grow">${LOAN_LABEL[src]}</b><span class="badge">${terms}</span></div>
             <small>${about} Сейчас дадут до${NB}${money(o.max)}.</small>
             <div class="row"><span class="grow">Сумма</span><div class="stepper">
               <button data-action="loan-down" data-item="${src}" aria-label="Меньше">−</button><span>${money(amount)}</span>
               <button data-action="loan-up" data-item="${src}" aria-label="Больше">+</button></div></div>
             <small>Вернёшь ${money(amount + extra)}: ${t.weeks}${NB}${t.weeks % 10 >= 2 && t.weeks % 10 <= 4 && (t.weeks < 10 || t.weeks > 20) ? 'платежа' : 'платежей'} по${NB}${money(weeklyPayment({ source: src, amount }).principal + weeklyPayment({ source: src, amount }).interest)}, переплата ${money(extra)}.</small>
+            ${fit}
             <button class="small" data-action="loan-take" data-item="${src}">Взять ${money(amount)}</button></li>`;
       })
       .join('');
-    return `${head}<ul class="menu loans">${offers}</ul>`;
+    return `${head}${diagBlock}<ul class="menu loans">${offers}</ul>`;
   }
 
   /** История знакомого лица для карточки жителя */
@@ -1777,6 +1804,7 @@ export class Hud {
         <small class="exp" data-live="stx-${id}"></small>
         <small>${life} · ${money(ing.unitCost)} за${NB}порцию</small>
         <div class="row keep"><small>Держать: будни</small>${keep(false)}<small>вых.</small>${keep(true)}</div>
+        ${warnLine(orderWarning(cafe, id, this.sim.minute))}
         <div class="row orders">
           ${[20, 100, 300]
             .map((n) => `<button class="small" data-action="order" data-item="${id}" data-qty="${n}">+${n} · ${money(orderPrice(id, n))}</button>`)

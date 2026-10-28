@@ -1,6 +1,7 @@
 // Кредит (GDD §8.1, §13.4 блок 13): помощь-толчок, а не образ жизни.
 // Один кредит за раз, новый — после погашения и паузы. Банк смотрит историю и не кредитует убыточную точку,
 // частник даёт всегда, но дорого и не больше двух раз за игру. Проценты — расход дня, возврат долга — нет.
+import type { DayReport } from './cafe';
 
 export type LoanSource = 'bank' | 'private';
 
@@ -85,4 +86,34 @@ export interface Offer {
   /** null — можно, иначе почему нельзя */
   refusal: string | null;
   max: number;
+}
+
+/** Как сейчас с деньгами — чтобы до кредита было видно, поможет ли он */
+export interface CashDiagnosis {
+  /** Сколько дней с открытой точкой посчитано (до 7) и из них рабочих */
+  span: number;
+  days: number;
+  /** Прибыль за эти дни: выручка минус все расходы дня, без вложений */
+  weekProfit: number;
+  /** Вложения за те же дни: оборудование, вещи, улучшения */
+  invested: number;
+  /** profit — точка зарабатывает; loss — точка сама в убытке; early — данных мало */
+  kind: 'profit' | 'loss' | 'early';
+}
+
+export function cashDiagnosis(reports: Pick<DayReport, 'opened' | 'dayOff' | 'profit' | 'invested'>[]): CashDiagnosis {
+  const last = reports.filter((r) => r.opened).slice(-7);
+  const days = last.filter((r) => !r.dayOff).length;
+  const weekProfit = last.reduce((s, r) => s + r.profit, 0);
+  const invested = last.reduce((s, r) => s + (r.invested ?? 0), 0);
+  const kind = days < 3 ? 'early' : weekProfit > 0 ? 'profit' : 'loss';
+  return { span: last.length, days, weekProfit, invested, kind };
+}
+
+/** Платёж в неделю против недельной прибыли: что останется */
+export function paymentLeft(d: CashDiagnosis, payment: number): number | null {
+  if (d.kind === 'early') return null;
+  // Неполная неделя — пересчитываем на 7 дней
+  const perWeek = d.span >= 7 ? d.weekProfit : Math.round((d.weekProfit / Math.max(1, d.span)) * 7);
+  return perWeek - payment;
 }
