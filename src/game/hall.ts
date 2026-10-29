@@ -107,6 +107,17 @@ function pieceHtml(slot: string, f: FurnitureId, state: string, rug: boolean, se
   return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(name)}" alt="${live ? furniture(f).name : ''}"${act} style="${style}">`;
 }
 
+/** Доска с меню на стене: настоящие позиции и цены игрока поверх нарисованной доски */
+const BOARD = { x: 470, y: 60, w: 218, h: 106 };
+const esc = (t: string): string => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+function menuBoard(sim: Simulation | null): string {
+  const items = sim ? sim.cafe.menu : [];
+  const rows = items.map((m) => `<li><span>${esc(m.name)}</span><b>${m.price}</b></li>`).join('');
+  const style = `left:${pct(BOARD.x, HALL_ROOM.w)};top:${pct(BOARD.y, HALL_ROOM.h)};width:${pct(BOARD.w, HALL_ROOM.w)};height:${pct(BOARD.h, HALL_ROOM.h)}`;
+  return `<div class="hall-board" style="${style}" aria-label="Меню на доске"><ul>${rows}</ul></div>`;
+}
+
 /** Миниатюра комплектации: тот же зал из тех же кусков, без кнопок и гостей */
 function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
   const rug = layout.rug === 'rug';
@@ -114,7 +125,7 @@ function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
     const f = layout[id];
     return f ? pieceHtml(id, f, '', rug, false, false) : '';
   }).join('');
-  return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${things}</div>`;
+  return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${menuBoard(null)}${things}</div>`;
 }
 
 /** Вкладка целиком; selected — выбранное место для своего дизайна */
@@ -188,7 +199,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
   }
 
   return `
-    <div class="hall" style="background-image:url(${roomUrl})">${things}</div>
+    <div class="hall" style="background-image:url(${roomUrl})">${menuBoard(sim)}${things}</div>
     ${stats}
     <h4>Готовые комплектации</h4>
     <small>Выбрал${NB}— поставил. Лишнее продаётся за${NB}полцены, совпадающее остаётся.</small>

@@ -5,6 +5,9 @@ import { isDish, parseDish, type BaseId } from '../sim/dishes';
 const FILES = import.meta.glob('./art/icons/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const url = (name: string): string | undefined => FILES[`./art/icons/${name}.webp`];
 
+/** Адрес иконки по имени файла — для сцены карты */
+export const iconUrl = url;
+
 /** Основа своего блюда → иконка похожей позиции */
 const BASE_ICON: Record<BaseId, string> = {
   'milk-coffee': 'latte',

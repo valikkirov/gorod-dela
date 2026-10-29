@@ -14,6 +14,8 @@ import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accesso
 import { Traffic } from './traffic';
 import { sound } from './sound';
 import type { RejectReason } from '../sim/cafe';
+import type { WantKind } from '../sim/demand';
+import { iconUrl } from './icons';
 
 export interface SceneHooks {
   sim: Simulation;
@@ -45,6 +47,23 @@ const REASON_SHORT: Record<RejectReason, string> = {
 };
 
 const FONT = 'Inter, system-ui, sans-serif';
+
+/** Значок причины отказа (иконки из art/icons); нет значка — всплывает слово */
+const REASON_ICON: Partial<Record<RejectReason, string>> = {
+  expensive: 'ms-cushion',
+  'off-route': 'steps',
+  queue: 'mk-happy',
+  'no-time': 'mk-happy',
+  'out-of-stock': 'box',
+};
+/** Чего хотел житель — значок, перечёркнутый, если этого нет в меню */
+const WANT_ICON: Record<WantKind, string> = {
+  coffee: 'kind-coffee',
+  tea: 'kind-tea',
+  snack: 'croissant',
+  lunch: 'lunch',
+  bar: 'beer',
+};
 
 /** Ширина Кленовой с домами: на телефоне по ней подбирается исходный масштаб */
 const KLENOVAYA_WIDTH = 720;
@@ -265,6 +284,12 @@ export class StreetScene extends Phaser.Scene {
 
   preload(): void {
     for (const [key, atlas] of Object.entries(ATLASES)) this.load.image(key, atlas.url);
+    // Значки причин над уходящими жителями — из общего набора иконок
+    const names = new Set([...Object.values(REASON_ICON), ...Object.values(WANT_ICON)]);
+    for (const n of names) {
+      const u = iconUrl(n);
+      if (u) this.load.image(`icon-${n}`, u);
+    }
   }
 
   create(): void {
@@ -609,9 +634,12 @@ export class StreetScene extends Phaser.Scene {
       } else if (e.type === 'reject') {
         const r = sim.residents[e.residentId];
         if (!r.visible) continue;
-        const text =
-          e.reason === 'not-open' ? `хочет ${WANT_LABEL[r.decision?.want ?? 'coffee']}` : REASON_SHORT[e.reason];
-        this.float(r.pos.x, r.pos.y - 52, text, e.reason === 'not-open' ? '#5b6270' : '#c0392b', 18);
+        const want = r.decision?.want ?? 'coffee';
+        const text = e.reason === 'not-open' ? `хочет ${WANT_LABEL[want]}` : REASON_SHORT[e.reason];
+        // Не нашёл в меню — значок того, чего хотел, перечёркнутый; иначе — значок причины, если он есть
+        const icon = e.reason === 'no-item' ? WANT_ICON[want] : REASON_ICON[e.reason];
+        if (icon && this.textures.exists(`icon-${icon}`)) this.floatIcon(r.pos.x, r.pos.y - 60, `icon-${icon}`, text, e.reason === 'no-item');
+        else this.float(r.pos.x, r.pos.y - 52, text, e.reason === 'not-open' ? '#5b6270' : '#c0392b', 18);
       } else if (e.type === 'aware') {
         const r = sim.residents[e.residentId];
         if (r.visible) this.float(r.pos.x, r.pos.y - 52, e.source === 'walk' ? 'заметил кафе' : 'узнал о кафе', '#2f6fb0', 16);
@@ -670,6 +698,43 @@ export class StreetScene extends Phaser.Scene {
       ease: 'Cubic.easeOut',
       onComplete: () => {
         t.destroy();
+        this.floats--;
+      },
+    });
+  }
+
+  /** Значок над жителем: иконка в белом кружке и короткая подпись под ним, всплывает и тает */
+  private floatIcon(x: number, y: number, key: string, text: string, cross: boolean): void {
+    if (this.floats >= 8) return;
+    this.floats++;
+    // Значок ~30 px на экране при любом масштабе
+    const s = Math.max(24, (30 * this.px) / this.view.zoom);
+    const g = this.add.graphics();
+    g.fillStyle(0xffffff, 0.95).fillCircle(0, 0, s * 0.62);
+    g.lineStyle(Math.max(1.5, s * 0.06), 0xc0392b, 1).strokeCircle(0, 0, s * 0.62);
+    const img = this.add.image(0, 0, key).setDisplaySize(s * 0.86, s * 0.86);
+    const parts: Phaser.GameObjects.GameObject[] = [g, img];
+    if (cross) {
+      const c = this.add.graphics();
+      c.lineStyle(Math.max(2, s * 0.09), 0xc0392b, 1).lineBetween(-s * 0.44, s * 0.44, s * 0.44, -s * 0.44);
+      parts.push(c);
+    }
+    const px = Math.round(Math.max(12, (11 * this.px) / this.view.zoom));
+    const label = this.add
+      .text(0, s * 0.62 + px * 0.75, text, { fontFamily: FONT, fontSize: `${px}px`, fontStyle: 'bold', color: '#c0392b', stroke: '#ffffff', strokeThickness: Math.round(px / 3.2) })
+      .setOrigin(0.5)
+      .setResolution(2);
+    parts.push(label);
+    const box = this.add.container(x, y, parts).setDepth(DEPTH.floats);
+    this.tweens.add({
+      targets: box,
+      y: y - 36,
+      alpha: 0,
+      delay: 600,
+      duration: 1500,
+      ease: 'Cubic.easeIn',
+      onComplete: () => {
+        box.destroy();
         this.floats--;
       },
     });

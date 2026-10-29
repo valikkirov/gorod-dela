@@ -504,9 +504,17 @@ body {
 }
 
 .stepper button {
+  position: relative;
   width: 36px;
   font-size: 18px;
   cursor: pointer;
+}
+
+/* Видно 36 px, а нажимается 44: палец не промахивается мимо + и − (гайд UI 2.0) */
+.stepper button::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
 }
 
 .stepper button:disabled {
@@ -2690,4 +2698,45 @@ small.comp {
 .loan-diag.loss {
   background: #f8dedb;
   color: var(--bad);
+}
+
+/* Доска меню в зале: закрывает нарисованные цены, пишет настоящие (до 8 позиций, две колонки) */
+.hall { container-type: inline-size; }
+.hall-board {
+  position: absolute;
+  z-index: 3;
+  padding: 0.9cqw 1.3cqw;
+  background: radial-gradient(ellipse at 40% 35%, #4a3a27, #3e3021 70%);
+  border-radius: 0.3cqw;
+  box-shadow: inset 0 0 0.6cqw rgba(0, 0, 0, 0.45);
+  color: #f3ead8;
+  font: 600 1.02cqw/1.45 'Nunito', 'Rubik', system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.hall-board ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(4, auto);
+  column-gap: 1.6cqw;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.hall-board li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5cqw;
+  min-width: 0;
+}
+.hall-board li span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.hall-board li b {
+  font-weight: 700;
+  color: #fff3d6;
 }
