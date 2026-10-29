@@ -55,6 +55,8 @@ const REASON_ICON: Partial<Record<RejectReason, string>> = {
   queue: 'mk-happy',
   'no-time': 'mk-happy',
   'out-of-stock': 'box',
+  closed: 'reason-closed',
+  rival: 'reason-rival',
 };
 /** Чего хотел житель — значок, перечёркнутый, если этого нет в меню */
 const WANT_ICON: Record<WantKind, string> = {
@@ -256,6 +258,8 @@ export class StreetScene extends Phaser.Scene {
   private terrace!: Phaser.GameObjects.Image;
   /** Улучшения и события, видимые на улице */
   private noCoffee!: Phaser.GameObjects.Image;
+  /** Навес над киоском — появляется на улице, когда куплен на стойке */
+  private kioskAwning: Phaser.GameObjects.Image | null = null;
   private tent!: Phaser.GameObjects.Image;
   /** Свет ночью: пятна под фонарями и от витрин */
   private pools: Phaser.GameObjects.Image[] = [];
@@ -772,6 +776,7 @@ export class StreetScene extends Phaser.Scene {
     this.terrace.setVisible(mineId === 'cafe' || rival?.placeId === 'cafe');
     const broken = sim.effects.some((e) => e.type === 'broken' && !e.slow && sim.time < e.until);
     this.noCoffee.setVisible(mineId === 'cafe' && broken);
+    this.kioskAwning?.setVisible(mineId === 'kiosk' && cafe.has('awning'));
     this.tent.setVisible(sim.effects.some((e) => e.type === 'boost' && e.day === sim.today));
 
     // Гости в витринах; когда закрыто — свет в окнах погашен
@@ -992,6 +997,14 @@ export class StreetScene extends Phaser.Scene {
         .setDepth(base);
       const art = PREMISES_ART[p.id];
       if (art) this.shops.push({ place: p, sprite: img } as Shop);
+      if (p.id === 'kiosk') {
+        this.kioskAwning = this.add
+          .image(cx, base + BASE_SHIFT, textureOf('building-kiosk-awning'), 'building-kiosk-awning')
+          .setOrigin(0.5, 1)
+          .setScale(1 / ART_SCALE)
+          .setDepth(base + 0.3)
+          .setVisible(false);
+      }
       const lightFrame = art ? art.lights : `${sprite}-lights`;
       const light = this.add
         .image(cx, base + BASE_SHIFT, textureOf(lightFrame), lightFrame)
