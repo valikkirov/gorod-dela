@@ -2748,3 +2748,384 @@ small.comp {
   z-index: 2;
   pointer-events: none;
 }
+
+/* ═══════════════ UI 2.1 (Figma «UI 2.1 / Сравнения») ═══════════════
+   Бумага и дерево: тёплые нейтрали, один тёмный главный CTA, спокойная активная вкладка,
+   статусы словами на приглушённых фонах, касса нейтральная — цветом только результат. */
+:root {
+  --bg: #f3ebdb;
+  --panel: #fbf6ec;
+  --card: #fffcf5;
+  --sunken: #e7dbc3;
+  --line: #d6c6a6;
+  --ink: #2f2721;
+  --muted: #7a6e62;
+  --accent: #c2552f;
+  --accent-text: #a8462a;
+  --cta: #b0482b;
+  --cta-press: #923a22;
+  --wood-dark: #4e321d;
+  --inverse: #fffcf5;
+  --tab-active-bg: #f5e1cf;
+  --tab-indicator: #b7492c;
+  --good: #317044;
+  --good-subtle: #e2efdf;
+  --bad: #a9362f;
+  --bad-subtle: #f6dfda;
+  --warn: #8a5a12;
+  --warn-subtle: #fbecc8;
+  --font-ui: 'Nunito', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-head: 'Rubik', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-ui);
+}
+
+#panel h4,
+#panel h5,
+.biz-name,
+.biz-name b,
+.tabs button,
+button.primary,
+button.secondary,
+button.small,
+.badge,
+.kpis b,
+#clock b,
+#cash,
+.sheet b {
+  font-family: var(--font-head);
+}
+
+/* 01 · Кнопки: один главный CTA тёмной терракотой, остальные — спокойные */
+button.primary {
+  background: var(--cta);
+  color: var(--inverse);
+  font-weight: 600;
+  box-shadow: 0 2px 0 var(--cta-press);
+}
+button.primary:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 var(--cta-press);
+}
+button.secondary {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--ink);
+  font-weight: 600;
+}
+button.small {
+  min-height: 36px;
+  border-color: var(--line);
+  background: var(--card);
+  color: var(--accent-text);
+  font-weight: 500;
+}
+button.small:not(:disabled):hover {
+  border-color: var(--accent-text);
+}
+button.small.danger {
+  color: var(--bad);
+}
+
+/* 02 · Вкладки: раздел, а не кнопка — кремовая подложка и терракотовая линия снизу */
+.tabs {
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 8px 0 12px;
+  padding: 0 0 10px;
+}
+.tabs.tabs-7 {
+  grid-template-columns: repeat(4, 1fr);
+}
+.tabs button {
+  position: relative;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.tabs button:hover:not(.active) {
+  border: 0;
+  background: var(--sunken);
+}
+.tabs button.active {
+  border: 0;
+  background: var(--tab-active-bg);
+  color: var(--accent-text);
+}
+.tabs button.active::after {
+  content: '';
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tab-indicator);
+}
+.tabs button.more::before {
+  content: '';
+}
+.tabs-more {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+.tabs-more button {
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font: 500 14px var(--font-head);
+  cursor: pointer;
+}
+.tabs-more button.active {
+  border-color: var(--tab-indicator);
+  background: var(--tab-active-bg);
+  color: var(--accent-text);
+}
+
+/* 03 · Статусы словами: тёмный текст на приглушённом фоне */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--sunken);
+  color: var(--ink);
+  font-weight: 500;
+}
+.badge::first-letter {
+  text-transform: uppercase;
+}
+.badge.on {
+  background: var(--good-subtle);
+  color: var(--good);
+}
+.badge.neg {
+  background: var(--bad-subtle);
+  color: var(--bad);
+}
+.badge.warn {
+  background: var(--warn-subtle);
+  color: var(--warn);
+}
+
+/* 06 · Касса нейтральная: зелёный и красный — только у результата */
+#cash {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  color: var(--ink);
+  line-height: 1.15;
+}
+#cash small {
+  color: var(--muted);
+  font: 400 11px var(--font-ui);
+}
+#cash b {
+  font-weight: 600;
+}
+#cash.neg b {
+  color: var(--bad);
+}
+
+/* 07 · Шапка: время слева, скорость одной кнопкой, касса справа */
+#topbar {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+#speeds {
+  gap: 6px;
+  align-items: center;
+}
+.speed-pill {
+  display: flex;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--wood-dark);
+  overflow: hidden;
+}
+#speeds .speed-pill button {
+  min-width: 44px;
+  height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--inverse);
+  font: 500 14px var(--font-head);
+}
+#speeds .speed-pill button + button {
+  border-left: 1px solid rgba(255, 252, 245, 0.18);
+}
+#speeds .speed-pill button.paused {
+  background: var(--cta);
+}
+#speeds button.skip {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--muted);
+}
+
+/* 04 · Строка меню: сначала информация, правка по нажатию */
+.menu.items li.item {
+  display: block;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--card);
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+.menu.items li.item.open {
+  border-color: var(--accent-text);
+}
+.item-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 74px;
+  padding: 12px 14px 12px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.item-head .tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--sunken);
+}
+.item-head .tile img.icon {
+  width: 34px;
+  height: 34px;
+  margin: 0;
+}
+.item-head .info {
+  flex: 1;
+  min-width: 0;
+}
+.item-head .info b {
+  display: block;
+  font: 500 15px var(--font-head);
+  color: var(--ink);
+}
+.item-head .info small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.item-head .price {
+  font: 500 16px var(--font-head);
+  white-space: nowrap;
+}
+.item-head .chev {
+  width: 16px;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+.item-body {
+  padding: 0 13px 13px;
+}
+.item-body .price-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.item-body .price-row b {
+  flex: 1;
+  font-size: 14px;
+}
+.item-body .stepper {
+  gap: 10px;
+}
+.item-body .stepper button {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  background: var(--card);
+  color: var(--accent-text);
+  font: 500 22px var(--font-head);
+}
+.item-body .stepper button::before {
+  inset: 0;
+}
+.item-body .stepper span {
+  min-width: 56px;
+  font: 500 17px var(--font-head);
+}
+.item-body .margin {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: 7px;
+  background: var(--good-subtle);
+  color: var(--good);
+  font-size: 12px;
+}
+.item-body .margin.thin {
+  background: var(--warn-subtle);
+  color: var(--warn);
+}
+.item-body .margin.neg {
+  background: var(--bad-subtle);
+  color: var(--bad);
+}
+.item-body .margin b {
+  font-weight: 700;
+}
+.item-body small.comp,
+.item-body small.warn {
+  padding-left: 0;
+  margin-top: 8px;
+}
+.item-body .item-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.item-body .item-actions button.link {
+  color: var(--bad);
+  font-size: 13px;
+}
+
+/* 05 · Карточка события: последствие до кнопок */
+.event-stake {
+  margin: 10px 0 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--warn-subtle);
+  color: var(--warn);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.menu-head h4 {
+  margin: 0;
+}

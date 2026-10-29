@@ -26,6 +26,7 @@ export function showEventCard(sim: Simulation, hud: SpeedControl, onDone: () => 
       <div class="event-icon">${c.icon}</div>
       <b>${c.title}</b>
       <p>${c.text}</p>
+      ${c.stake ? `<p class="event-stake">${c.stake}</p>` : ''}
       <div class="event-options">
         ${c.options
           .map(

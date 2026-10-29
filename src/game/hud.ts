@@ -280,6 +280,10 @@ export class Hud {
   private transfer = false;
   private transferError = '';
   private tab: CafeTab = 'overview';
+  /** Раскрыта строка «Ещё» с редкими вкладками */
+  private moreOpen = false;
+  /** Какая позиция меню раскрыта для правки цены */
+  private openItem: string | null = null;
   /** Выбранное место в зале (свой дизайн) */
   private hallSlot: string | null = null;
   /** Какое событие уже показали карточкой — второй раз сама не всплывает */
@@ -291,15 +295,23 @@ export class Hud {
     private readonly selectInScene: (r: Resident) => void = () => {},
     private readonly challenge = false,
   ) {
+    // Скорость — одна тёмная кнопка из двух половин: пауза/пуск и ×1 → ×2 → ×4 по кругу (UI 2.1)
     const speeds = $('#speeds');
-    for (const s of SPEEDS) {
-      const b = document.createElement('button');
-      b.textContent = s === 0 ? '❚❚' : `×${s}`;
-      b.title = s === 0 ? 'Пауза' : `Скорость ×${s}`;
-      b.dataset.speed = String(s);
-      b.addEventListener('click', () => this.setSpeed(s));
-      speeds.append(b);
-    }
+    const pill = document.createElement('div');
+    pill.className = 'speed-pill';
+    const pause = document.createElement('button');
+    pause.dataset.role = 'pause';
+    pause.addEventListener('click', () => this.setSpeed(this.speed === 0 ? this.lastSpeed : 0));
+    const cycle = document.createElement('button');
+    cycle.dataset.role = 'cycle';
+    cycle.title = 'Скорость: ×1, ×2, ×4';
+    cycle.addEventListener('click', () => {
+      const run = SPEEDS.filter((v) => v > 0);
+      // На паузе — просто продолжить; иначе — следующая скорость
+      this.setSpeed(this.speed === 0 ? this.lastSpeed : run[(run.indexOf(this.speed as (typeof run)[number]) + 1) % run.length]);
+    });
+    pill.append(pause, cycle);
+    speeds.append(pill);
     // Промотать до 6:00 утра: ночь и пустые часы не нужно ждать
     const skip = document.createElement('button');
     skip.textContent = '⏭';
@@ -337,10 +349,23 @@ export class Hud {
 
   setSpeed(s: number): void {
     this.speed = this.sim.bankrupt ? 0 : s;
-    document.querySelectorAll<HTMLButtonElement>('#speeds button').forEach((b) => {
-      b.classList.toggle('active', Number(b.dataset.speed) === this.speed);
-    });
+    if (this.speed > 0) this.lastSpeed = this.speed;
+    const pause = document.querySelector<HTMLButtonElement>('#speeds [data-role="pause"]');
+    const cycle = document.querySelector<HTMLButtonElement>('#speeds [data-role="cycle"]');
+    if (pause) {
+      pause.textContent = this.speed === 0 ? '▶' : '❚❚';
+      pause.title = this.speed === 0 ? 'Продолжить' : 'Пауза';
+      pause.setAttribute('aria-label', pause.title);
+      pause.classList.toggle('paused', this.speed === 0);
+    }
+    if (cycle) {
+      cycle.textContent = `×${this.lastSpeed}`;
+      cycle.setAttribute('aria-label', `Скорость ×${this.lastSpeed}, нажми, чтобы сменить`);
+    }
   }
+
+  /** Скорость до паузы — с неё продолжаем */
+  private lastSpeed = 1;
 
   select(r: Resident | null): void {
     this.selected = r;
@@ -396,7 +421,9 @@ export class Hud {
     const dayText = !this.challenge ? `День ${day}` : day <= CHALLENGE.days ? `День ${day} из${NB}${CHALLENGE.days}` : `День ${day} · итог записан`;
     const clock = `<b>${WEEKDAY_SHORT[weekday(day)]} · ${formatClock(this.sim.time)}</b><small>${dayText} · ${weatherShort(this.sim.weather)}</small>`;
     if (this.clock.innerHTML !== clock) this.clock.innerHTML = clock;
-    this.cash.textContent = money(this.sim.cash);
+    // Касса нейтральная: цветом только минус (UI 2.1, «касса не равна прибыли»)
+    const cash = `<small>В${NB}кассе</small><b>${money(this.sim.cash)}</b>`;
+    if (this.cash.innerHTML !== cash) this.cash.innerHTML = cash;
     const note = streetNote(this.sim.minute, isWeekend(day));
     if (this.note.innerHTML !== note) this.note.innerHTML = note;
     this.cash.classList.toggle('neg', this.sim.cash < 0);
@@ -443,6 +470,9 @@ export class Hud {
         sim.setPrice(it.id, it.price + (action === 'price-up' ? 1 : -1) * ECONOMY.priceStep);
         break;
       }
+      case 'item-toggle':
+        this.openItem = this.openItem === item ? null : item ?? null;
+        break;
       case 'remove-item':
         sim.removeMenuItem(item!);
         break;
@@ -532,7 +562,11 @@ export class Hud {
         break;
       case 'tab':
         this.tab = item as CafeTab;
+        this.moreOpen = false;
         this.panel.scrollTop = 0;
+        break;
+      case 'tab-more':
+        this.moreOpen = !this.moreOpen;
         break;
       case 'expand':
         this.onExpand();
@@ -971,19 +1005,35 @@ export class Hud {
       .map((m) => {
         this.live[`sold-${m.id}`] = String(today.sold[m.id] ?? 0);
         this.live[`oos-${m.id}`] = cafe.stock.canMake(m.id) ? '' : ` · нет в${NB}наличии`;
+        const isOpen = this.openItem === m.id;
+        const margin = m.price - m.cost;
+        const marginCls = margin <= 0 ? ' neg' : margin < m.price * 0.3 ? ' thin' : '';
+        const taste = itemTaste(m.id);
         return `
-        <li>
-          ${iconImg(m.id)}
-          <div class="grow"><b>${m.name}</b>
-            <small>${itemTaste(m.id) ? `${itemTaste(m.id)} · ` : ''}по${NB}вкусу ${this.sim.tasteFans(m.id).fans} · себестоимость ${money(m.cost)} · продано <span data-live="sold-${m.id}"></span><span class="oos" data-live="oos-${m.id}"></span></small></div>
-          <div class="stepper">
-            <button data-action="price-down" data-item="${m.id}" aria-label="Дешевле">−</button>
-            <span>${money(m.price)}</span>
-            <button data-action="price-up" data-item="${m.id}" aria-label="Дороже">+</button>
-          </div>
-          <button class="icon" data-action="remove-item" data-item="${m.id}" ${cafe.menu.length <= 1 ? 'disabled' : ''}
-            aria-label="Убрать из меню">✕</button>
-          ${compositionLine(m.id)}${warnLine(priceWarning(m))}
+        <li class="item${isOpen ? ' open' : ''}">
+          <button class="item-head" data-action="item-toggle" data-item="${m.id}" aria-expanded="${isOpen}">
+            <span class="tile">${iconImg(m.id)}</span>
+            <span class="info"><b>${m.name}</b>
+              <small>Продано <span data-live="sold-${m.id}"></span> · себест.${NB}${money(m.cost)}<span class="oos" data-live="oos-${m.id}"></span></small></span>
+            <span class="price">${money(m.price)}</span>
+            <span class="chev" aria-hidden="true">${isOpen ? '⌃' : '⌄'}</span>
+          </button>
+          ${
+            isOpen
+              ? `<div class="item-body">
+            <div class="price-row"><b>Цена продажи</b>
+              <div class="stepper">
+                <button data-action="price-down" data-item="${m.id}" aria-label="Дешевле">−</button>
+                <span>${money(m.price)}</span>
+                <button data-action="price-up" data-item="${m.id}" aria-label="Дороже">+</button>
+              </div></div>
+            <p class="margin${marginCls}"><span>Маржа с${NB}${m.kind === 'coffee' ? 'чашки' : 'продажи'}: <b>${margin > 0 ? '+' : ''}${money(margin)}</b></span><span>Шаг цены ${money(ECONOMY.priceStep)}</span></p>
+            <small class="comp">${taste ? `${taste} · ` : ''}по${NB}вкусу ${this.sim.tasteFans(m.id).fans}</small>
+            ${compositionLine(m.id)}${warnLine(priceWarning(m))}
+            <div class="item-actions"><button class="link" data-action="remove-item" data-item="${m.id}" ${cafe.menu.length <= 1 ? 'disabled' : ''}>Убрать из${NB}меню</button></div>
+          </div>`
+              : ''
+          }
         </li>`;
       })
       .join('');
@@ -1005,7 +1055,7 @@ export class Hud {
                       : !fits
                         ? `<span class="badge">не${NB}здесь</span>`
                         : noEquip
-                          ? `<span class="badge">нужно оборудование</span>`
+                          ? `<span class="badge warn">нужно оборудование</span>`
                           : `<button class="small" data-action="add-item" data-item="${c.id}" ${full ? 'disabled' : ''}>Добавить</button>`
                   }${compositionLine(c.id)}${inMenu || !fits || noEquip ? '' : warnLine(menuAddWarning(cafe, c.id))}</li>`;
               })
@@ -1019,7 +1069,7 @@ export class Hud {
             const equip =
               eq && fitsKind
                 ? cafe.equipment.includes(eq.id)
-                  ? `<p class="equip on"><b>${eq.name}</b> <span class="badge on">есть</span></p>`
+                  ? `<p class="equip on"><b>${eq.name}</b> <span class="badge on">установлено</span></p>`
                   : `<p class="equip"><span class="grow">Нужна покупка: <b>${eq.name}</b>. Свет и${NB}вода +${eq.utilitiesPerHour}${NB}₽ за${NB}час работы</span>
                       <button class="small" data-action="buy-equipment" data-item="${eq.id}" ${this.sim.cash < eq.cost ? 'disabled' : ''}>${money(eq.cost)}</button></p>`
                 : '';
@@ -1075,9 +1125,18 @@ export class Hud {
       ...(cafe.premisesId === 'kiosk' ? ([['stand', 'Стойка']] as [CafeTab, string][]) : []),
       ['growth', 'Развитие'],
     ];
-    const tabBar = `<nav class="tabs${tabs.length > 6 ? ' tabs-7' : ''}">${tabs
-      .map(([id, label]) => `<button data-action="tab" data-item="${id}" class="${this.tab === id ? 'active' : ''}">${label}</button>`)
-      .join('')}</nav>`;
+    // Четыре вкладки в ряд: три частых и «Ещё» — остальные раскрываются строкой ниже (UI 2.1)
+    const main = tabs.slice(0, 3);
+    const rest = tabs.slice(3);
+    const inRest = rest.find(([id]) => id === this.tab);
+    const tabBtn = ([id, label]: [CafeTab, string]) =>
+      `<button data-action="tab" data-item="${id}" class="${this.tab === id ? 'active' : ''}">${label}</button>`;
+    const moreBtn = `<button data-action="tab-more" class="more${inRest ? ' active' : ''}" aria-expanded="${this.moreOpen}">${
+      inRest ? inRest[1] : 'Ещё'
+    }${NB}${this.moreOpen ? '⌃' : '⌄'}</button>`;
+    const tabBar = `<nav class="tabs">${main.map(tabBtn).join('')}${moreBtn}</nav>${
+      this.moreOpen ? `<nav class="tabs-more">${rest.map(tabBtn).join('')}</nav>` : ''
+    }`;
 
     let body = '';
     if (this.tab === 'overview') {
@@ -1100,10 +1159,11 @@ export class Hud {
       ${this.restartBlock()}`;
     } else if (this.tab === 'menu') {
       body = `
-      <h4>Меню и${NB}цены · ${cafe.menu.length}${NB}из${NB}${MAX_MENU}</h4>
+      <div class="menu-head"><h4>Меню и${NB}цены</h4>
+        <button class="small" data-action="toggle-catalog">${this.catalogOpen ? 'Скрыть каталог' : '+ Добавить'}</button></div>
+      <p class="hint-line">${cafe.menu.length}${NB}из${NB}${MAX_MENU} позиций${full ? ` — мест нет, сначала убери позицию` : ''} · нажми позицию, чтобы поменять цену</p>
       <p class="hint-line">${this.focusLine()}</p>
-      <ul class="menu">${items}</ul>
-      <button class="secondary" data-action="toggle-catalog">${this.catalogOpen ? 'Скрыть каталог' : `Изменить меню${full ? ` — мест нет, сначала убери позицию` : ''}`}</button>
+      <ul class="menu items">${items}</ul>
       <div class="catalog-wrap">${catalog}</div>
       ${this.ownDishesBlock()}`;
     } else if (this.tab === 'stock') {
@@ -1518,7 +1578,7 @@ export class Hud {
       const st = sim.upgradeState(u.id);
       // У киоска улучшения живут во вкладке «Стойка»
       if (st === 'premises' || kiosk) return '';
-      const badge = st === 'owned' ? '<span class="badge on">куплено</span>' : `<span class="badge">${money(u.cost)}</span>`;
+      const badge = st === 'owned' ? '<span class="badge on">установлено</span>' : `<span class="badge">${money(u.cost)}</span>`;
       const control =
         st === 'owned'
           ? ''

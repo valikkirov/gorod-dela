@@ -1,4 +1,8 @@
 import Phaser from 'phaser';
+import '@fontsource/rubik/500.css';
+import '@fontsource/rubik/600.css';
+import '@fontsource/nunito/400.css';
+import '@fontsource/nunito/700.css';
 import './style.css';
 import { Hud } from './game/hud';
 import { StreetScene, type SceneHooks } from './game/StreetScene';

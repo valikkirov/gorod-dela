@@ -53,6 +53,8 @@ export interface EventCard {
   icon: string;
   title: string;
   text: string;
+  /** Что на кону, если ничего не делать: коротко, до кнопок (UI 2.1) */
+  stake?: string;
   options: EventOption[];
   /** Что сработает, если не выбрать до конца дня */
   fallback: string;
@@ -75,6 +77,7 @@ export function card(e: PendingEvent): EventCard {
             icon: '🔧',
             title: 'Сломалась кофемашина',
             text: `Одна из${NB}двух кофемашин не${NB}включается. Вторая работает, но${NB}заказы будут готовиться в${NB}полтора раза дольше.`,
+            stake: `Если ждать мастера до${NB}завтра, сегодня очередь будет длиннее и${NB}часть гостей уйдёт`,
             options: [
               { id: 'urgent', label: 'Срочный мастер', hint: `${money(b.urgentCost)}, через 45${NB}минут всё как было` },
               { id: 'later', label: 'Мастер завтра', hint: `${money(b.laterCost)}, сегодня работаем медленнее` },
@@ -85,6 +88,7 @@ export function card(e: PendingEvent): EventCard {
             icon: '🔧',
             title: 'Сломалась кофемашина',
             text: `Утром кофемашина не${NB}включилась. Пока её не${NB}починят, кофе не${NB}будет — остальное меню работает.`,
+            stake: `Если ждать мастера до${NB}завтра, продажи кофе сегодня потеряны`,
             options: [
               { id: 'urgent', label: 'Срочный мастер', hint: `${money(b.urgentCost)}, кофе снова будет через 45${NB}минут` },
               { id: 'later', label: 'Мастер завтра', hint: `${money(b.laterCost)}, сегодня без кофе` },
@@ -98,6 +102,7 @@ export function card(e: PendingEvent): EventCard {
         icon: '🎈',
         title: 'Праздник района в сквере',
         text: `Сегодня в${NB}сквере праздник: музыка, ярмарка, народ со${NB}всего района. Организаторы предлагают место для${NB}столика с${NB}вашим меню.`,
+        stake: `Шанс разом познакомить с${NB}точкой полрайона. Без${NB}запаса на${NB}складе гости уйдут ни${NB}с${NB}чем`,
         options: [
           {
             id: 'stall',
@@ -116,6 +121,7 @@ export function card(e: PendingEvent): EventCard {
         icon: '📦',
         title: 'Поставщик распродаёт остатки',
         text: `${ing.name}: ${EVENTS.supplier.qty}${NB}порций за${NB}${money(p.sale)} вместо ${money(p.full)}. Привезут сразу. Хранится ${ing.shelfDays}${NB}дн.${NB}— что не${NB}продашь, спишется.`,
+        stake: `Выгодно, только если успеешь продать до${NB}конца срока`,
         options: [
           { id: 'take', label: 'Взять партию', hint: `−${money(p.sale)}, на${NB}складе +${EVENTS.supplier.qty}${NB}порций` },
           { id: 'decline', label: 'Отказаться', hint: 'Ничего не меняется' },
@@ -129,6 +135,7 @@ export function card(e: PendingEvent): EventCard {
         icon: '🏢',
         title: 'Заказ от офиса «Север»',
         text: `Офис заказывает ${o.qty}${NB}порций «${e.itemName}» на${NB}завтра к${NB}полудню и${NB}платит ${money(e.pay!)} (это со${NB}скидкой 10${NB}%). Продукты под заказ привезут отдельно. Готовить начнёте в${NB}11:00, перед обедом: пока заказ не${NB}готов, стойка занята и${NB}новых гостей не${NB}обслуживают.`,
+        stake: `Крупная оплата, но${NB}в${NB}обед стойка будет занята`,
         options: [
           {
             id: 'accept',
@@ -146,6 +153,7 @@ export function card(e: PendingEvent): EventCard {
         icon: '📱',
         title: 'Блогер хочет снять обзор',
         text: `Местный блогер просит угостить его с${NB}друзьями и${NB}обещает рассказать о${NB}вас подписчикам. Обзоры у${NB}него выходят не${NB}всегда.`,
+        stake: `Риск: продукты уйдут, а${NB}обзор может не${NB}выйти`,
         options: [
           { id: 'treat', label: 'Угостить', hint: `${money(b.cost)} продуктами. Если обзор выйдет, о${NB}вас узнает молодёжь` },
           { id: 'decline', label: 'Вежливо отказать', hint: 'Ничего не меняется' },
@@ -159,6 +167,7 @@ export function card(e: PendingEvent): EventCard {
         icon: '🙋',
         title: 'Бариста просит отгул',
         text: `Бариста на${NB}смене просит сегодня выходной: семейные дела. Без него ты один за${NB}стойкой.`,
+        stake: `Если отпустить, в${NB}часы пик гостей может быть некому обслужить`,
         options: [
           { id: 'let', label: 'Отпустить', hint: `Сегодня без бариста, зарплату за${NB}смену не${NB}платишь` },
           { id: 'ask', label: 'Попросить выйти', hint: `Он выйдет, но${NB}за${NB}смену +${money(extra)}` },
