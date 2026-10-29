@@ -1,12 +1,19 @@
 name: Деплой в Yandex Object Storage и зеркало в Selectel
 
-# Каждый пуш в main: тесты → сборка → выкладка в два облака независимо друг от друга.
-# Основной адрес: https://gorod-dela-play.website.yandexcloud.net
-# Зеркало (Selectel) включается само, когда в настройках репозитория заданы
-# переменная SELECTEL_BUCKET и секреты SELECTEL_ACCESS_KEY_ID / SELECTEL_SECRET_ACCESS_KEY.
+# Каждый пуш в main: тесты → сборка → выкладка в два облака.
+# Одна задача на всё (раньше три: каждая заново поднимала машину) — так тратится втрое меньше минут Actions.
+# Пуш, где поменялись только исходники графики, скрипты или тексты, игру не пересобирает.
+# Основной адрес: https://www.gorod-dela.ru (Selectel), запасной — https://gorod-dela-play.website.yandexcloud.net
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'art-src/**'
+      - 'scripts/**'
+      - '**/*.md'
+      - '.github/workflows/cert.yml'
+      - '.github/workflows/dns-check.yml'
+      - '.github/workflows/preview.yml'
   workflow_dispatch:
 
 concurrency:
@@ -14,8 +21,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    env:
+      AWS_DEFAULT_REGION: ru-central1
+      # Новые aws cli шлют контрольные суммы, которые S3-совместимые хранилища не всегда принимают
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
     steps:
       - uses: actions/checkout@v5
 
@@ -28,77 +40,37 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: site
-          path: dist
-          retention-days: 90
+      # Яндекс. Файлы в assets/ с хешем в имени — кешируем надолго; index.html и прочее — без кеша.
+      # --delete убирает старые сборки (папку превью не трогаем).
+      - name: Выкладка в Яндекс
+        id: yandex
+        continue-on-error: true
+        env:
+          BUCKET: gorod-dela-play
+          AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
+          ENDPOINT: https://storage.yandexcloud.net
+        run: |
+          aws s3 sync dist/assets "s3://$BUCKET/assets" --endpoint-url "$ENDPOINT" \
+            --cache-control "public, max-age=31536000, immutable"
+          aws s3 sync dist "s3://$BUCKET" --endpoint-url "$ENDPOINT" \
+            --cache-control "no-cache" --exclude "assets/*" --exclude "preview/*" --delete
+          aws s3 sync dist/assets "s3://$BUCKET/assets" --endpoint-url "$ENDPOINT" --delete
+          echo "Яндекс → https://$BUCKET.website.yandexcloud.net" >> "$GITHUB_STEP_SUMMARY"
 
-  yandex:
-    needs: build
-    runs-on: ubuntu-latest
-    env:
-      BUCKET: gorod-dela-play
-      AWS_ACCESS_KEY_ID: ${{ secrets.YC_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.YC_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ru-central1
-      ENDPOINT: https://storage.yandexcloud.net
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: site
-          path: dist
-
-      # Файлы в assets/ с хешем в имени — кешируем надолго.
-      - name: Загрузка ассетов
-        run: >
-          aws s3 sync dist/assets "s3://$BUCKET/assets"
-          --endpoint-url "$ENDPOINT"
-          --cache-control "public, max-age=31536000, immutable"
-
-      # index.html и прочее — без кеша, чтобы игроки сразу получали новую версию.
-      # --delete убирает старые сборки из бакета (папку превью не трогаем).
-      - name: Загрузка страницы
-        run: >
-          aws s3 sync dist "s3://$BUCKET"
-          --endpoint-url "$ENDPOINT"
-          --cache-control "no-cache"
-          --exclude "assets/*"
-          --exclude "preview/*"
-          --delete
-
-      - name: Очистка старых ассетов
-        run: >
-          aws s3 sync dist/assets "s3://$BUCKET/assets"
-          --endpoint-url "$ENDPOINT"
-          --delete
-
-      - name: Ссылка
-        run: echo "Яндекс → https://$BUCKET.website.yandexcloud.net" >> "$GITHUB_STEP_SUMMARY"
-
-  selectel:
-    needs: build
-    if: vars.SELECTEL_BUCKET != ''
-    runs-on: ubuntu-latest
-    env:
-      BUCKET: ${{ vars.SELECTEL_BUCKET }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.SELECTEL_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.SELECTEL_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: ${{ vars.SELECTEL_REGION || 'ru-1' }}
-      ENDPOINT: ${{ vars.SELECTEL_ENDPOINT || 'https://s3.ru-1.storage.selcloud.ru' }}
-      # Новые aws cli шлют контрольные суммы, которые S3-совместимые хранилища не всегда принимают
-      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-      # Selectel подписан корнем GlobalSign R6: его нет во встроенном списке aws cli, но есть в системном
-      AWS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: site
-          path: dist
-
-      # Текст ошибки aws выводим аннотацией — его видно в сводке запуска без логов
+      # Selectel (основной адрес www.gorod-dela.ru). Выкладывается, даже если Яндекс упал.
       - name: Выкладка в Selectel
+        id: selectel
+        if: ${{ steps.yandex.conclusion == 'success' && vars.SELECTEL_BUCKET != '' }}
+        continue-on-error: true
+        env:
+          BUCKET: ${{ vars.SELECTEL_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.SELECTEL_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SELECTEL_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.SELECTEL_REGION || 'ru-1' }}
+          ENDPOINT: ${{ vars.SELECTEL_ENDPOINT || 'https://s3.ru-1.storage.selcloud.ru' }}
+          # Selectel подписан корнем GlobalSign R6: его нет во встроенном списке aws cli, но есть в системном
+          AWS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
         run: |
           run() {
             if ! out=$("$@" 2>&1); then
@@ -112,6 +84,12 @@ jobs:
           run aws s3 sync dist "s3://$BUCKET" --endpoint-url "$ENDPOINT" \
             --cache-control "no-cache" --exclude "assets/*" --exclude "preview/*" --delete
           run aws s3 sync dist/assets "s3://$BUCKET/assets" --endpoint-url "$ENDPOINT" --delete
+          echo "Selectel → бакет $BUCKET выложен" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Ссылка
-        run: echo "Selectel → бакет $BUCKET выложен" >> "$GITHUB_STEP_SUMMARY"
+      # Запуск красный, если не удалась хоть одна выкладка
+      - name: Итог
+        if: ${{ steps.yandex.conclusion == 'success' }}
+        run: |
+          [ "${{ steps.yandex.outcome }}" != "failure" ] || { echo "::error::Яндекс не выложен"; fail=1; }
+          [ "${{ steps.selectel.outcome }}" != "failure" ] || { echo "::error::Selectel не выложен"; fail=1; }
+          exit ${fail:-0}

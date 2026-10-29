@@ -1,10 +1,10 @@
 name: Превью ветки
 
-# Пуш в любую ветку, кроме main: сборка → папка preview/<ветка>/ в бакете Яндекса.
+# Сборка ветки → папка preview/<ветка>/ в бакете Яндекса. Запускается по команде, а не на каждый пуш —
+# так экономятся минуты Actions: gh api -X POST repos/valikkirov/gorod-dela/actions/workflows/preview.yml/dispatches -f ref=<ветка>
 # Основная игра не меняется; сохранения превью хранятся отдельно (см. SAVE_NS в challenge.ts).
 on:
-  push:
-    branches-ignore: [main]
+  workflow_dispatch:
 
 concurrency:
   group: preview-${{ github.ref_name }}
@@ -26,8 +26,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Тесты в превью не блокируют выкладку: ветка может быть в работе
-      - run: npm test || echo "::warning::Тесты в ветке падают"
+      # Тесты гоняются перед пушем и в деплое main — в превью их не повторяем
       - run: npm run build
       - name: Выкладка превью
         run: >
