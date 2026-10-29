@@ -17,3 +17,13 @@ jobs:
           note "SOA" "$(dig +short SOA $d @8.8.8.8)"
           note "Ответ Selectel" "$(dig +short NS $d @a.ns.selectel.ru)"
           note "whois" "$(whois $d 2>/dev/null | grep -iE 'nserver|state|registrar|created' | head -8)"
+          note "A / AAAA голого домена" "$(dig +short A $d @8.8.8.8) / $(dig +short AAAA $d @8.8.8.8)"
+          note "A / CNAME www" "$(dig +short www.$d @8.8.8.8)"
+      - name: HTTP и HTTPS
+        run: |
+          note() { echo "::notice title=$1::$(echo "$2" | tr '\n' ' ')"; }
+          for u in http://gorod-dela.ru/ https://gorod-dela.ru/ https://www.gorod-dela.ru/; do
+            r=$(curl -sS -o /dev/null -m 20 -w '%{http_code} → %{redirect_url} (%{time_total} с)' "$u" 2>&1)
+            note "$u" "$r"
+          done
+          note "Сертификат голого домена" "$(echo | timeout 15 openssl s_client -connect gorod-dela.ru:443 -servername gorod-dela.ru 2>&1 | openssl x509 -noout -subject -issuer -enddate 2>&1)"
