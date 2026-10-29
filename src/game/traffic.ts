@@ -8,22 +8,33 @@ import { ROAD, SADOVAYA, SIDEWALK, WORLD, type Point } from '../sim/world';
 import { ART_SCALE, textureOf } from './atlas';
 import { sound } from './sound';
 
-type Kind = 'car' | 'van' | 'truck' | 'ambulance' | 'police' | 'bus';
+type Kind = 'car' | 'van' | 'truck' | 'ambulance' | 'police' | 'garbage' | 'scooter' | 'bike' | 'bus' | 'tram';
+/** Ходят по расписанию, а не случайным потоком */
+type Scheduled = 'bus' | 'tram';
 type Dir = 'down' | 'up' | 'left' | 'right';
 /** Откуда въехал: сверху по Кленовой, с запада или с востока по Садовой */
 type Entry = 'S' | 'W' | 'E';
 
 /** Виды транспорта: длина — по кадру, скорость — пикселей в игровую секунду ×1 */
-const KINDS: Record<Exclude<Kind, 'bus'>, { weight: number; len: number; speed: [number, number]; flash?: boolean }> = {
-  car: { weight: 78, len: 56, speed: [150, 200] },
-  van: { weight: 11, len: 64, speed: [140, 175] },
-  truck: { weight: 7, len: 96, speed: [115, 140] },
+const KINDS: Record<Exclude<Kind, Scheduled>, { weight: number; len: number; speed: [number, number]; flash?: boolean }> = {
+  car: { weight: 70, len: 66, speed: [150, 200] },
+  van: { weight: 10, len: 72, speed: [140, 175] },
+  truck: { weight: 6, len: 104, speed: [115, 140] },
   // Скорая и полиция редкие, едут быстрее и мигают
-  ambulance: { weight: 2, len: 72, speed: [210, 240], flash: true },
-  police: { weight: 2, len: 58, speed: [200, 230], flash: true },
+  ambulance: { weight: 2, len: 78, speed: [210, 240], flash: true },
+  police: { weight: 2, len: 66, speed: [200, 230], flash: true },
+  // Мусоровоз — только рано утром (вес задаёт pickKind)
+  garbage: { weight: 0, len: 100, speed: [90, 115] },
+  // Курьеры на самокатах и велосипедисты — днём, медленнее машин
+  scooter: { weight: 6, len: 30, speed: [90, 120] },
+  bike: { weight: 5, len: 36, speed: [80, 110] },
 };
 const CARS = ['car-a', 'car-b', 'car-c'];
-const BUS = { len: 110, speed: 110, waitSeconds: 2.5, everyMinutes: 40 };
+const BUS = { len: 126, speed: 110, waitSeconds: 2.5, everyMinutes: 40 };
+/** Трамвай: по Садовой туда и обратно, примерно раз в 25 игровых минут днём */
+const TRAM = { len: 190, speed: 100, everyMinutes: 25 };
+/** Рельсы трамвая: по оси каждой полосы Садовой, колея ±RAIL_GAUGE */
+const RAIL_GAUGE = 8;
 /** Мигалка: смена кадра раз в столько миллисекунд реального времени */
 const FLASH_MS = 250;
 
@@ -159,6 +170,8 @@ export class Traffic {
   private nextId = 1;
   private timers: Record<Entry, number> = { S: 1, W: 2, E: 3 };
   private lastBusMinute = -1000;
+  private lastTramMinute = -1000;
+  private tramEast = false;
   private phase = 0;
   private phaseLeft = PHASES[0][1];
   private lights: LightPost[] = [];
@@ -170,6 +183,7 @@ export class Traffic {
     /** Глубина слоя света: окошки светофора светятся поверх ночи */
     lightsDepth: number,
   ) {
+    this.drawRails();
     // Светофоры стоят справа по ходу движения, перед стоп-линиями
     this.lights.push(this.post('S', 'prop-traffic-light-down', ROAD.left - 16, SADOVAYA.top - 46, [10, [7.5, 15, 22.5]], lightsDepth));
     this.lights.push(this.post('W', 'prop-traffic-light-left', ROAD.left - 56, SADOVAYA.bottom + 36, [3.5, [7.5, 15, 22.5]], lightsDepth));
@@ -221,6 +235,18 @@ export class Traffic {
     return false;
   }
 
+  /** Трамвайные рельсы по Садовой: по паре на каждую полосу, поверх асфальта, под машинами */
+  private drawRails(): void {
+    const g = this.scene.add.graphics().setDepth(-990);
+    for (const y of [WEST_Y, EAST_Y]) {
+      for (const dy of [-RAIL_GAUGE, RAIL_GAUGE]) {
+        // Тёмный желобок и светлая натёртая полоска сверху
+        g.fillStyle(0x3d3a36, 0.55).fillRect(LEFT, y + dy - 1.5, RIGHT - LEFT, 3);
+        g.fillStyle(0xcfc8bc, 0.7).fillRect(LEFT, y + dy - 1.5, RIGHT - LEFT, 1);
+      }
+    }
+  }
+
   /** dt — секунды с учётом скорости игры; на паузе всё стоит */
   update(dt: number, minute: number): void {
     if (dt <= 0) return;
@@ -239,6 +265,13 @@ export class Traffic {
     if (h >= 6 && h < 23 && sinceBus >= BUS.everyMinutes) {
       this.lastBusMinute = minute;
       this.spawn('E-N', 'bus');
+    }
+    // Трамвай — по Садовой, попеременно на восток и на запад
+    const sinceTram = (minute - this.lastTramMinute + 1440) % 1440;
+    if (h >= 6 && h < 24 && sinceTram >= TRAM.everyMinutes) {
+      this.lastTramMinute = minute;
+      this.tramEast = !this.tramEast;
+      this.spawn(this.tramEast ? 'W-E' : 'E-W', 'tram');
     }
 
     const flashOn = Math.floor(this.scene.time.now / FLASH_MS) % 2 === 1;
@@ -280,13 +313,14 @@ export class Traffic {
     const path = PATHS[route];
     if (!path) return;
     const bus = kind === 'bus';
-    const spec = bus ? null : KINDS[kind];
-    const len = bus ? BUS.len : spec!.len;
+    const tram = kind === 'tram';
+    const spec = bus || tram ? null : KINDS[kind];
+    const len = bus ? BUS.len : tram ? TRAM.len : spec!.len;
     // Не плодим машины друг в друге у края
     const start = sample(path, 0).pos;
     if (this.cars.some((v) => Math.hypot(v.pos.x - start.x, v.pos.y - start.y) < (v.len + len) / 2 + 40)) return;
     const base = kind === 'car' ? CARS[Math.floor(Math.random() * CARS.length)] : kind;
-    if (!bus) sound.play('sfx-car-pass', kind === 'truck' ? 0.45 : 0.3);
+    if (!bus && !tram && kind !== 'scooter' && kind !== 'bike') sound.play('sfx-car-pass', kind === 'truck' || kind === 'garbage' ? 0.45 : 0.3);
     const { pos, angle } = sample(path, 0);
     const frame = `${base}-${dirOf(angle)}`;
     const sprite = this.scene.add.image(pos.x, pos.y, textureOf(frame), frame).setScale(1 / ART_SCALE).setOrigin(0.5);
@@ -301,7 +335,7 @@ export class Traffic {
       pos,
       angle,
       len,
-      speed: bus ? BUS.speed : spec!.speed[0] + Math.random() * (spec!.speed[1] - spec!.speed[0]),
+      speed: bus ? BUS.speed : tram ? TRAM.speed : spec!.speed[0] + Math.random() * (spec!.speed[1] - spec!.speed[0]),
       wait: bus ? BUS.waitSeconds : 0,
       stopped: false,
     });
@@ -378,13 +412,17 @@ export class Traffic {
     let rot = angle - DIR_ANGLE[dir];
     if (rot > Math.PI) rot -= 2 * Math.PI;
     if (rot < -Math.PI) rot += 2 * Math.PI;
+    // Машины в 3/4 видны спереди, сзади или сбоку — сильно их не крутим, в повороте лишь наклоняем
+    rot = Phaser.Math.Clamp(rot, -0.3, 0.3);
     // Под переходом у метро Кленовая уходит в тоннель: машина появляется и исчезает плавно
     const toTop = pos.y - TOP;
     // По краям Садовой машина въезжает на карту и уезжает с неё — тоже плавно
     const toEdge = Math.min(pos.x + v.len / 2, WORLD.width - pos.x + v.len / 2);
     const alpha = Phaser.Math.Clamp(Math.min(toTop / FADE + 0.4, toEdge / FADE), 0, 1);
+    // Трамвай стоит колёсами на рельсах: низ кадра — у дальнего от нас рельса
+    const lift = v.kind === 'tram' ? RAIL_GAUGE + 3 - v.sprite.displayHeight / 2 : 0;
     v.sprite
-      .setPosition(pos.x, pos.y)
+      .setPosition(pos.x, pos.y + lift)
       .setRotation(rot)
       .setDepth(pos.y + Math.abs(Math.sin(angle)) * (v.len / 2) + Math.abs(Math.cos(angle)) * 16)
       .setAlpha(alpha);
@@ -398,13 +436,16 @@ function pick(options: [string, number][]): string {
 }
 
 /** Какую машину выпустить: ночью грузовиков больше (развоз), микроавтобусов меньше */
-function pickKind(h: number): Exclude<Kind, 'bus'> {
+function pickKind(h: number): Exclude<Kind, Scheduled> {
   const night = h < 6 || h >= 23;
   const weights = Object.entries(KINDS).map(([k, v]) => {
     let w = v.weight;
     if (night && k === 'truck') w *= 2;
     if (night && k === 'van') w *= 0.5;
-    return [k as Exclude<Kind, 'bus'>, w] as const;
+    // Самокаты и велосипеды ночью не ездят; мусоровоз — с 5 до 9 утра
+    if ((k === 'scooter' || k === 'bike') && (h < 7 || h >= 22)) w = 0;
+    if (k === 'garbage') w = h >= 5 && h < 9 ? 6 : 0;
+    return [k as Exclude<Kind, Scheduled>, w] as const;
   });
   let r = Math.random() * weights.reduce((sum, [, w]) => sum + w, 0);
   for (const [k, w] of weights) if ((r -= w) < 0) return k;
