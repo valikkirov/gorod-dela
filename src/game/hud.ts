@@ -848,7 +848,7 @@ export class Hud {
     const pr = PREMISES[id];
     const canAfford = this.sim.cash >= pr.openingCost;
     return `<li class="premises">
-      <img class="premises-pic" src="${PREMISES_PIC[id]}" alt="" width="320" height="160" />
+      <img class="premises-pic" src="${PREMISES_PIC[id]}" alt="" width="300" height="100" />
       <div class="row"><b class="grow">${pr.name}</b><span class="badge">аренда ${money(pr.rentPerDay * 30)}/мес</span></div>
       <small>${pr.about}. Коммуналка — за${NB}часы работы, налог 6${NB}% с${NB}выручки.</small>
       <button class="primary" data-action="open-cafe" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>
