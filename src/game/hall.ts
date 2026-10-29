@@ -118,6 +118,9 @@ function menuBoard(sim: Simulation | null): string {
   return `<div class="hall-board" style="${style}" aria-label="Меню на доске"><ul>${rows}</ul></div>`;
 }
 
+/** Бариста за стойкой — отдельный слой размером с комнату (scripts/cut_hall.py): только когда он на смене */
+const baristaLayer = `<img class="hall-barista" src="${art('barista')}" alt="Бариста за стойкой">`;
+
 /** Миниатюра комплектации: тот же зал из тех же кусков, без кнопок и гостей */
 function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
   const rug = layout.rug === 'rug';
@@ -199,7 +202,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
   }
 
   return `
-    <div class="hall" style="background-image:url(${roomUrl})">${menuBoard(sim)}${things}</div>
+    <div class="hall" style="background-image:url(${roomUrl})">${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}${things}</div>
     ${stats}
     <h4>Готовые комплектации</h4>
     <small>Выбрал${NB}— поставил. Лишнее продаётся за${NB}полцены, совпадающее остаётся.</small>

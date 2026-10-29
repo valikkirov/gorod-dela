@@ -2740,3 +2740,11 @@ small.comp {
   font-weight: 700;
   color: #fff3d6;
 }
+.hall-barista {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+}

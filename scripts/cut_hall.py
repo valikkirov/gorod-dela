@@ -185,12 +185,45 @@ def room(empty: np.ndarray) -> tuple[Image.Image, tuple[int, int, int, int]]:
     return Image.fromarray(im).crop(box), box
 
 
+# Бариста нарисован в пустой комнате за стойкой. Комната для игры — без него (empty-clean.png, Magnific
+# preciseEdit «убрать бариста»), а сам он — отдельный слой barista.webp размером с комнату: виден, только
+# когда бариста на смене. Меняется только прямоугольник вокруг бариста — остальная комната та же.
+BARISTA_BOX = (630, 205, 770, 372)
+
+
+def split_barista(empty: np.ndarray, img: Image.Image, box: tuple[int, int, int, int]) -> Image.Image:
+    if not (SRC / 'empty-clean.png').exists():
+        return img
+    clean = load('empty-clean')
+    x0, y0, x1, y1 = BARISTA_BOX
+    diff = np.zeros(empty.shape[:2], bool)
+    d = np.abs(nd.gaussian_filter(empty.astype(float), (1.5, 1.5, 0)) - nd.gaussian_filter(clean.astype(float), (1.5, 1.5, 0))).sum(2)
+    diff[y0:y1, x0:x1] = d[y0:y1, x0:x1] > 40
+    diff = nd.binary_closing(diff, iterations=3)
+    diff = nd.binary_fill_holes(diff)
+    diff = nd.binary_dilation(diff, iterations=3)
+    soft = np.clip(nd.gaussian_filter(diff.astype(float), 1.2) * 1.6, 0, 1)
+    ox, oy, ox1, oy1 = box
+    room_rgba = np.array(img)
+    sub = (slice(oy, oy1), slice(ox, ox1))
+    # Комната: внутри маски — пиксели без бариста, плавно на краю
+    k = soft[sub][..., None]
+    room_rgba[..., :3] = (room_rgba[..., :3] * (1 - k) + clean[sub] * k).astype(np.uint8)
+    # Слой бариста: исходные пиксели с альфой маски
+    layer = np.zeros_like(room_rgba)
+    layer[..., :3] = empty[sub]
+    layer[..., 3] = (soft[sub] * 255).astype(np.uint8)
+    Image.fromarray(layer).save(OUT / 'barista.webp', quality=90)
+    return Image.fromarray(room_rgba)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     for f in OUT.glob('*.webp'):
         f.unlink()
     empty = load('empty')
     img, (ox, oy, ox1, oy1) = room(empty)
+    img = split_barista(empty, img, (ox, oy, ox1, oy1))
     img.save(OUT / 'room.webp', quality=90)
     frames: list[str] = []
     seen: set[str] = set()
