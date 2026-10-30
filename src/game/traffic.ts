@@ -32,7 +32,7 @@ const KINDS: Record<Exclude<Kind, Scheduled>, { weight: number; len: number; spe
 const CARS = ['car-a', 'car-b', 'car-c'];
 const BUS = { len: 126, speed: 110, waitSeconds: 2.5, everyMinutes: 40 };
 /** Трамвай: по Садовой туда и обратно, примерно раз в 25 игровых минут днём */
-const TRAM = { len: 190, speed: 100, everyMinutes: 25 };
+const TRAM = { len: 190, speed: 100, everyMinutes: 120 };
 /** Рельсы трамвая: по оси каждой полосы Садовой, колея ±RAIL_GAUGE */
 const RAIL_GAUGE = 8;
 /** Мигалка: смена кадра раз в столько миллисекунд реального времени */
