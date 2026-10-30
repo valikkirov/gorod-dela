@@ -241,8 +241,9 @@ export class Traffic {
     for (const y of [WEST_Y, EAST_Y]) {
       for (const dy of [-RAIL_GAUGE, RAIL_GAUGE]) {
         // Тёмный желобок и светлая натёртая полоска сверху
-        g.fillStyle(0x3d3a36, 0.55).fillRect(LEFT, y + dy - 1.5, RIGHT - LEFT, 3);
-        g.fillStyle(0xcfc8bc, 0.7).fillRect(LEFT, y + dy - 1.5, RIGHT - LEFT, 1);
+        // Рельсы только в пределах карты: дальше трава, а не мостовая
+        g.fillStyle(0x3d3a36, 0.55).fillRect(0, y + dy - 1.5, WORLD.width, 3);
+        g.fillStyle(0xcfc8bc, 0.7).fillRect(0, y + dy - 1.5, WORLD.width, 1);
       }
     }
   }
