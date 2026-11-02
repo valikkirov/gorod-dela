@@ -15,6 +15,8 @@ import sadovayaUrl from './art/sadovaya.png';
 import texAsphaltUrl from './art/tex-asphalt.png';
 import texGrassUrl from './art/tex-grass.png';
 import texSidewalkUrl from './art/tex-sidewalk.png';
+import texRailUrl from './art/tex-rail.png';
+import texRiverUrl from './art/tex-river.png';
 import type { ResidentKind } from '../sim/residents';
 
 /** Во сколько раз PNG крупнее единиц мира */
@@ -133,6 +135,9 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
   'tex-grass': { url: texGrassUrl, frames: { 'tex-grass': TEXTURE_FRAMES['tex-grass'] } },
   'tex-sidewalk': { url: texSidewalkUrl, frames: { 'tex-sidewalk': TEXTURE_FRAMES['tex-sidewalk'] } },
   'tex-asphalt': { url: texAsphaltUrl, frames: { 'tex-asphalt': TEXTURE_FRAMES['tex-asphalt'] } },
+  // Границы района: насыпь и набережная с рекой
+  'tex-rail': { url: texRailUrl, frames: { 'tex-rail': TEXTURE_FRAMES['tex-rail'] } },
+  'tex-river': { url: texRiverUrl, frames: { 'tex-river': TEXTURE_FRAMES['tex-river'] } },
   people: { url: peopleUrl, frames: peopleFrames() },
   // Животные «Графики 2.0»: листы поз из Magnific, сборка scripts/pack_animals.py
   animals: { url: animalsUrl, frames: ANIMAL_FRAMES },

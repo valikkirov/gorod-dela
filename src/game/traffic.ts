@@ -51,8 +51,11 @@ const FADE = 60;
 /** Наклон в повороте (радианы) и скорость в повороте от обычной */
 const TURN_TILT = 0.12;
 const TURN_SLOWDOWN = 0.6;
-const LEFT = -140;
-const RIGHT = WORLD.width + 140;
+/** Садовая уходит под путепроводы (borders.ts): машины появляются и исчезают под настилом */
+const LEFT = -300;
+const RIGHT = WORLD.width + 300;
+/** Середины путепроводов: дальше машину не рисуем — она под мостом */
+const UNDER_BRIDGE = { left: -110, right: WORLD.width + 110 };
 /** Где автобус стоит у остановки возле сквера (центр автобуса) */
 const BUS_STOP_Y = 975;
 
@@ -244,9 +247,11 @@ export class Traffic {
     for (const y of [WEST_Y, EAST_Y]) {
       for (const dy of [-RAIL_GAUGE, RAIL_GAUGE]) {
         // Тёмный желобок и светлая натёртая полоска сверху
-        // Рельсы только в пределах карты: дальше трава, а не мостовая
-        g.fillStyle(0x3d3a36, 0.55).fillRect(0, y + dy - 1.5, WORLD.width, 3);
-        g.fillStyle(0xcfc8bc, 0.7).fillRect(0, y + dy - 1.5, WORLD.width, 1);
+        // Рельсы уходят под путепроводы по краям района
+        const x0 = UNDER_BRIDGE.left - 60;
+        const w = UNDER_BRIDGE.right - UNDER_BRIDGE.left + 120;
+        g.fillStyle(0x3d3a36, 0.55).fillRect(x0, y + dy - 1.5, w, 3);
+        g.fillStyle(0xcfc8bc, 0.7).fillRect(x0, y + dy - 1.5, w, 1);
       }
     }
   }
@@ -423,9 +428,8 @@ export class Traffic {
     rot = Phaser.Math.Clamp(rot, -TURN_TILT, TURN_TILT);
     // Под переходом у метро Кленовая уходит в тоннель: машина появляется и исчезает плавно
     const toTop = pos.y - TOP;
-    // По краям Садовой машина въезжает на карту и уезжает с неё — тоже плавно
-    const toEdge = Math.min(pos.x + v.len / 2, WORLD.width - pos.x + v.len / 2);
-    const alpha = Phaser.Math.Clamp(Math.min(toTop / FADE + 0.4, toEdge / FADE), 0, 1);
+    // По краям Садовой машина въезжает из-под путепровода и уезжает под него — её обрезает clipToMap
+    const alpha = Phaser.Math.Clamp(toTop / FADE + 0.4, 0, 1);
     // Трамвай стоит колёсами на рельсах: низ кадра — у дальнего от нас рельса
     const lift = v.kind === 'tram' ? RAIL_GAUGE + 3 - v.sprite.displayHeight / 2 : 0;
     v.sprite
@@ -437,18 +441,25 @@ export class Traffic {
   }
 }
 
-/** Не рисовать машину за краем карты: там трава, а не дорога. По краям Садовой машины едут прямо, без наклона */
+/** Не рисовать машину дальше середины путепровода: там она уже под мостом. По краям Садовой машины едут прямо */
 function clipToMap(sprite: Phaser.GameObjects.Image): void {
   const half = sprite.displayWidth / 2;
-  const left = sprite.x - half;
-  const right = sprite.x + half;
-  if (left >= 0 && right <= WORLD.width) {
+  const left = sprite.x - half - UNDER_BRIDGE.left;
+  const right = sprite.x + half - UNDER_BRIDGE.right;
+  if (left >= 0 && right <= 0) {
     if (sprite.isCropped) sprite.setCrop();
+    sprite.setVisible(true);
     return;
   }
+  // Целиком под мостом или за ним — не рисуем вовсе
+  if (left + sprite.displayWidth <= 0 || right - sprite.displayWidth >= 0) {
+    sprite.setVisible(false);
+    return;
+  }
+  sprite.setVisible(true);
   const k = sprite.frame.width / sprite.displayWidth;
   const cut0 = Math.max(0, -left) * k;
-  const cut1 = Math.max(0, right - WORLD.width) * k;
+  const cut1 = Math.max(0, right) * k;
   sprite.setCrop(cut0, 0, Math.max(0, sprite.frame.width - cut0 - cut1), sprite.frame.height);
 }
 

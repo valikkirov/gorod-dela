@@ -16,6 +16,10 @@
   `art-src/v2/vehicles/*.png` → `python3 scripts/pack_vehicles.py` (размеры в мире — таблица SIZE, влево — зеркало).
 - **Животные:** на вид — ряд поз, все смотрят вправо; `art-src/v2/animals/*.png` → `python3 scripts/pack_animals.py`.
 
+- **Границы района** (лес, насыпь, путепровод, электричка, набережная, ограда и пруд): листы на белом фоне в
+  `art-src/v2/borders/raw/` → `python3 scripts/pack_borders.py` (режет и подгоняет размеры в `props/` и `textures/`),
+  затем `pack_v2.py`. Расстановка — `src/game/borders.ts`.
+
 Исходники PNG (2×, фон прозрачный) лежат в `art-src/v2/`: `buildings/`, `lights/` (того же размера,
 что здание), `props/`, `textures/`. Имя файла = имя кадра. После правки:
 

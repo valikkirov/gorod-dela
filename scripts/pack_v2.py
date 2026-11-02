@@ -81,6 +81,9 @@ def load(folder: str, fix=None) -> list[tuple[str, Image.Image]]:
 
 
 def prop(name: str, img: Image.Image) -> Image.Image:
+    # Предметы границ района (pack_borders.py) уже в нужном размере
+    if name not in PROP_HEIGHT:
+        return img
     h = PROP_HEIGHT[name] * 2
     return img.resize((max(2, round(img.width * h / img.height)), h), Image.LANCZOS)
 

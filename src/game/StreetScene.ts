@@ -5,6 +5,7 @@ import type { Resident } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import { WANT_LABEL } from '../sim/demand';
 import { formatMoney } from '../sim/economy';
+import { Borders, BORDER } from './borders';
 import { CROSSWALK_Y, GRID, place, PLACES, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type Place } from '../sim/world';
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { WeatherFx, type FxKind } from './weatherFx';
@@ -110,6 +111,14 @@ const LABEL_ROOF = 10;
 /** Карта на экране чуть выше мира: сверху полоса, чтобы подпись киоска у края помещалась на его крыше */
 const MAP = { top: -48, height: WORLD.height + 48 } as const;
 
+/** Куда можно прокрутить камеру: район с его границами — лесом, насыпями и рекой (borders.ts) */
+const VIEW = {
+  left: -BORDER.side,
+  right: WORLD.width + BORDER.side,
+  top: -BORDER.top,
+  bottom: WORLD.height + BORDER.bottom,
+} as const;
+
 /** Цоколь здания чуть ниже основания, чтобы не было щели до полосы у двери */
 const BASE_SHIFT = 4;
 
@@ -183,7 +192,7 @@ const PROPS: [string, number, number][] = [
   ['prop-tree-round', 1330, 320],
   ['prop-tree-round', 780, 540],
   ['prop-tree-tall', 940, 610],
-  ['prop-tree-round', 1110, 530],
+  ['prop-tree-round', 1215, 505],
   ['prop-tree-tall', 1290, 580],
   ['prop-tree-round', 1400, 720],
   ['prop-tree-round', 1020, 780],
@@ -204,7 +213,23 @@ const PROPS: [string, number, number][] = [
   ['prop-tree-tall', 700, 1545],
   ['prop-tree-round', 980, 1540],
   ['prop-tree-tall', 1180, 1545],
+  // Пруд в большом сквере
+  ['prop-pond', 1030, 525],
+  ...parkFence(),
 ];
+
+/** Ограда большого сквера за Кленовой: вдоль леса, насыпи и дворов; со стороны маленького сквера — вход */
+function parkFence(): [string, number, number][] {
+  const out: [string, number, number][] = [];
+  const left = 700;
+  const right = WORLD.width - 10;
+  const bottom = 842;
+  for (let x = left + 40; x <= right - 40; x += 80) out.push(['prop-fence-h', x, 14]);
+  for (let x = 900; x <= right - 40; x += 80) out.push(['prop-fence-h', x, bottom]);
+  for (let y = 98; y <= bottom - 2; y += 80) out.push(['prop-fence-v', right, y]);
+  for (let y = 98; y <= 700; y += 80) out.push(['prop-fence-v', left + 6, y]);
+  return out;
+}
 
 /** Помещения под бизнес игрока: спрайты «сдаётся» и «открыто», окна, подписи */
 const PREMISES_ART: Record<string, { rent: string; open: string; lights: string; rival: string; windows: { x: number; y: number; w: number; h: number }[] }> = {
@@ -250,6 +275,7 @@ export class StreetScene extends Phaser.Scene {
   private weatherFx!: WeatherFx;
   private animals!: Animals;
   /** Деревья качаются на ветру */
+  private borders!: Borders;
   private trees: { img: Phaser.GameObjects.Image; phase: number }[] = [];
   private treeBases: { x: number; y: number }[] = [];
   private shops: Shop[] = [];
@@ -332,6 +358,7 @@ export class StreetScene extends Phaser.Scene {
       this.spills.push({ place: p, image: spill });
     }
     this.traffic = new Traffic(this, this.hooks.sim, DEPTH.lights);
+    this.borders = new Borders(this);
 
     this.guests = this.add.graphics().setDepth(c.rect.y + c.rect.h + 0.5);
     this.marks = this.add.graphics();
@@ -394,13 +421,14 @@ export class StreetScene extends Phaser.Scene {
   private covered = 0;
 
   private setupCamera(): void {
-    this.cameras.main.setBackgroundColor('#9cc27a');
+    this.cameras.main.setBackgroundColor('#4a6331');
     this.input.addPointer(1);
     // Свёрнутый лист закругляется поверх карты на 14 px
     if (!this.covered && !this.hooks.wide()) this.covered = 14;
     // Начинаем сверху улицы: там метро и свободные помещения
     this.view.zoom = this.baseZoom();
-    this.view.cy = 0;
+    // Сверху видна только кромка леса: первым на экране — метро и свободные помещения
+    this.view.cy = MAP.top + this.scale.height / 2 / this.view.zoom;
     this.fitViewport();
     this.scale.on('resize', () => {
       if (this.view.auto) this.view.zoom = this.baseZoom();
@@ -522,8 +550,8 @@ export class StreetScene extends Phaser.Scene {
     v.zoom = Phaser.Math.Clamp(v.zoom, lo, hi);
     const vw = cam.width / v.zoom;
     const vh = cam.height / v.zoom;
-    v.cx = vw >= WORLD.width ? WORLD.width / 2 : Phaser.Math.Clamp(v.cx, vw / 2, WORLD.width - vw / 2);
-    v.cy = vh >= MAP.height ? MAP.top + MAP.height / 2 : Phaser.Math.Clamp(v.cy, MAP.top + vh / 2, MAP.top + MAP.height - vh / 2);
+    v.cx = vw >= VIEW.right - VIEW.left ? WORLD.width / 2 : Phaser.Math.Clamp(v.cx, VIEW.left + vw / 2, VIEW.right - vw / 2);
+    v.cy = vh >= VIEW.bottom - VIEW.top ? (VIEW.top + VIEW.bottom) / 2 : Phaser.Math.Clamp(v.cy, VIEW.top + vh / 2, VIEW.bottom - vh / 2);
     cam.setZoom(v.zoom);
     cam.centerOn(v.cx, v.cy);
     // Подписи не мельче ~11 px на экране
@@ -563,6 +591,7 @@ export class StreetScene extends Phaser.Scene {
       trees: this.treeBases,
     });
     this.traffic.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
+    this.borders.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
     this.updateSound();
     this.hooks.onFrame();
   }
@@ -818,7 +847,7 @@ export class StreetScene extends Phaser.Scene {
     this.night.clear();
     if (dark > 0) {
       this.night.fillStyle(0x1b2340, dark);
-      this.night.fillRect(0, MAP.top, WORLD.width, MAP.height);
+      this.night.fillRect(VIEW.left, VIEW.top, VIEW.right - VIEW.left, VIEW.bottom - VIEW.top);
     }
     const k = dark / MAX_DARK;
     const h = minute / 60;
@@ -858,7 +887,7 @@ export class StreetScene extends Phaser.Scene {
   private drawSky(time: number, dt: number): void {
     const cam = this.cameras.main;
     const wind = this.fxWind();
-    this.weatherFx.update(dt, time, this.fxKind(), wind, cam.worldView, this.px / cam.zoom, new Phaser.Geom.Rectangle(0, MAP.top, WORLD.width, MAP.height));
+    this.weatherFx.update(dt, time, this.fxKind(), wind, cam.worldView, this.px / cam.zoom, new Phaser.Geom.Rectangle(VIEW.left, VIEW.top, VIEW.right - VIEW.left, VIEW.bottom - VIEW.top));
     const amp = [0.006, 0.016, 0.035][wind];
     for (const t of this.trees) t.img.setRotation(Math.sin(time / (wind === 2 ? 520 : 900) + t.phase) * amp + (wind === 2 ? amp * 0.4 : 0));
   }
