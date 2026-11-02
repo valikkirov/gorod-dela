@@ -22,11 +22,13 @@ interface Strategy {
   id: string;
   name: string;
   premises: PremisesId;
+  /** Пусто — меню по умолчанию */
   menu: string[];
   equipment?: EquipmentId[];
   preset?: PresetId;
   /** Часы по дням недели, 0 — понедельник; null — выходной */
-  week: (DayHours | null)[];
+  /** Не задано — часы по умолчанию */
+  week?: (DayHours | null)[];
   staff: Staff[];
   /** Киоск докупает вещи стойки, когда денег больше порога */
   kioskFits?: boolean;
@@ -39,6 +41,14 @@ const ALL = [true, true, true, true, true, true, true];
 const WD = [true, true, true, true, true, false, false];
 
 export const STRATEGIES: Strategy[] = [
+  {
+    // Новичок: открыл кафе и ничего не менял — меню, часы и зал по умолчанию
+    id: 'newbie',
+    name: 'Как есть',
+    premises: 'cafe',
+    menu: [],
+    staff: [],
+  },
   {
     id: 'togo',
     name: 'Кофе с собой',
@@ -53,7 +63,8 @@ export const STRATEGIES: Strategy[] = [
     premises: 'cafe',
     menu: ['americano', 'cappuccino', 'sandwich', 'syrniki', 'soup', 'lunch'],
     equipment: ['stove'],
-    week: weekdays({ openAt: hm(9), closeAt: hm(17) }, null),
+    // Утро ради кофе по дороге в офис, обед — главное; в выходные офисы пустые
+    week: weekdays({ openAt: hm(7), closeAt: hm(17) }, null),
     staff: [{ contract: 'hourly', from: hm(12), to: hm(15), days: WD }],
   },
   {
@@ -62,9 +73,9 @@ export const STRATEGIES: Strategy[] = [
     premises: 'cafe',
     menu: ['americano', 'cappuccino', 'latte', 'raf', 'croissant', 'syrniki', 'tea', 'lemonade'],
     preset: 'premium',
-    week: every({ openAt: hm(8), closeAt: hm(20) }),
-    // Владелец — 12 ч, бариста на вечерний пик, когда зал полный
-    staff: [{ contract: 'hourly', from: hm(17), to: hm(20) }],
+    week: every({ openAt: hm(7), closeAt: hm(19) }),
+    // Владелец стоит сам: 12 часов
+    staff: [],
   },
   {
     id: 'evening',
@@ -103,6 +114,9 @@ for (const id of ['togo', 'cozy', 'all', 'kiosk', 'evening', 'lunch']) {
   STRATEGIES.push({ ...b, id: `${id}-solo`, name: `${b.name} (сам)`, staff: [] });
 }
 STRATEGIES.push({ ...STRATEGIES.find((x) => x.id === 'kiosk')!, id: 'kiosk-bare-solo', name: 'Киоск без стойки', kioskFits: false });
+// Новичок, который купил только «Премиум» зал: сколько даёт уют сам по себе
+STRATEGIES.push({ ...STRATEGIES.find((x) => x.id === 'newbie')!, id: 'newbie-premium-solo', name: 'Как есть + премиум', preset: 'premium' });
+STRATEGIES.push({ ...STRATEGIES.find((x) => x.id === 'newbie')!, id: 'newbie-cozy-solo', name: 'Как есть + уют', preset: 'cozy' });
 // Сильная, но тяжёлая для владельца альтернатива: всё сразу с бариста на смене
 STRATEGIES.push({
   ...STRATEGIES.find((x) => x.id === 'all')!,
@@ -128,6 +142,10 @@ export interface RunResult {
 }
 
 export function run(s: Strategy, seed: number, days: number, marketing = true): RunResult {
+  return runWithSim(s, seed, days, marketing).out;
+}
+
+export function runWithSim(s: Strategy, seed: number, days: number, marketing = true): { out: RunResult; sim: Simulation } {
   const sim = new Simulation(seed);
   const cash0 = sim.cash;
   sim.openCafe(s.premises);
@@ -138,10 +156,12 @@ export function run(s: Strategy, seed: number, days: number, marketing = true): 
   }
   for (const id of s.equipment ?? []) sim.buyEquipment(id);
   if (s.preset) sim.applyPreset(s.preset);
-  for (const m of [...sim.cafe.menu]) if (!s.menu.includes(m.id)) sim.removeMenuItem(m.id);
-  for (const id of s.menu) sim.addMenuItem(id);
-  for (const m of [...sim.cafe.menu]) if (!s.menu.includes(m.id)) sim.removeMenuItem(m.id);
-  sim.setWeekHours(s.week);
+  if (s.menu.length) {
+    for (const m of [...sim.cafe.menu]) if (!s.menu.includes(m.id)) sim.removeMenuItem(m.id);
+    for (const id of s.menu) sim.addMenuItem(id);
+    for (const m of [...sim.cafe.menu]) if (!s.menu.includes(m.id)) sim.removeMenuItem(m.id);
+  }
+  if (s.week) sim.setWeekHours(s.week);
   for (const st of s.staff) {
     sim.hireBarista(st.contract);
     const b = sim.cafe.staff[sim.cafe.staff.length - 1];
@@ -203,7 +223,7 @@ export function run(s: Strategy, seed: number, days: number, marketing = true): 
   }
   out.invested += extra;
   out.cashEnd = sim.cash;
-  return out;
+  return { out, sim };
 }
 
 import { recipeOf } from '../src/sim/stock';

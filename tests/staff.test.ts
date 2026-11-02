@@ -57,6 +57,7 @@ describe('График бариста', () => {
   it('разовый вызов действует только сегодня, график остаётся', () => {
     const sim = new Simulation(1);
     sim.openCafe();
+    sim.setHours(hm(8), hm(20));
     sim.hireBarista('hourly');
     const id = sim.cafe.staff[0].id;
     sim.setStaffSchedule(id, { days: ALL, from: hm(8), to: hm(10) });
@@ -88,6 +89,7 @@ describe('График бариста', () => {
   it('изменение графика попадает в историю изменений', () => {
     const sim = new Simulation(1);
     sim.openCafe();
+    sim.setHours(hm(8), hm(20));
     sim.hireBarista('hourly');
     const id = sim.cafe.staff[0].id;
     sim.setStaffSchedule(id, { days: [true, true, true, true, true, false, false], from: hm(8), to: hm(11) });
@@ -139,7 +141,7 @@ describe('Помещения', () => {
     for (const r of sim.residents) r.aware = true;
     sim.advance(DAY);
     const r = sim.reports[0];
-    expect(r.rent).toBe(1_500);
+    expect(r.rent).toBe(PREMISES.kiosk.rentPerDay);
     expect(r.guests).toBeGreaterThan(10);
     expect(r.extras).toBe(0); // сидеть негде — дозаказов нет
   });

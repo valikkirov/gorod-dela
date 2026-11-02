@@ -17,6 +17,7 @@ function withLunch(sim: Simulation): void {
 function openKnown(seed = 4): Simulation {
   const sim = new Simulation(seed);
   sim.openCafe('cafe');
+  sim.setHours(hm(8), hm(20)); // тесты отсчитывают от открытия в 8:00
   withLunch(sim);
   for (const r of sim.residents) r.aware = true;
   return sim;

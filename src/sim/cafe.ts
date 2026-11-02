@@ -370,7 +370,7 @@ export class Cafe {
   premisesId: PremisesId = 'cafe';
   menu: MenuItem[] = DEFAULT_MENU_IDS.map(catalogItem);
   /** Часы по дням недели (0 — понедельник), null — выходной */
-  week: (DayHours | null)[] = Array.from({ length: 7 }, () => ({ openAt: hm(8), closeAt: hm(20) }));
+  week: (DayHours | null)[] = Array.from({ length: 7 }, () => ({ openAt: hm(7), closeAt: hm(19) }));
   staff: Barista[] = [];
   readonly stock = new Stock();
   /** Купленные улучшения */
@@ -539,7 +539,7 @@ export class Cafe {
       const h = this.hoursOn(this.weekday + i);
       if (h) return h;
     }
-    return { openAt: hm(8), closeAt: hm(20) };
+    return { openAt: hm(7), closeAt: hm(19) };
   }
 
   /** Открытие сегодня (в выходной — ближайшего рабочего дня) */

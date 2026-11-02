@@ -5,9 +5,9 @@ export const CURRENCY: Currency = 'RUB';
 
 export const ECONOMY = {
   startCash: 350_000,
-  cafeOpeningCost: 150_000,
-  /** 90 000 ₽ в месяц → списывается каждый игровой день */
-  rentPerDay: 2_200,
+  cafeOpeningCost: 80_000,
+  /** 48 000 ₽ в месяц → списывается каждый игровой день */
+  rentPerDay: 1_600,
   utilitiesPerDay: 500,
   /** Бариста почасово. Ночью (22:00–6:00) — с надбавкой, как по ТК */
   baristaWagePerHour: 300,
@@ -77,10 +77,10 @@ export const PREMISES: Record<PremisesId, Premises> = {
     name: 'Киоск у\u00a0метро',
     mine: 'Твой киоск',
     about: '8\u00a0м² прямо у\u00a0выхода из\u00a0метро. Только навынос: кофе, выпечка, чай, без\u00a0кухни и\u00a0бара',
-    rentPerDay: 1_500,
+    rentPerDay: 1_100,
     utilitiesPerDay: 100,
     utilitiesPerHour: 15,
-    openingCost: 75_000,
+    openingCost: 40_000,
     seats: false,
     kinds: ['coffee', 'snack', 'tea'],
     maxBaristas: 1,
@@ -102,8 +102,8 @@ export interface Equipment {
 }
 
 export const EQUIPMENT: Record<EquipmentId, Equipment> = {
-  stove: { id: 'stove', name: 'Плита и\u00a0вытяжка', kinds: ['lunch'], cost: 45_000, utilitiesPerHour: 12 },
-  tap: { id: 'tap', name: 'Пивной кран и\u00a0холодильник', kinds: ['bar'], cost: 30_000, utilitiesPerHour: 6 },
+  stove: { id: 'stove', name: 'Плита и\u00a0вытяжка', kinds: ['lunch'], cost: 25_000, utilitiesPerHour: 12 },
+  tap: { id: 'tap', name: 'Пивной кран и\u00a0холодильник', kinds: ['bar'], cost: 20_000, utilitiesPerHour: 6 },
 };
 
 /** Какое оборудование нужно для категории (null — входит в открытие) */

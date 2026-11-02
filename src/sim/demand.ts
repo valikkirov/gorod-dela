@@ -74,7 +74,7 @@ const RULES: WantRule[] = [
   {
     // Обед — офисные идут в «Продукты», ночная смена перекусывает около 2:00
     test: (_r, e) => e.activity === 'lunch',
-    chance: { office: 1, nightworker: 0.8 },
+    chance: { office: 1, nightworker: 0.8, remote: 0.8 },
     want: { kind: 'lunch', mode: 'replace', dwell: 20 },
   },
   {
@@ -207,7 +207,7 @@ export function evaluate(
  */
 export const FOCUS = {
   /** Базовая охота зайти у незнакомого с кафе жителя (лояльность прибавляется) */
-  base: 1.0,
+  base: 1.2,
   /** За выбор внутри категории (3+ позиции) */
   depth: 1.3,
 };

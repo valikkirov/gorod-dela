@@ -88,7 +88,8 @@ describe('Кафе', () => {
     const early = new Simulation(1);
     openKnown(late);
     openKnown(early);
-    early.setHours(hm(7, 0), hm(20, 0));
+    late.setHours(hm(9, 0), hm(19, 0));
+    early.setHours(hm(7, 0), hm(19, 0));
     late.advance(DAY);
     early.advance(DAY);
     expect(early.reports[0].missed.closed ?? 0).toBeLessThan(late.reports[0].missed.closed ?? 0);
@@ -106,6 +107,7 @@ describe('Кафе', () => {
   it('почасового можно отпустить — платим только за пик', () => {
     const sim = new Simulation(1);
     sim.openCafe();
+    sim.setHours(hm(8), hm(20));
     sim.hireBarista('hourly');
     const id = sim.cafe.staff[0].id;
     sim.advance(hm(4)); // 06:00 → 10:00, работал 2 часа

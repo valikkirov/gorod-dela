@@ -200,10 +200,18 @@ const SCHEDULES: Record<ResidentKind, Builder> = {
   remote: (rng, home) => {
     const walk = hm(11, 0) + rng.jitter(60);
     const shop = hm(17, 0) + rng.jitter(60);
-    return [
+    const out = [
       e(0, home, 'home'),
       e(walk, rng.chance(0.5) ? 'park' : 'shop', rng.chance(0.5) ? 'walk' : 'groceries'),
       e(walk + rng.int(30, 60), home, 'home'),
+    ];
+    // Половина работающих из дома выходит пообедать — второй источник спроса на обеды
+    if (rng.chance(0.5)) {
+      const lunch = Math.max(hm(13, 30) + rng.jitter(30), out[2].start + 15);
+      out.push(e(lunch, 'shop', 'lunch'), e(lunch + rng.int(20, 30), home, 'home'));
+    }
+    return [
+      ...out,
       e(shop, 'shop', 'groceries'),
       e(shop + rng.int(15, 30), home, 'home'),
     ];

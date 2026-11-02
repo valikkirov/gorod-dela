@@ -19,7 +19,7 @@ describe('Часы работы по дням недели', () => {
     expect(sim.cafe.isOpenAt(hm(1))).toBe(true); // ночь понедельника
     expect(sim.cafe.isOpenAt(hm(3))).toBe(false);
     expect(sim.cafe.isOpenAt(hm(12))).toBe(false);
-    expect(sim.cafe.nextOpening(hm(12))).toEqual({ inDays: 1, at: hm(8) });
+    expect(sim.cafe.nextOpening(hm(12))).toEqual({ inDays: 1, at: hm(7) });
   });
 
   it('нельзя закрыться на всю неделю; изменения пишутся одной строкой', () => {
