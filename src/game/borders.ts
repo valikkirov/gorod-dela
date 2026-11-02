@@ -19,6 +19,8 @@ const TRACKS = [-16, 15];
 const RAIL_CENTERS = [-RAIL_X, WORLD.width + RAIL_X];
 /** Соседние кварталы за насыпями: ширина полосы и цвет дымки */
 const CITY_W = 640;
+/** На каком расстоянии от насыпи кварталы полностью уходят в дымку */
+const CITY_FADE = 300;
 const MIST = 0xc3ccd0;
 /** Настил путепровода шире насыпи: так мост читается мостом */
 const DECK = { scaleX: 1.3, h: 131 };
@@ -135,8 +137,9 @@ export class Borders {
     // Воздушная перспектива: чем дальше от насыпи, тем гуще дымка; у самой насыпи — почти чисто
     const mist = this.scene.add.graphics().setDepth(-1002);
     const step = 16;
+    // Кварталы видны узкой полосой у насыпи и быстро тонут в дымке: глаз остаётся на районе
     for (let d = 0; d < W; d += step) {
-      const a = 0.08 + 0.72 * Math.pow(d / W, 1.4);
+      const a = Math.min(1, 0.35 + 0.65 * Math.pow(d / CITY_FADE, 1.2));
       mist.fillStyle(MIST, a);
       mist.fillRect(-BORDER.side - d - step, top, step, cityH + BORDER.bottom + far);
       mist.fillRect(right + d, top, step, cityH + BORDER.bottom + far);
