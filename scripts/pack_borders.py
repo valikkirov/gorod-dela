@@ -9,7 +9,7 @@
 - park.png     — пруд, ограда по горизонтали и по вертикали → prop-pond, prop-fence-h, prop-fence-v
 - freight.png  — товарный поезд: тепловоз, цистерна, крытый вагон → prop-freight-loco, -tank, -box
 - boats.png    — речной трамвайчик и катер носом вправо → prop-boat-tram, prop-boat-motor
-- haze.png     — крыши соседних кварталов в дымке → бесшовная tex-haze (за насыпями на широком экране)
+- city.png     — соседний квартал в масштабе района → бесшовная tex-haze (за насыпями, дымку рисует код)
 - forest-floor.png — лесная подстилка → бесшовная tex-forest (затемнена: под деревьями тень)
 
 После этого скрипта — python3 scripts/pack_v2.py (он собирает атласы и atlasFrames.ts).
@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / 'art-src' / 'v2' / 'borders' / 'raw'
 PROPS = ROOT / 'art-src' / 'v2' / 'props'
 TEX = ROOT / 'art-src' / 'v2' / 'textures'
+ART = ROOT / 'src' / 'game' / 'art'
 S = 2  # исходники в 2× мира
 
 
@@ -130,9 +131,11 @@ def main() -> None:
     tram_boat, motor = [o[0] for o in by_rows(objects(Image.open(RAW / 'boats.png')), 2)]
     width_to(tram_boat, 190).save(PROPS / 'prop-boat-tram.png')
     width_to(motor, 74).save(PROPS / 'prop-boat-motor.png')
-    # Крыши соседних кварталов: 300 мира в ширину, повтор сверху вниз
-    haze = width_to(Image.open(RAW / 'haze.png').convert('RGB'), 300)
-    Image.fromarray(seamless(np.asarray(haze), 0, 70)).save(TEX / 'tex-haze.png')
+    # Соседние кварталы: тот же масштаб, что у домов района (чуть мельче — дальше), повтор сверху вниз.
+    # Дымку поверх рисует код: чем дальше от насыпи, тем бледнее
+    city = width_to(Image.open(RAW / 'city.png').convert('RGB'), 640)
+    # Большая и без прозрачности — в игру идёт JPEG (PNG весил бы ~4 МБ), кадр задан в atlas.ts
+    Image.fromarray(seamless(np.asarray(city), 0, 90)).save(ART / 'tex-haze.jpg', quality=84, optimize=True)
     # Лесная подстилка: бесшовная во все стороны и в тени
     floor = Image.open(RAW / 'forest-floor.png').convert('RGB').resize((720, 720), Image.LANCZOS)
     f = seamless(seamless(np.asarray(floor), 0, 80), 1, 80).astype(float) * 0.72

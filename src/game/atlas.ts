@@ -17,7 +17,7 @@ import texGrassUrl from './art/tex-grass.png';
 import texSidewalkUrl from './art/tex-sidewalk.png';
 import texRailUrl from './art/tex-rail.png';
 import texRiverUrl from './art/tex-river.png';
-import texHazeUrl from './art/tex-haze.png';
+import texHazeUrl from './art/tex-haze.jpg';
 import texForestUrl from './art/tex-forest.png';
 import type { ResidentKind } from '../sim/residents';
 
@@ -140,7 +140,8 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
   // Границы района: насыпь и набережная с рекой
   'tex-rail': { url: texRailUrl, frames: { 'tex-rail': TEXTURE_FRAMES['tex-rail'] } },
   'tex-river': { url: texRiverUrl, frames: { 'tex-river': TEXTURE_FRAMES['tex-river'] } },
-  'tex-haze': { url: texHazeUrl, frames: { 'tex-haze': TEXTURE_FRAMES['tex-haze'] } },
+  // Соседние кварталы — JPEG из pack_borders.py, не из textures/
+  'tex-haze': { url: texHazeUrl, frames: { 'tex-haze': [0, 0, 640, 1099] } },
   'tex-forest': { url: texForestUrl, frames: { 'tex-forest': TEXTURE_FRAMES['tex-forest'] } },
   people: { url: peopleUrl, frames: peopleFrames() },
   // Животные «Графики 2.0»: листы поз из Magnific, сборка scripts/pack_animals.py

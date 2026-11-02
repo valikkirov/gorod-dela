@@ -89,7 +89,6 @@ export const TEXTURE_FRAMES: Record<string, [number, number, number, number]> = 
   'tex-asphalt': [0, 0, 320, 320],
   'tex-forest': [0, 0, 320, 320],
   'tex-grass': [0, 0, 320, 320],
-  'tex-haze': [0, 0, 300, 501],
   'tex-rail': [0, 0, 200, 327],
   'tex-river': [0, 0, 424, 260],
   'tex-sidewalk': [0, 0, 320, 320],

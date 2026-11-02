@@ -17,6 +17,9 @@ const RAIL_X = 110;
 const TRACKS = [-16, 15];
 /** Слева и справа — середины насыпей */
 const RAIL_CENTERS = [-RAIL_X, WORLD.width + RAIL_X];
+/** Соседние кварталы за насыпями: ширина полосы и цвет дымки */
+const CITY_W = 640;
+const MIST = 0xc3ccd0;
 /** Настил путепровода шире насыпи: так мост читается мостом */
 const DECK = { scaleX: 1.3, h: 131 };
 
@@ -101,31 +104,47 @@ export class Borders {
 
   /** Соседние кварталы в дымке за насыпями и река дальше вниз — на широком экране не видно пустоты */
   private drawHaze(): void {
-    const far = 1400;
+    const W = CITY_W;
+    const far = 2400;
     const top = -BORDER.top - far;
-    const h = WORLD.height + BORDER.top + BORDER.bottom + 2 * far;
-    this.tile(-BORDER.side - far, top, far, h, 'tex-haze', -1002);
-    this.tile(WORLD.width + BORDER.side, top, far, h, 'tex-haze', -1002);
-    // Лес и вода продолжаются за краем
-    this.tile(-BORDER.side, top, WORLD.width + 2 * BORDER.side, far, 'tex-forest', -1002);
-    const g = this.scene.add.graphics().setDepth(-1002);
+    const left = -BORDER.side - W;
+    const right = WORLD.width + BORDER.side;
+    // Самое дальнее — сплошная дымка; ближе — кварталы до реки, река — во всю ширину
+    const g = this.scene.add.graphics().setDepth(-1004);
+    g.fillStyle(MIST, 1);
+    g.fillRect(left - far, top, WORLD.width + 2 * (BORDER.side + W + far), WORLD.height + BORDER.top + 2 * far);
     g.fillStyle(0x426c71, 1);
-    g.fillRect(-BORDER.side - far, WORLD.height + BORDER.bottom, WORLD.width + 2 * (BORDER.side + far), far);
-    // Дымка: дальние кварталы бледнее, Садовая уходит в них дальше
-    const mist = this.scene.add.graphics().setDepth(-1001.5);
-    mist.fillStyle(0x6f6f71, 0.55);
-    mist.fillRect(-BORDER.side - far, SADOVAYA.top, far, SADOVAYA.bottom - SADOVAYA.top);
-    mist.fillRect(WORLD.width + BORDER.side, SADOVAYA.top, far, SADOVAYA.bottom - SADOVAYA.top);
-    mist.fillStyle(0xd3dadb, 0.3);
-    mist.fillRect(-BORDER.side - far, top, far, h);
-    mist.fillRect(WORLD.width + BORDER.side, top, far, h);
-    // Склон насыпи мягко уходит в дымку
-    const slope = this.scene.add.graphics().setDepth(-1001);
-    for (let k = 0; k < 6; k++) {
-      slope.fillStyle(0x5f7a35, 0.75 - k * 0.12);
-      slope.fillRect(-BORDER.side - (k + 1) * 10, top, 10, h);
-      slope.fillRect(WORLD.width + BORDER.side + k * 10, top, 10, h);
+    g.fillRect(left - far, WORLD.height + BORDER.bottom, WORLD.width + 2 * (BORDER.side + W + far), far);
+    const cityH = WORLD.height + BORDER.top + far;
+    this.tile(left, top, W, cityH, 'tex-haze', -1003);
+    this.tile(right, top, W, cityH, 'tex-haze', -1003).setFlipX(true);
+    this.tile(left, WORLD.height, W, BORDER.bottom, 'tex-river', -1003);
+    this.tile(right, WORLD.height, W, BORDER.bottom, 'tex-river', -1003);
+    // Лес продолжается вверх за краем
+    this.tile(-BORDER.side, top, WORLD.width + 2 * BORDER.side, far, 'tex-forest', -1003);
+    // Садовая уходит в соседние кварталы
+    const road = this.scene.add.graphics().setDepth(-1002.5);
+    for (const x of [left, right]) {
+      road.fillStyle(0xc9bdad, 1);
+      road.fillRect(x, SADOVAYA.top - 14, W, SADOVAYA.bottom - SADOVAYA.top + 28);
+      road.fillStyle(0x6f6f71, 1);
+      road.fillRect(x, SADOVAYA.top, W, SADOVAYA.bottom - SADOVAYA.top);
+      road.fillStyle(0xf6f0e2, 0.85);
+      for (let k = 0; k < W; k += 40) road.fillRect(x + k + 6, (SADOVAYA.top + SADOVAYA.bottom) / 2 - 1.5, 20, 3);
     }
+    // Воздушная перспектива: чем дальше от насыпи, тем гуще дымка; у самой насыпи — почти чисто
+    const mist = this.scene.add.graphics().setDepth(-1002);
+    const step = 16;
+    for (let d = 0; d < W; d += step) {
+      const a = 0.08 + 0.72 * Math.pow(d / W, 1.4);
+      mist.fillStyle(MIST, a);
+      mist.fillRect(-BORDER.side - d - step, top, step, cityH + BORDER.bottom + far);
+      mist.fillRect(right + d, top, step, cityH + BORDER.bottom + far);
+    }
+    // Лёгкий холодный тон на ближних кварталах: они дальше района
+    mist.fillStyle(0x9fb0b8, 0.12);
+    mist.fillRect(left, top, W, cityH);
+    mist.fillRect(right, top, W, cityH);
   }
 
   /** Насыпи слева и справа: от леса до реки */
