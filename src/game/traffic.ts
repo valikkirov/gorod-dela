@@ -48,6 +48,9 @@ const EAST_Y = SADOVAYA.bottom - 30;
 /** Кленовая начинается под переходом у метро: там машины появляются и исчезают плавно */
 const TOP = 96;
 const FADE = 60;
+/** Наклон в повороте (радианы) и скорость в повороте от обычной */
+const TURN_TILT = 0.12;
+const TURN_SLOWDOWN = 0.6;
 const LEFT = -140;
 const RIGHT = WORLD.width + 140;
 /** Где автобус стоит у остановки возле сквера (центр автобуса) */
@@ -400,7 +403,9 @@ export class Traffic {
       v.wait -= dt;
       blocked = true;
     }
-    if (!blocked) v.s += v.speed * dt;
+    // В повороте машина притормаживает: поворот читается как манёвр, а не как скачок кадра
+    const turning = Math.abs(Math.sin(2 * v.angle)) > 0.05;
+    if (!blocked) v.s += v.speed * (turning ? TURN_SLOWDOWN : 1) * dt;
     v.stopped = blocked;
     const { pos, angle } = sample(PATHS[v.route], v.s);
     v.pos = pos;
@@ -413,8 +418,9 @@ export class Traffic {
     let rot = angle - DIR_ANGLE[dir];
     if (rot > Math.PI) rot -= 2 * Math.PI;
     if (rot < -Math.PI) rot += 2 * Math.PI;
-    // Машины в 3/4 видны спереди, сзади или сбоку — сильно их не крутим, в повороте лишь наклоняем
-    rot = Phaser.Math.Clamp(rot, -0.3, 0.3);
+    // Машины в 3/4 видны спереди, сзади или сбоку: повёрнутый кадр выглядит как «полёт», поэтому
+    // в повороте лишь чуть наклоняем, а направление меняется сменой кадра
+    rot = Phaser.Math.Clamp(rot, -TURN_TILT, TURN_TILT);
     // Под переходом у метро Кленовая уходит в тоннель: машина появляется и исчезает плавно
     const toTop = pos.y - TOP;
     // По краям Садовой машина въезжает на карту и уезжает с неё — тоже плавно
@@ -427,7 +433,23 @@ export class Traffic {
       .setRotation(rot)
       .setDepth(pos.y + Math.abs(Math.sin(angle)) * (v.len / 2) + Math.abs(Math.cos(angle)) * 16)
       .setAlpha(alpha);
+    clipToMap(v.sprite);
   }
+}
+
+/** Не рисовать машину за краем карты: там трава, а не дорога. По краям Садовой машины едут прямо, без наклона */
+function clipToMap(sprite: Phaser.GameObjects.Image): void {
+  const half = sprite.displayWidth / 2;
+  const left = sprite.x - half;
+  const right = sprite.x + half;
+  if (left >= 0 && right <= WORLD.width) {
+    if (sprite.isCropped) sprite.setCrop();
+    return;
+  }
+  const k = sprite.frame.width / sprite.displayWidth;
+  const cut0 = Math.max(0, -left) * k;
+  const cut1 = Math.max(0, right - WORLD.width) * k;
+  sprite.setCrop(cut0, 0, Math.max(0, sprite.frame.width - cut0 - cut1), sprite.frame.height);
 }
 
 function pick(options: [string, number][]): string {
