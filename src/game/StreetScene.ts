@@ -847,7 +847,8 @@ export class StreetScene extends Phaser.Scene {
     this.night.clear();
     if (dark > 0) {
       this.night.fillStyle(0x1b2340, dark);
-      this.night.fillRect(VIEW.left, VIEW.top, VIEW.right - VIEW.left, VIEW.bottom - VIEW.top);
+      // С запасом: ночь накрывает и дальние кварталы за границами района
+      this.night.fillRect(VIEW.left - 2000, VIEW.top - 2000, VIEW.right - VIEW.left + 4000, VIEW.bottom - VIEW.top + 4000);
     }
     const k = dark / MAX_DARK;
     const h = minute / 60;

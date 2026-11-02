@@ -7,6 +7,10 @@
 - train.png    — электричка сверху: головной и прицепной вагоны → prop-train-head, prop-train-car
 - forest.png   — восемь деревьев леса в два ряда → prop-forest-1…8
 - park.png     — пруд, ограда по горизонтали и по вертикали → prop-pond, prop-fence-h, prop-fence-v
+- freight.png  — товарный поезд: тепловоз, цистерна, крытый вагон → prop-freight-loco, -tank, -box
+- boats.png    — речной трамвайчик и катер носом вправо → prop-boat-tram, prop-boat-motor
+- haze.png     — крыши соседних кварталов в дымке → бесшовная tex-haze (за насыпями на широком экране)
+- forest-floor.png — лесная подстилка → бесшовная tex-forest (затемнена: под деревьями тень)
 
 После этого скрипта — python3 scripts/pack_v2.py (он собирает атласы и atlasFrames.ts).
 Запуск из корня: python3 scripts/pack_borders.py
@@ -118,7 +122,22 @@ def main() -> None:
     width_to(pond, 190).save(PROPS / 'prop-pond.png')
     width_to(fence_h, 80).save(PROPS / 'prop-fence-h.png')
     height_to(fence_v, 80).save(PROPS / 'prop-fence-v.png')
-    print('ok', len(cars), len(trees), len(park))
+    # Товарный поезд
+    freight = by_rows(objects(Image.open(RAW / 'freight.png')), 1)
+    for name, (img, _) in zip(['prop-freight-loco', 'prop-freight-tank', 'prop-freight-box'], freight):
+        width_to(img, 40).save(PROPS / f'{name}.png')
+    # Река: трамвайчик сверху, катер снизу
+    tram_boat, motor = [o[0] for o in by_rows(objects(Image.open(RAW / 'boats.png')), 2)]
+    width_to(tram_boat, 190).save(PROPS / 'prop-boat-tram.png')
+    width_to(motor, 74).save(PROPS / 'prop-boat-motor.png')
+    # Крыши соседних кварталов: 300 мира в ширину, повтор сверху вниз
+    haze = width_to(Image.open(RAW / 'haze.png').convert('RGB'), 300)
+    Image.fromarray(seamless(np.asarray(haze), 0, 70)).save(TEX / 'tex-haze.png')
+    # Лесная подстилка: бесшовная во все стороны и в тени
+    floor = Image.open(RAW / 'forest-floor.png').convert('RGB').resize((720, 720), Image.LANCZOS)
+    f = seamless(seamless(np.asarray(floor), 0, 80), 1, 80).astype(float) * 0.72
+    Image.fromarray(f.clip(0, 255).astype(np.uint8)).save(TEX / 'tex-forest.png')
+    print('ok', len(cars), len(trees), len(park), len(freight))
 
 
 if __name__ == '__main__':
