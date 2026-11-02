@@ -5,11 +5,11 @@
 - river.png    — набережная и река слева направо   → бесшовная текстура tex-river (260 мира в высоту)
 - bridge.png   — путепровод: настил с перилами и фасад с аркой → prop-rail-bridge, prop-rail-deck
 - train.png    — электричка сверху: головной и прицепной вагоны → prop-train-head, prop-train-car
-- forest.png   — восемь деревьев леса в два ряда → prop-forest-1…8
+- trees-*.png  — деревья леса по три на лист, фон снят в Magnific → prop-forest-1…8, prop-forest-bush
 - park.png     — пруд, ограда по горизонтали и по вертикали → prop-pond, prop-fence-h, prop-fence-v
 - freight.png  — товарный поезд: тепловоз, цистерна, крытый вагон → prop-freight-loco, -tank, -box
 - boats.png    — речной трамвайчик и катер носом вправо → prop-boat-tram, prop-boat-motor
-- city.png     — соседний квартал в масштабе района → бесшовная tex-haze (за насыпями, дымку рисует код)
+- clouds.png   — облака «тумана войны» вокруг района → бесшовная tex-clouds.jpg
 - forest-floor.png — лесная подстилка → бесшовная tex-forest (затемнена: под деревьями тень)
 
 После этого скрипта — python3 scripts/pack_v2.py (он собирает атласы и atlasFrames.ts).
@@ -45,6 +45,21 @@ def objects(im: Image.Image, min_area: int = 4000) -> list[tuple[Image.Image, tu
         alpha = nd.gaussian_filter(m.astype(float), 0.7)
         rgba = np.dstack([a[sl].astype(np.uint8), (alpha * 255).clip(0, 255).astype(np.uint8)])
         out.append((Image.fromarray(rgba, 'RGBA'), (sl[1].start, sl[0].start, sl[1].stop, sl[0].stop)))
+    return out
+
+
+def alpha_objects(im: Image.Image, min_area: int = 4000):
+    """Предметы на прозрачном фоне (после снятия фона): связные пятна непрозрачного"""
+    a = np.asarray(im.convert('RGBA'))
+    fg = nd.binary_closing(a[..., 3] > 24, iterations=2)
+    lab, _ = nd.label(fg)
+    out = []
+    for i, sl in enumerate(nd.find_objects(lab), 1):
+        if sl is None or (lab[sl] == i).sum() < min_area:
+            continue
+        crop = a[sl].copy()
+        crop[..., 3] = np.where(lab[sl] == i, crop[..., 3], 0)
+        out.append((Image.fromarray(crop, 'RGBA'), (sl[1].start, sl[0].start, sl[1].stop, sl[0].stop)))
     return out
 
 
@@ -97,6 +112,27 @@ def main() -> None:
     river = height_to(Image.open(RAW / 'river.png').convert('RGB'), 260)
     Image.fromarray(seamless(np.asarray(river), 1, 80)).save(TEX / 'tex-river.png')
 
+    # Пролёт моста — из той же насыпи: середина с путями (пути совпадают до пикселя, поезд не съезжает),
+    # по краям бетонные бортики с перилами. Бесшовный сверху вниз, как насыпь
+    rail_tex = np.asarray(Image.open(TEX / 'tex-rail.png').convert('RGB')).astype(float)
+    mid = rail_tex[:, 134:266]
+    h = mid.shape[0]
+    side = 30
+    rng = np.random.default_rng(7)
+    def band(flip: bool) -> np.ndarray:
+        b = np.zeros((h, side, 3))
+        b[:] = (178, 172, 162)
+        b += rng.normal(0, 4, (h, side, 1))
+        b[:, :3] = (74, 52, 38)          # внешний контур — тёмно-коричневый, как у всей графики
+        b[:, 3:6] = (150, 144, 134)      # скос бортика
+        b[:, 9:12] = (84, 88, 94)        # поручень
+        b[:, side - 4:] = (120, 114, 104)  # тень бортика на балласт
+        for y in range(0, h, 48):        # стойки перил
+            b[y:y + 7, 7:14] = (64, 68, 74)
+        return b[:, ::-1] if flip else b
+    deck = np.concatenate([band(False), mid, band(True)], axis=1)
+    Image.fromarray(deck.clip(0, 255).astype(np.uint8)).save(TEX / 'tex-bridge.png')
+
     # Путепровод: целиком (через реку) и только настил с перилами (над улицей)
     (bridge, _), = objects(Image.open(RAW / 'bridge.png'))
     bridge = width_to(bridge, 104)
@@ -109,13 +145,16 @@ def main() -> None:
     # Электричка: головной и прицепной вагоны
     cars = by_rows(objects(Image.open(RAW / 'train.png')), 1)
     for name, (img, _) in zip(['prop-train-head', 'prop-train-car'], cars):
-        width_to(img, 40).save(PROPS / f'{name}.png')
+        width_to(img, 30).save(PROPS / f'{name}.png')
 
-    # Лес: два ряда по 3 и 5 деревьев
-    trees = by_rows(objects(Image.open(RAW / 'forest.png')), 2)
-    # Ели (верхний ряд) выше, ниже — сосны, лиственные и берёзка; круглое дерево улицы — 100
-    for i, ((img, _), h) in enumerate(zip(trees, [130, 115, 100, 115, 105, 100, 95, 95]), 1):
-        height_to(img, h).save(PROPS / f'prop-forest-{i}.png')
+    # Лес: деревья сгенерированы по три на лист, фон снят в Magnific (без белой каймы между ветками)
+    trees = []
+    for f in ['trees-spruce.png', 'trees-pine.png', 'trees-round.png']:
+        trees += [o[0] for o in sorted(alpha_objects(Image.open(RAW / f)), key=lambda o: o[1][0])]
+    heights = [130, 145, 115, 125, 95, 100, 108, 102, 40]
+    names = [f'prop-forest-{i}' for i in range(1, 9)] + ['prop-forest-bush']
+    for img, h, name in zip(trees, heights, names):
+        height_to(img, h).save(PROPS / f'{name}.png')
 
     # Сквер: пруд, ограда по горизонтали и по вертикали
     park = by_rows(objects(Image.open(RAW / 'park.png'), 800), 1)
@@ -126,20 +165,19 @@ def main() -> None:
     # Товарный поезд
     freight = by_rows(objects(Image.open(RAW / 'freight.png')), 1)
     for name, (img, _) in zip(['prop-freight-loco', 'prop-freight-tank', 'prop-freight-box'], freight):
-        width_to(img, 40).save(PROPS / f'{name}.png')
+        width_to(img, 30).save(PROPS / f'{name}.png')
     # Река: трамвайчик сверху, катер снизу
     tram_boat, motor = [o[0] for o in by_rows(objects(Image.open(RAW / 'boats.png')), 2)]
     width_to(tram_boat, 190).save(PROPS / 'prop-boat-tram.png')
     width_to(motor, 74).save(PROPS / 'prop-boat-motor.png')
-    # Соседние кварталы: тот же масштаб, что у домов района (чуть мельче — дальше), повтор сверху вниз.
-    # Дымку поверх рисует код: чем дальше от насыпи, тем бледнее
-    city = width_to(Image.open(RAW / 'city.png').convert('RGB'), 640)
-    # Большая и без прозрачности — в игру идёт JPEG (PNG весил бы ~4 МБ), кадр задан в atlas.ts
-    Image.fromarray(seamless(np.asarray(city), 0, 90)).save(ART / 'tex-haze.jpg', quality=84, optimize=True)
     # Лесная подстилка: бесшовная во все стороны и в тени
     floor = Image.open(RAW / 'forest-floor.png').convert('RGB').resize((720, 720), Image.LANCZOS)
     f = seamless(seamless(np.asarray(floor), 0, 80), 1, 80).astype(float) * 0.72
     Image.fromarray(f.clip(0, 255).astype(np.uint8)).save(TEX / 'tex-forest.png')
+    # Облака тумана: бесшовные во все стороны, JPEG (маску края считает код в fog.ts)
+    clouds = np.asarray(Image.open(RAW / 'clouds.png').convert('RGB'))
+    clouds = seamless(seamless(clouds, 0, 120), 1, 120)
+    Image.fromarray(clouds).resize((768, 768), Image.LANCZOS).save(ART / 'tex-clouds.jpg', quality=82, optimize=True)
     print('ok', len(cars), len(trees), len(park), len(freight))
 
 

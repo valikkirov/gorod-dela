@@ -6,6 +6,7 @@ import type { Simulation } from '../sim/simulation';
 import { WANT_LABEL } from '../sim/demand';
 import { formatMoney } from '../sim/economy';
 import { Borders, BORDER } from './borders';
+import { Fog } from './fog';
 import { CROSSWALK_Y, GRID, place, PLACES, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type Place } from '../sim/world';
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { WeatherFx, type FxKind } from './weatherFx';
@@ -113,10 +114,10 @@ const MAP = { top: -48, height: WORLD.height + 48 } as const;
 
 /** Куда можно прокрутить камеру: район с его границами — лесом, насыпями и рекой (borders.ts) */
 const VIEW = {
-  left: -BORDER.side,
-  right: WORLD.width + BORDER.side,
-  top: -BORDER.top,
-  bottom: WORLD.height + BORDER.bottom,
+  left: -BORDER.side - 120,
+  right: WORLD.width + BORDER.side + 120,
+  top: -BORDER.top - 80,
+  bottom: WORLD.height + BORDER.bottom + 80,
 } as const;
 
 /** Цоколь здания чуть ниже основания, чтобы не было щели до полосы у двери */
@@ -276,6 +277,7 @@ export class StreetScene extends Phaser.Scene {
   private animals!: Animals;
   /** Деревья качаются на ветру */
   private borders!: Borders;
+  private fog!: Fog;
   private trees: { img: Phaser.GameObjects.Image; phase: number }[] = [];
   private treeBases: { x: number; y: number }[] = [];
   private shops: Shop[] = [];
@@ -359,6 +361,7 @@ export class StreetScene extends Phaser.Scene {
     }
     this.traffic = new Traffic(this, this.hooks.sim, DEPTH.lights);
     this.borders = new Borders(this);
+    this.fog = new Fog(this, DEPTH.night - 10);
 
     this.guests = this.add.graphics().setDepth(c.rect.y + c.rect.h + 0.5);
     this.marks = this.add.graphics();
@@ -421,7 +424,7 @@ export class StreetScene extends Phaser.Scene {
   private covered = 0;
 
   private setupCamera(): void {
-    this.cameras.main.setBackgroundColor('#4a6331');
+    this.cameras.main.setBackgroundColor('#e6e2da');
     this.input.addPointer(1);
     // Свёрнутый лист закругляется поверх карты на 14 px
     if (!this.covered && !this.hooks.wide()) this.covered = 14;
@@ -592,6 +595,7 @@ export class StreetScene extends Phaser.Scene {
     });
     this.traffic.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
     this.borders.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
+    this.fog.update(realSeconds);
     this.updateSound();
     this.hooks.onFrame();
   }
@@ -998,7 +1002,8 @@ export class StreetScene extends Phaser.Scene {
     const S = ART_SCALE;
     const cols = Math.ceil((WORLD.width + GRID.offsetX) / GRID.size);
     // Клетки лежат на сетке мира: полоса над миром начинается с целой клетки, а не с MAP.top
-    const top = Math.floor(MAP.top / GRID.size) * GRID.size;
+    // Земля начинается с края мира: выше — лес (borders.ts), Кленовая кончается у метро
+    const top = 0;
     const rows = Math.ceil((MAP.top + MAP.height - top) / GRID.size);
     const canvas = this.textures.createCanvas('ground-map', WORLD.width * S, rows * GRID.size * S);
     if (!canvas) return;

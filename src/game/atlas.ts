@@ -17,8 +17,9 @@ import texGrassUrl from './art/tex-grass.png';
 import texSidewalkUrl from './art/tex-sidewalk.png';
 import texRailUrl from './art/tex-rail.png';
 import texRiverUrl from './art/tex-river.png';
-import texHazeUrl from './art/tex-haze.jpg';
+import texCloudsUrl from './art/tex-clouds.jpg';
 import texForestUrl from './art/tex-forest.png';
+import texBridgeUrl from './art/tex-bridge.png';
 import type { ResidentKind } from '../sim/residents';
 
 /** Во сколько раз PNG крупнее единиц мира */
@@ -140,9 +141,10 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
   // Границы района: насыпь и набережная с рекой
   'tex-rail': { url: texRailUrl, frames: { 'tex-rail': TEXTURE_FRAMES['tex-rail'] } },
   'tex-river': { url: texRiverUrl, frames: { 'tex-river': TEXTURE_FRAMES['tex-river'] } },
-  // Соседние кварталы — JPEG из pack_borders.py, не из textures/
-  'tex-haze': { url: texHazeUrl, frames: { 'tex-haze': [0, 0, 640, 1099] } },
+  // Облака тумана — JPEG из pack_borders.py, не из textures/
+  'tex-clouds': { url: texCloudsUrl, frames: { 'tex-clouds': [0, 0, 384, 384] } },
   'tex-forest': { url: texForestUrl, frames: { 'tex-forest': TEXTURE_FRAMES['tex-forest'] } },
+  'tex-bridge': { url: texBridgeUrl, frames: { 'tex-bridge': TEXTURE_FRAMES['tex-bridge'] } },
   people: { url: peopleUrl, frames: peopleFrames() },
   // Животные «Графики 2.0»: листы поз из Magnific, сборка scripts/pack_animals.py
   animals: { url: animalsUrl, frames: ANIMAL_FRAMES },

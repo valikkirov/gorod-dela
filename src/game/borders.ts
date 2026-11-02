@@ -1,11 +1,12 @@
 // Границы района (GDD 14.4): район — законченный кусок города, а не обрезок.
 // Слева и справа — железная дорога на насыпи (Садовая уходит под путепроводы), сверху — лес
 // (Кленовая уходит под деревья), снизу — набережная и река (через неё — те же пути на мосту).
-// За насыпями на широком экране — крыши соседних кварталов в дымке.
+// За всем этим — «туман войны» (fog.ts).
 // Всё это лежит за пределами мира симуляции: жители туда не ходят, это только картинка.
 import Phaser from 'phaser';
-import { ROAD, SADOVAYA, WORLD } from '../sim/world';
+import { SADOVAYA, WORLD } from '../sim/world';
 import { ART_SCALE, textureOf } from './atlas';
+import { FOG_FAR } from './fog';
 
 /** Ширина полос вокруг мира, в единицах мира */
 export const BORDER = { side: 220, top: 240, bottom: 260 } as const;
@@ -17,13 +18,8 @@ const RAIL_X = 110;
 const TRACKS = [-16, 15];
 /** Слева и справа — середины насыпей */
 const RAIL_CENTERS = [-RAIL_X, WORLD.width + RAIL_X];
-/** Соседние кварталы за насыпями: ширина полосы и цвет дымки */
-const CITY_W = 640;
-/** На каком расстоянии от насыпи кварталы полностью уходят в дымку */
-const CITY_FADE = 300;
-const MIST = 0xc3ccd0;
 /** Настил путепровода шире насыпи: так мост читается мостом */
-const DECK = { scaleX: 1.3, h: 131 };
+const BRIDGE_W = 96;
 
 /** Глубина путепровода: выше машин и трамвая на Садовой */
 const DECK_DEPTH = SADOVAYA.bottom + 30;
@@ -87,7 +83,7 @@ export class Borders {
   private wakes: Phaser.GameObjects.Graphics;
 
   constructor(private scene: Phaser.Scene) {
-    this.drawHaze();
+    this.drawBeyond();
     this.drawRails();
     this.drawRiver();
     this.drawForest();
@@ -105,49 +101,19 @@ export class Borders {
   }
 
   /** Соседние кварталы в дымке за насыпями и река дальше вниз — на широком экране не видно пустоты */
-  private drawHaze(): void {
-    const W = CITY_W;
-    const far = 2400;
-    const top = -BORDER.top - far;
-    const left = -BORDER.side - W;
-    const right = WORLD.width + BORDER.side;
-    // Самое дальнее — сплошная дымка; ближе — кварталы до реки, река — во всю ширину
-    const g = this.scene.add.graphics().setDepth(-1004);
-    g.fillStyle(MIST, 1);
-    g.fillRect(left - far, top, WORLD.width + 2 * (BORDER.side + W + far), WORLD.height + BORDER.top + 2 * far);
+  private drawBeyond(): void {
+    const far = FOG_FAR;
+    // Под туманом: за насыпями и над лесом — лес, за рекой — вода. Туман редеет у края, и там видна земля
+    this.tile(-far, -far, WORLD.width + 2 * far, WORLD.height + far, 'tex-forest', -1004);
+    const g = this.scene.add.graphics().setDepth(-1003);
     g.fillStyle(0x426c71, 1);
-    g.fillRect(left - far, WORLD.height + BORDER.bottom, WORLD.width + 2 * (BORDER.side + W + far), far);
-    const cityH = WORLD.height + BORDER.top + far;
-    this.tile(left, top, W, cityH, 'tex-haze', -1003);
-    this.tile(right, top, W, cityH, 'tex-haze', -1003).setFlipX(true);
-    this.tile(left, WORLD.height, W, BORDER.bottom, 'tex-river', -1003);
-    this.tile(right, WORLD.height, W, BORDER.bottom, 'tex-river', -1003);
-    // Лес продолжается вверх за краем
-    this.tile(-BORDER.side, top, WORLD.width + 2 * BORDER.side, far, 'tex-forest', -1003);
-    // Садовая уходит в соседние кварталы
-    const road = this.scene.add.graphics().setDepth(-1002.5);
-    for (const x of [left, right]) {
-      road.fillStyle(0xc9bdad, 1);
-      road.fillRect(x, SADOVAYA.top - 14, W, SADOVAYA.bottom - SADOVAYA.top + 28);
-      road.fillStyle(0x6f6f71, 1);
-      road.fillRect(x, SADOVAYA.top, W, SADOVAYA.bottom - SADOVAYA.top);
-      road.fillStyle(0xf6f0e2, 0.85);
-      for (let k = 0; k < W; k += 40) road.fillRect(x + k + 6, (SADOVAYA.top + SADOVAYA.bottom) / 2 - 1.5, 20, 3);
-    }
-    // Воздушная перспектива: чем дальше от насыпи, тем гуще дымка; у самой насыпи — почти чисто
-    const mist = this.scene.add.graphics().setDepth(-1002);
-    const step = 16;
-    // Кварталы видны узкой полосой у насыпи и быстро тонут в дымке: глаз остаётся на районе
-    for (let d = 0; d < W; d += step) {
-      const a = Math.min(1, 0.35 + 0.65 * Math.pow(d / CITY_FADE, 1.2));
-      mist.fillStyle(MIST, a);
-      mist.fillRect(-BORDER.side - d - step, top, step, cityH + BORDER.bottom + far);
-      mist.fillRect(right + d, top, step, cityH + BORDER.bottom + far);
-    }
-    // Лёгкий холодный тон на ближних кварталах: они дальше района
-    mist.fillStyle(0x9fb0b8, 0.12);
-    mist.fillRect(left, top, W, cityH);
-    mist.fillRect(right, top, W, cityH);
+    g.fillRect(-far, WORLD.height + BORDER.bottom, WORLD.width + 2 * far, far);
+    this.tile(-far, WORLD.height, far - BORDER.side, BORDER.bottom, 'tex-river', -1003);
+    this.tile(WORLD.width + BORDER.side, WORLD.height, far - BORDER.side, BORDER.bottom, 'tex-river', -1003);
+    // Садовая уходит дальше под туман
+    g.fillStyle(0x6f6f71, 1);
+    g.fillRect(-far, SADOVAYA.top, far - BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
+    g.fillRect(WORLD.width + BORDER.side, SADOVAYA.top, far - BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
   }
 
   /** Насыпи слева и справа: от леса до реки */
@@ -166,10 +132,11 @@ export class Borders {
   private drawRiver(): void {
     this.tile(-BORDER.side, WORLD.height, WORLD.width + 2 * BORDER.side, BORDER.bottom, 'tex-river', -997);
     for (const cx of RAIL_CENTERS) {
-      for (let y = WORLD.height - 12; y < WORLD.height + BORDER.bottom; y += DECK.h - 2) this.deck(cx, y);
+      // Мост через реку — одним пролётом от набережной до края, без швов
+      this.bridge(cx, WORLD.height - 14, BORDER.bottom + 600);
       const shade = this.scene.add.graphics().setDepth(-996);
       shade.fillStyle(0x0b2a33, 0.35);
-      shade.fillRect(cx + 68, WATER_TOP, 20, BORDER.bottom);
+      shade.fillRect(cx + BRIDGE_W / 2, WATER_TOP, 16, BORDER.bottom + 600);
     }
     // Набережная: фонари через один пролёт и лавки между ними
     for (let x = 60, k = 0; x < WORLD.width - 40; x += 160, k++) {
@@ -187,12 +154,18 @@ export class Borders {
     const top = -BORDER.top;
     // Подстилка леса — под насыпями: пути уходят в лес, а не обрываются
     this.tile(-BORDER.side, top, WORLD.width + 2 * BORDER.side, BORDER.top + 4, 'tex-forest', -999.5);
+    // Склоны насыпи в лесу — та же подстилка, видны только пути
+    for (const cx of RAIL_CENTERS) {
+      this.tile(cx - RAIL_W / 2, top, RAIL_W / 2 - 34, BORDER.top, 'tex-forest', -998.8);
+      this.tile(cx + 34, top, RAIL_W / 2 - 34, BORDER.top, 'tex-forest', -998.8);
+    }
+    // Тень от кромки леса на траву района: мягко, без резкой полосы
     const g = this.scene.add.graphics().setDepth(-998.5);
-    // Тень от кромки леса на траву района
-    g.fillStyle(0x2c3d1e, 0.22);
-    g.fillRect(-BORDER.side, -4, WORLD.width + 2 * BORDER.side, 16);
-    const clear = (x: number) =>
-      (x > ROAD.left - 18 && x < ROAD.right + 18) || RAIL_CENTERS.some((c) => Math.abs(x - c) < 46);
+    for (let k = 0; k < 6; k++) {
+      g.fillStyle(0x2c3d1e, 0.06);
+      g.fillRect(-BORDER.side, -4, WORLD.width + 2 * BORDER.side, 4 + k * 3);
+    }
+    const clear = (x: number) => RAIL_CENTERS.some((c) => Math.abs(x - c) < 40);
     // Поляны: в этих местах деревья редеют
     const glades = [140, 610, 1010, 1330];
     let i = 0;
@@ -221,35 +194,27 @@ export class Borders {
     // Опушка: кусты вдоль кромки, неровной полосой
     for (let x = -BORDER.side + 20, k = 0; x < WORLD.width + BORDER.side; x += 34 + rand(k + 400) * 30, k++) {
       if (clear(x) || rand(k + 500) < 0.35) continue;
-      const frame = rand(k + 600) < 0.5 ? 'prop-bush' : 'prop-bushes';
+      const frame = rand(k + 600) < 0.5 ? 'prop-forest-bush' : 'prop-bushes';
       this.prop(frame, x, -2 - rand(k + 700) * 8).setFlipX(rand(k + 800) > 0.5);
     }
   }
 
-  /** Садовая за краем мира до путепровода и Кленовая в лесу */
+  /** Садовая за краем мира до путепровода (Кленовая кончается у метро: за ним — лес) */
   private drawRoadEnds(): void {
     const g = this.scene.add.graphics().setDepth(-996);
     g.fillStyle(0x6f6f71, 1);
     g.fillRect(-BORDER.side, SADOVAYA.top, BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
     g.fillRect(WORLD.width, SADOVAYA.top, BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
-    g.fillRect(ROAD.left, -BORDER.top, ROAD.right - ROAD.left, BORDER.top);
     // Осевая
     g.fillStyle(0xf6f0e2, 0.85);
     const mid = SADOVAYA.top + (SADOVAYA.bottom - SADOVAYA.top) / 2;
     for (let x = -BORDER.side; x < 0; x += 40) g.fillRect(x + 6, mid - 1.5, 20, 3);
     for (let x = WORLD.width; x < WORLD.width + BORDER.side; x += 40) g.fillRect(x + 6, mid - 1.5, 20, 3);
-    for (let y = -BORDER.top; y < 0; y += 40) g.fillRect((ROAD.left + ROAD.right) / 2 - 1.5, y + 6, 3, 20);
-    // Лес над дорогой: тень кроны темнит асфальт к краю
-    for (let k = 0; k < 8; k++) {
-      g.fillStyle(0x1f2a16, 0.08);
-      g.fillRect(ROAD.left, -BORDER.top, ROAD.right - ROAD.left, BORDER.top - k * 26);
-    }
   }
 
   /** Путепроводы над Садовой: настил, тень под ним и бетонные опоры по краям дороги */
   private drawBridges(): void {
-    const mid = (SADOVAYA.top + SADOVAYA.bottom) / 2;
-    const half = (104 * DECK.scaleX) / 2;
+    const half = BRIDGE_W / 2;
     for (const cx of RAIL_CENTERS) {
       const g = this.scene.add.graphics().setDepth(-995);
       g.fillStyle(0x15140f, 0.34);
@@ -261,16 +226,19 @@ export class Borders {
         g.fillStyle(0x6c675f, 1);
         g.fillRect(cx - half + 6, y + 12, 2 * half - 12, 4);
       }
-      this.deck(cx, mid + DECK.h / 2 + 4);
+      this.bridge(cx, SADOVAYA.top - 16, SADOVAYA.bottom - SADOVAYA.top + 32);
     }
   }
 
-  private deck(cx: number, bottom: number): Phaser.GameObjects.Image {
-    return this.scene.add
-      .image(cx, bottom, textureOf('prop-rail-deck'), 'prop-rail-deck')
-      .setOrigin(0.5, 1)
-      .setScale(DECK.scaleX / ART_SCALE, 1 / ART_SCALE)
-      .setDepth(DECK_DEPTH);
+  /** Пролёт моста: та же насыпь с бортиками; узор путей продолжает насыпь без сдвига */
+  private bridge(cx: number, y: number, h: number): void {
+    const t = this.tile(cx - BRIDGE_W / 2, y, BRIDGE_W, h, 'tex-bridge', DECK_DEPTH);
+    t.tilePositionY = (y + BORDER.top) * ART_SCALE;
+    // Торцы пролёта: тёмная кромка бетона
+    const g = this.scene.add.graphics().setDepth(DECK_DEPTH + 0.05);
+    g.fillStyle(0x4a3a2c, 1);
+    g.fillRect(cx - BRIDGE_W / 2, y, BRIDGE_W, 3);
+    g.fillRect(cx - BRIDGE_W / 2, y + h - 3, BRIDGE_W, 3);
   }
 
   /** dt — секунды с учётом скорости игры; на паузе всё стоит */
