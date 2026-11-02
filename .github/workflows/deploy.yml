@@ -1,6 +1,7 @@
 name: Деплой в Yandex Object Storage и зеркало в Selectel
 
-# Каждый пуш в main: тесты → сборка → выкладка в два облака.
+# Каждый пуш в main: сборка → выкладка в два облака. Тесты гоняются локально перед пушем (npm test),
+# в CI их не повторяем: так запуск укладывается в одну оплачиваемую минуту.
 # Одна задача на всё (раньше три: каждая заново поднимала машину) — так тратится втрое меньше минут Actions.
 # Пуш, где поменялись только исходники графики, скрипты или тексты, игру не пересобирает.
 # Основной адрес: https://www.gorod-dela.ru (Selectel), запасной — https://gorod-dela-play.website.yandexcloud.net
@@ -29,15 +30,20 @@ jobs:
       AWS_REQUEST_CHECKSUM_CALCULATION: when_required
       AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
     steps:
+      # Без исходников графики (art-src — почти 100 МБ): для сборки они не нужны
       - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            /*
+            !/art-src/
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
 
-      - run: npm ci
-      - run: npm test
+      - run: npm ci --no-audit --no-fund
       - run: npm run build
 
       # Яндекс. Файлы в assets/ с хешем в имени — кешируем надолго; index.html и прочее — без кеша.
