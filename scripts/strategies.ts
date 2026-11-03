@@ -3,7 +3,7 @@
 // Игрок в прогоне — «разумный»: вывеска в первый день, закупка подстраивается под расход,
 // оборудование и зал — по формату. Цены — по умолчанию. Больше ничего не трогает.
 import { hm, MINUTES_PER_DAY } from '../src/sim/clock';
-import type { EquipmentId, PremisesId } from '../src/sim/economy';
+import { PREMISES, type EquipmentId, type PremisesId } from '../src/sim/economy';
 import type { PresetId } from '../src/sim/interior';
 import { KIOSK_FITS, upgrade } from '../src/sim/milestones';
 import { Simulation } from '../src/sim/simulation';
@@ -106,6 +106,37 @@ export const STRATEGIES: Strategy[] = [
     staff: [{ contract: 'hourly', from: hm(7), to: hm(10) }],
     kioskFits: true,
   },
+  {
+    // Бистро в деловом квартале — вторая точка: владелец стоит в первой, здесь бариста на смене
+    id: 'bistro',
+    name: 'Бистро',
+    premises: 'bistro',
+    menu: [],
+    week: weekdays({ openAt: hm(8), closeAt: hm(17) }, null),
+    staff: [{ contract: 'shift', from: hm(8), to: hm(17), days: WD }],
+  },
+  {
+    id: 'bistro-lunch',
+    name: 'Бистро: обед',
+    premises: 'bistro',
+    menu: ['americano', 'cappuccino', 'soup', 'lunch', 'tea'],
+    week: weekdays({ openAt: hm(11), closeAt: hm(16) }, null),
+    staff: [
+      { contract: 'hourly', from: hm(11), to: hm(16), days: WD },
+      { contract: 'hourly', from: hm(12), to: hm(15), days: WD },
+    ],
+  },
+  {
+    id: 'bistro-day',
+    name: 'Бистро: весь день',
+    premises: 'bistro',
+    menu: ['americano', 'cappuccino', 'latte', 'croissant', 'sandwich', 'soup', 'lunch', 'tea'],
+    week: weekdays({ openAt: hm(7), closeAt: hm(19) }, null),
+    staff: [
+      { contract: 'shift', from: hm(7), to: hm(19), days: WD },
+      { contract: 'hourly', from: hm(12), to: hm(15), days: WD },
+    ],
+  },
 ];
 
 // Варианты: те же форматы без наёмного бариста (за стойкой сам владелец)
@@ -146,7 +177,10 @@ export function run(s: Strategy, seed: number, days: number, marketing = true): 
 }
 
 export function runWithSim(s: Strategy, seed: number, days: number, marketing = true): { out: RunResult; sim: Simulation } {
-  const sim = new Simulation(seed);
+  const district = PREMISES[s.premises].district;
+  const sim = new Simulation(seed, undefined, district);
+  // Точка в квартале — вторая: владелец стоит в первой
+  if (district !== 'klenovaya') sim.cafe.ownerAway = true;
   const cash0 = sim.cash;
   sim.openCafe(s.premises);
   sim.buySign();

@@ -91,6 +91,7 @@ function building(
   top: number,
   base: number,
   doorX: number,
+  territoryId = KLENOVAYA,
 ): Place {
   const x = side === 'left' ? 20 : 460;
   const door = { x: x + doorX, y: base + DOOR_OFFSET };
@@ -98,7 +99,7 @@ function building(
     id,
     kind,
     name,
-    territoryId: KLENOVAYA,
+    territoryId,
     side,
     rect: { x, y: top, w: 240, h: base - top },
     door,
@@ -108,13 +109,13 @@ function building(
 }
 
 /** Здание на северной стороне Садовой: фасад вниз, к улице */
-function sadovaya(id: string, kind: PlaceKind, name: string, x: number, w: number, h: number, doorX: number): Place {
+function sadovaya(id: string, kind: PlaceKind, name: string, x: number, w: number, h: number, doorX: number, territoryId = SADOVAYA_ID): Place {
   const door = { x: x + doorX, y: 1040 + DOOR_OFFSET };
   return {
     id,
     kind,
     name,
-    territoryId: SADOVAYA_ID,
+    territoryId,
     side: 'center',
     rect: { x, y: 1040 - h, w, h },
     door,
@@ -130,14 +131,24 @@ export const SAD_SOUTH = { top: 1240, yardBottom: 1440, right: 1340 } as const;
  * Здание на южной стороне Садовой. Стоит крышей к улице, как все дома, фасад и дверь — внизу, во дворе.
  * passX — середина прохода между домами: из него житель сворачивает с тротуара во двор и идёт к двери.
  */
-function sadovayaSouth(id: string, kind: PlaceKind, name: string, x: number, w: number, h: number, doorX: number, passX: number): Place {
+function sadovayaSouth(
+  id: string,
+  kind: PlaceKind,
+  name: string,
+  x: number,
+  w: number,
+  h: number,
+  doorX: number,
+  passX: number,
+  territoryId = SADOVAYA_ID,
+): Place {
   const base = SAD_SOUTH.top + h;
   const door = { x: x + doorX, y: base + DOOR_OFFSET };
   return {
     id,
     kind,
     name,
-    territoryId: SADOVAYA_ID,
+    territoryId,
     side: 'center',
     rect: { x, y: SAD_SOUTH.top, w, h },
     door,
@@ -221,10 +232,63 @@ export const PLACES: Place[] = [
   sadovayaSouth('home-7', 'home', 'Дом 7', 1060, 240, 168, 201, 1320),
 ];
 
-const BY_ID = new Map(PLACES.map((p) => [p.id, p]));
+// ——— Деловой квартал: вторая карта, «за железной дорогой», туда едут на метро ———
+// Тот же скелет улиц, что у Кленовой (проспект сверху вниз, переулок поперёк, площадь на углу),
+// поэтому тротуары, машины, насыпи и туман общие. Здания и люди — свои.
+// Места с общими id (metro, shop, park, bus, school, kiosk) — те же роли в расписаниях жителей.
 
-export function place(id: string): Place {
-  const p = BY_ID.get(id);
+const PROSPEKT = 'street-3';
+const PEREULOK = 'street-4';
+const KIOSK_PLACE = PLACES.find((p) => p.id === 'kiosk')!;
+const BUS_PLACE = PLACES.find((p) => p.id === 'bus')!;
+const PARK_PLACE = PLACES.find((p) => p.id === 'park')!;
+const METRO_PLACE = PLACES.find((p) => p.id === 'metro')!;
+
+export const DELOVOY_PLACES: Place[] = [
+  { ...METRO_PLACE, name: 'Метро «Деловая»', territoryId: PROSPEKT },
+  // Конкурент по утреннему кофе встаёт сюда; пока свободно — просто киоск
+  { ...KIOSK_PLACE, name: 'Киоск у\u00a0метро', territoryId: PROSPEKT },
+  building('bc-alfa', 'office', 'БЦ «Альфа»', 'left', 100, 268, 204, PROSPEKT),
+  building('bistro', 'cafe', 'Помещение под\u00a0бистро', 'left', 308, 496, 204, PROSPEKT),
+  building('cowork', 'office', 'Коворкинг «Улей»', 'left', 536, 704, 204, PROSPEKT),
+  building('bc-meridian', 'office', 'БЦ «Меридиан»', 'left', 744, 952, 193, PROSPEKT),
+  building('bc-tower', 'office', 'Башня «Деловая»', 'right', 100, 348, 58, PROSPEKT),
+  building('shop', 'shop', 'Магазин «Перекус»', 'right', 388, 526, 32, PROSPEKT),
+  building('apart-1', 'home', 'Апартаменты «Сити»', 'right', 566, 734, 36, PROSPEKT),
+  { ...BUS_PLACE, territoryId: PROSPEKT },
+  { ...PARK_PLACE, name: 'Площадь с\u00a0фонтаном', territoryId: PEREULOK },
+  sadovaya('bc-east', 'office', 'БЦ «Восток»', 900, 240, 168, 117, PEREULOK),
+  sadovaya('bc-bank', 'office', 'Банк и\u00a0офисы', 1180, 240, 168, 120, PEREULOK),
+  sadovayaSouth('school', 'school', 'Институт экономики', 20, 240, 167, 118, 280, PEREULOK),
+  { ...sadovayaSouth('metro-2', 'metro', 'Метро «Деловая», второй выход', 300, 160, 82, 78, 480, PEREULOK), decor: true, closed: true },
+  { ...sadovayaSouth('gym', 'vacant', 'Фитнес-клуб', 500, 240, 152, 201, 760, PEREULOK), decor: true },
+  sadovayaSouth('apart-2', 'home', 'Жилой дом', 780, 240, 155, 206, 1040, PEREULOK),
+  sadovayaSouth('bc-glass', 'office', 'БЦ «Стекло»', 1060, 240, 168, 201, 1320, PEREULOK),
+];
+
+export type DistrictId = 'klenovaya' | 'delovoy';
+
+export interface District {
+  id: DistrictId;
+  /** «Кленовая», «Деловой квартал» */
+  name: string;
+  /** Названия улиц для подписей на карте: вертикальная и поперечная */
+  streets: [string, string];
+  places: Place[];
+}
+
+export const DISTRICTS: Record<DistrictId, District> = {
+  klenovaya: { id: 'klenovaya', name: 'Кленовая', streets: ['Кленовая', 'Садовая'], places: PLACES },
+  delovoy: { id: 'delovoy', name: 'Деловой квартал', streets: ['Деловой проспект', 'Банковский переулок'], places: DELOVOY_PLACES },
+};
+
+const BY_ID: Record<DistrictId, Map<string, Place>> = {
+  klenovaya: new Map(PLACES.map((p) => [p.id, p])),
+  delovoy: new Map(DELOVOY_PLACES.map((p) => [p.id, p])),
+};
+
+export function place(id: string, district: DistrictId = 'klenovaya'): Place {
+  const p = BY_ID[district].get(id);
   if (!p) throw new Error(`Неизвестное место: ${id}`);
   return p;
 }

@@ -2,7 +2,7 @@ import { hm } from './clock';
 import { BASE_BUDGET, type Decision, type Want, type WantKind } from './demand';
 import { makeCharacter, type Character, type Memory } from './character';
 import { Rng } from './rng';
-import type { Point } from './world';
+import type { DistrictId, Point } from './world';
 
 export type ResidentKind =
   | 'office'
@@ -265,6 +265,8 @@ const WEEKEND: Partial<Record<ResidentKind, Builder>> = {
     return out;
   },
   student: (rng, home) => {
+    // Студенты института в деловом квартале приезжают на метро — в выходные их там нет
+    if (home === 'metro') return [e(0, home, 'home')];
     const out = [e(0, home, 'home')];
     const walk = hm(13) + rng.jitter(60);
     out.push(e(walk, 'park', 'walk'), e(walk + rng.int(60, 120), home, 'home'));
@@ -361,10 +363,33 @@ interface Template {
   work: () => string;
 }
 
-export function generateResidents(rng: Rng, seed = 1): Resident[] {
+/** Деловой квартал: почти все приезжают на метро работать и учиться, жильцов мало */
+const DELOVOY_OFFICES = ['bc-alfa', 'cowork', 'bc-meridian', 'bc-tower', 'bc-east', 'bc-bank', 'bc-glass'];
+const DELOVOY_HOMES = ['apart-1', 'apart-2'];
+
+function delovoyTemplates(rng: Rng): Template[] {
+  const office = () => rng.pick(DELOVOY_OFFICES);
+  const home = () => rng.pick(DELOVOY_HOMES);
+  const metro = () => 'metro';
+  return [
+    { kind: 'office', count: 150, home: metro, work: office },
+    { kind: 'office', count: 10, home, work: office },
+    { kind: 'student', count: 30, home: metro, work: () => 'school' },
+    { kind: 'shopkeeper', count: 2, home: metro, work: () => 'shop' },
+    { kind: 'remote', count: 6, home, work: metro },
+    { kind: 'pensioner', count: 4, home, work: metro },
+    { kind: 'nightworker', count: 6, home: metro, work: office },
+    // Курьеры: проходят от метро к остановке и обратно
+    { kind: 'passenger', count: 15, home: metro, work: () => 'bus' },
+    { kind: 'youth', count: 3, home, work: metro },
+    { kind: 'visitor', count: 6, home: metro, work: metro },
+  ];
+}
+
+export function generateResidents(rng: Rng, seed = 1, district: DistrictId = 'klenovaya'): Resident[] {
   const fromStreet = () => rng.pick(HOMES);
   const fromSadovaya = () => rng.pick(SADOVAYA_HOMES);
-  const templates: Template[] = [
+  const templates: Template[] = district === 'delovoy' ? delovoyTemplates(rng) : [
     // Живут на улице
     { kind: 'office', count: 14, home: fromStreet, work: () => 'metro' },
     { kind: 'office', count: 6, home: fromStreet, work: () => rng.pick(STREET_OFFICES) },

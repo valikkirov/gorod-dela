@@ -385,6 +385,8 @@ export class Cafe {
   serviceFactor = 1;
   /** Сколько минут владелец простоял за стойкой с открытия: дольше ECONOMY.ownerHours не может */
   ownerMinutes = 0;
+  /** Владелец стоит в другой точке: здесь за стойкой только бариста */
+  ownerAway = false;
   /** До этой минуты дня стойка занята большим заказом и новых гостей не берёт */
   prepUntil = -1;
   /** Цена в момент продажи (счастливые часы) — подставляет симуляция */
@@ -773,7 +775,7 @@ export class Cafe {
 
   /** Владелец отстоял своё за день */
   get ownerTired(): boolean {
-    return this.ownerMinutes >= ECONOMY.ownerHours * 60;
+    return this.ownerAway || this.ownerMinutes >= ECONOMY.ownerHours * 60;
   }
 
   /** Сейчас за стойкой никого: бариста нет, а владелец уже отработал свои часы */
@@ -820,7 +822,9 @@ export class Cafe {
 
     while (minute >= this.prepUntil && this.slots.length < this.counters && this.queue.length > 0) {
       const q = this.queue.shift()!;
-      this.slots.push({ ...q, left: this.serviceMinutes + this.prepOf(q.itemId) * this.serviceFactor });
+      // Обеды в бистро — с раздачи: быстрее, чем готовить у стойки
+      const k = kindOf(q.itemId) === 'lunch' ? (this.premises.lunchService ?? 1) : 1;
+      this.slots.push({ ...q, left: (this.serviceMinutes + this.prepOf(q.itemId) * this.serviceFactor) * k });
     }
     // Загрузка стойки по часам — для отчёта «когда было тесно, а когда пусто»
     const t = this.today;

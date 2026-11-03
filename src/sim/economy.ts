@@ -33,7 +33,7 @@ export function formatMoney(amount: number, currency: Currency = CURRENCY): stri
   return `${sign}${abs} ${currency === 'RUB' ? '₽' : currency}`;
 }
 
-export type PremisesId = 'cafe' | 'kiosk';
+export type PremisesId = 'cafe' | 'kiosk' | 'bistro';
 
 /** Помещения под бизнес: формат начинается с места */
 export interface Premises {
@@ -54,6 +54,14 @@ export interface Premises {
   /** Какие категории меню помещаются */
   kinds: readonly ('coffee' | 'snack' | 'lunch' | 'tea' | 'bar')[];
   maxBaristas: number;
+  /** Район: открыть можно только там */
+  district: 'klenovaya' | 'delovoy';
+  /** Оборудование, которое уже стоит в помещении */
+  equipped?: readonly EquipmentId[];
+  /** Обеды на раздаче: во столько раз быстрее, чем у стойки */
+  lunchService?: number;
+  /** С чего начинается меню при открытии */
+  starterMenu?: readonly string[];
 }
 
 export const PREMISES: Record<PremisesId, Premises> = {
@@ -70,6 +78,7 @@ export const PREMISES: Record<PremisesId, Premises> = {
     seats: true,
     kinds: ['coffee', 'snack', 'lunch', 'tea', 'bar'],
     maxBaristas: ECONOMY.maxBaristas,
+    district: 'klenovaya',
   },
   kiosk: {
     id: 'kiosk',
@@ -84,6 +93,26 @@ export const PREMISES: Record<PremisesId, Premises> = {
     seats: false,
     kinds: ['coffee', 'snack', 'tea'],
     maxBaristas: 1,
+    district: 'klenovaya',
+  },
+  bistro: {
+    id: 'bistro',
+    placeId: 'bistro',
+    name: 'Бистро',
+    mine: 'Твоё бистро',
+    about:
+      '45\u00a0м² в\u00a0деловом квартале: кухня уже стоит, обеды идут с\u00a0раздачи вдвое быстрее. Без\u00a0бара\u00a0— после\u00a019:00 квартал пустеет',
+    rentPerDay: 3_000,
+    utilitiesPerDay: 300,
+    utilitiesPerHour: 40,
+    openingCost: 150_000,
+    seats: true,
+    kinds: ['coffee', 'snack', 'lunch', 'tea'],
+    maxBaristas: 3,
+    district: 'delovoy',
+    equipped: ['stove'],
+    lunchService: 0.5,
+    starterMenu: ['americano', 'cappuccino', 'croissant', 'soup', 'lunch', 'tea'],
   },
 };
 

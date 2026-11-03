@@ -48,6 +48,16 @@ export const RIVALS: Record<PremisesId, RivalTemplate> = {
     closeAt: hm(19),
     seats: true,
   },
+  bistro: {
+    name: '«Кофе на\u00a0бегу»',
+    pitch: 'Сетевой киоск у\u00a0метро «Деловая»: дешёвый кофе и\u00a0сэндвичи с\u00a0собой, утро и\u00a0день',
+    premises: 'kiosk',
+    placeId: 'kiosk',
+    prices: { americano: 120, cappuccino: 170, latte: 180, croissant: 120, sandwich: 210 },
+    openAt: hm(7),
+    closeAt: hm(16),
+    seats: false,
+  },
 };
 
 export interface RivalSave {

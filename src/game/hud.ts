@@ -59,7 +59,7 @@ import { card } from '../sim/events';
 import cardKiosk from './art/cards/card-kiosk.webp';
 import cardCafe from './art/cards/card-cafe.webp';
 
-const PREMISES_PIC: Record<PremisesId, string> = { kiosk: cardKiosk, cafe: cardCafe };
+const PREMISES_PIC: Record<PremisesId, string> = { kiosk: cardKiosk, cafe: cardCafe, bistro: cardCafe };
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
 // и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.

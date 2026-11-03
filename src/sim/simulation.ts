@@ -20,6 +20,7 @@ import {
   entrancesOf,
   nearestFront,
   place,
+  type DistrictId,
   snapToWalkway,
   walkLength,
   walkPath,
@@ -30,7 +31,7 @@ import {
 } from './world';
 
 /** Шаг симуляции в игровых минутах. Мелкий — чтобы движение было плавным. */
-const STEP = 0.2;
+export const STEP = 0.2;
 /** Меняется, когда сохранения старой версии больше нельзя загрузить */
 export const SAVE_VERSION = 2;
 const NB = '\u00a0';
@@ -44,6 +45,8 @@ export const MAP_VERSION = 2;
 
 export interface SaveData {
   version: number;
+  /** Район точки; нет — Кленовая */
+  district?: DistrictId;
   /** Нет — сохранение до Садовой (карта 1) */
   map?: number;
   seed: number;
@@ -121,6 +124,15 @@ export type Effect =
   /** Блогер: на этот день выйдет обзор (или не выйдет) */
   | { type: 'blogger'; day: number; success: boolean };
 
+/** Общее для всех точек игрока */
+interface Wallet {
+  cash: number;
+  daysInRed: number;
+  bankrupt: boolean;
+  loan: Loan | null;
+  loanHistory: LoanHistory;
+}
+
 /** Ядро симуляции. Не знает ничего об отрисовке — этот же код
  *  на этапе 2 переедет на сервер. */
 export class Simulation {
@@ -136,9 +148,12 @@ export class Simulation {
   private readonly regularById = new Map<number, Regular>();
   /** Достигнутые вехи: id → день */
   readonly milestones: Partial<Record<MilestoneId, number>> = {};
-  /** Текущий кредит (один за раз) и кредитная история */
-  loan: Loan | null = null;
-  loanHistory: LoanHistory = emptyHistory();
+  /** Касса, кредит и банкротство — общие для всех точек игрока (см. link) */
+  private wallet: Wallet = { cash: ECONOMY.startCash, daysInRed: 0, bankrupt: false, loan: null, loanHistory: emptyHistory() };
+  /** Главная точка, если эта — вторая: погода, кредит и банкротство считаются там */
+  private main: Simulation | null = null;
+  /** Район, где стоит точка */
+  readonly district: DistrictId;
   /** Событие, по которому ждём решения игрока */
   pendingEvent: PendingEvent | null = null;
   effects: Effect[] = [];
@@ -147,9 +162,37 @@ export class Simulation {
   /** Свой генератор для событий: они не сдвигают жизнь жителей */
   private readonly eventRng: Rng;
   private flyersToday = false;
-  cash: number = ECONOMY.startCash;
-  daysInRed = 0;
-  bankrupt = false;
+  get cash(): number {
+    return this.wallet.cash;
+  }
+  set cash(v: number) {
+    this.wallet.cash = v;
+  }
+  get daysInRed(): number {
+    return this.wallet.daysInRed;
+  }
+  set daysInRed(v: number) {
+    this.wallet.daysInRed = v;
+  }
+  get bankrupt(): boolean {
+    return this.wallet.bankrupt;
+  }
+  set bankrupt(v: boolean) {
+    this.wallet.bankrupt = v;
+  }
+  /** Текущий кредит (один за раз) и кредитная история — общие на всех */
+  get loan(): Loan | null {
+    return this.wallet.loan;
+  }
+  set loan(v: Loan | null) {
+    this.wallet.loan = v;
+  }
+  get loanHistory(): LoanHistory {
+    return this.wallet.loanHistory;
+  }
+  set loanHistory(v: LoanHistory) {
+    this.wallet.loanHistory = v;
+  }
   readonly reports: DayReport[] = [];
   private events: SimEvent[] = [];
   private readonly rng: Rng;
@@ -157,13 +200,26 @@ export class Simulation {
   private day: number;
   /** Отдельный генератор для погоды — чтобы она не сдвигала жизнь жителей */
   private readonly skyRng: Rng;
-  weather: Weather;
-  forecast: Weather;
+  private ownWeather: Weather;
+  private ownForecast: Weather;
+  get weather(): Weather {
+    return this.main ? this.main.weather : this.ownWeather;
+  }
+  set weather(w: Weather) {
+    this.ownWeather = w;
+  }
+  get forecast(): Weather {
+    return this.main ? this.main.forecast : this.ownForecast;
+  }
+  set forecast(w: Weather) {
+    this.ownForecast = w;
+  }
 
   readonly seed: number;
 
-  constructor(seed = 1, startTime = hm(6, 0)) {
+  constructor(seed = 1, startTime = hm(6, 0), district: DistrictId = 'klenovaya') {
     this.seed = seed;
+    this.district = district;
     this.rng = new Rng(seed);
     this.skyRng = new Rng(seed * 7919 + 13);
     this.eventRng = new Rng(seed * 104729 + 7);
@@ -171,9 +227,9 @@ export class Simulation {
     this.day = dayNumber(startTime);
     this.cafe.today = Cafe.emptyDay(this.day);
     // Первый день — ясно, дальше как повезёт
-    this.weather = { kind: 'sunny', temp: 21, wind: 0 };
-    this.forecast = this.rollForecast(this.day + 1);
-    this.residents = generateResidents(this.rng, seed);
+    this.ownWeather = { kind: 'sunny', temp: 21, wind: 0 };
+    this.ownForecast = this.rollForecast(this.day + 1);
+    this.residents = generateResidents(this.rng, seed, district);
     this.regulars = pickRegulars(this.residents);
     for (const g of this.regulars) this.regularById.set(g.residentId, g);
     this.cafe.pricing = (price, minute) => this.marketing.priceAt(price, minute);
@@ -195,6 +251,7 @@ export class Simulation {
       version: SAVE_VERSION,
       map: MAP_VERSION,
       seed: this.seed,
+      district: this.district,
       time: this.time,
       day: this.day,
       carry: this.carry,
@@ -245,7 +302,7 @@ export class Simulation {
   /** Восстановить игру из сохранения. null — если сохранение от старой версии игры. */
   static restore(d: SaveData): Simulation | null {
     if (d.version !== SAVE_VERSION) return null;
-    const sim = new Simulation(d.seed);
+    const sim = new Simulation(d.seed, hm(6, 0), d.district ?? 'klenovaya');
     // Жителей Садовой добавили в конец списка: в старом сохранении их нет — они начнут день как в новой игре
     if (d.residents.length > sim.residents.length) return null;
     sim.time = d.time;
@@ -303,9 +360,9 @@ export class Simulation {
       for (const r of sim.residents.slice(0, d.residents.length)) {
         if (r.walking) {
           r.pos = snapToWalkway(r.pos);
-          r.path = sim.route(r, place(r.placeId), null);
+          r.path = sim.route(r, sim.at(r.placeId), null);
         } else {
-          const p = place(r.placeId);
+          const p = sim.at(r.placeId);
           if (p.kind !== 'park' || r.pos.y < p.rect.y || r.pos.x < p.rect.x) r.pos = sim.spotIn(p);
         }
       }
@@ -318,12 +375,18 @@ export class Simulation {
   /** Открыть бизнес в выбранном помещении: кафе с залом или киоск у метро */
   openCafe(premisesId: PremisesId = 'cafe'): boolean {
     const pr = PREMISES[premisesId];
-    if (this.cafe.opened || this.bankrupt || this.cash < pr.openingCost) return false;
+    if (this.cafe.opened || this.bankrupt || this.cash < pr.openingCost || pr.district !== this.district) return false;
     this.cash -= pr.openingCost;
     this.cafe.premisesId = premisesId;
     this.cafe.opened = true;
     // Два столика входят в открытие кафе; у киоска зала нет
-    if (premisesId === 'cafe') this.cafe.interior.load(preset('standard').layout);
+    if (PREMISES[premisesId].seats) this.cafe.interior.load(preset('standard').layout);
+    for (const e of pr.equipped ?? []) if (!this.cafe.equipment.includes(e)) this.cafe.equipment.push(e);
+    // Своё стартовое меню у помещения (бистро — с обедами)
+    if (pr.starterMenu) {
+      for (const id of pr.starterMenu) this.cafe.addItem(id);
+      for (const m of [...this.cafe.menu]) if (!pr.starterMenu.includes(m.id)) this.cafe.removeItem(m.id);
+    }
     // В киоске нет кухни и бара — стартовое меню без них
     for (const m of [...this.cafe.menu]) if (!this.cafe.fits(m.id)) this.cafe.removeItem(m.id);
     if (!this.cafe.hasItem('croissant')) this.cafe.addItem('croissant');
@@ -332,8 +395,12 @@ export class Simulation {
     // Сразу знают соседи и продавцы напротив; у киоска — те, кто ходит через метро
     for (const r of this.residents) {
       const neighbour =
-        premisesId === 'cafe' ? r.homeId === 'home-1' || r.homeId === 'home-2' : r.homeId === 'metro' && r.kind !== 'visitor';
-      const p = r.kind === 'shopkeeper' ? 1 : neighbour ? (premisesId === 'cafe' ? 0.7 : 0.35) : 0.1;
+        premisesId === 'cafe'
+          ? r.homeId === 'home-1' || r.homeId === 'home-2'
+          : premisesId === 'bistro'
+            ? r.workId === 'bc-alfa' || r.workId === 'cowork'
+            : r.homeId === 'metro' && r.kind !== 'visitor';
+      const p = r.kind === 'shopkeeper' ? 1 : neighbour ? (premisesId === 'kiosk' ? 0.35 : 0.7) : 0.1;
       if (this.rng.chance(p)) this.learn(r, 'start');
     }
     // Стартовая закупка входит в стоимость открытия; автозаказ включён на тех же уровнях
@@ -542,6 +609,27 @@ export class Simulation {
     return this.residents.filter((r) => r.placeId === this.shopId && !r.walking).length;
   }
 
+  /** Место в районе этой точки */
+  at(id: string): Place {
+    return place(id, this.district);
+  }
+
+  /** Сделать точку второй: касса, кредит, погода и банкротство — общие с главной. Владелец стоит в главной */
+  link(main: Simulation): void {
+    this.main = main;
+    this.wallet = main.wallet;
+    this.cafe.ownerAway = true;
+  }
+
+  get isBranch(): boolean {
+    return this.main !== null;
+  }
+
+  /** Один шаг симуляции — для города из нескольких точек, которые идут в ногу */
+  tick(): void {
+    if (!this.bankrupt) this.step(STEP);
+  }
+
   /** Где на карте бизнес игрока */
   get shopId(): string {
     return this.cafe.premises.placeId;
@@ -634,7 +722,7 @@ export class Simulation {
     else {
       // Житель видит цены с учётом счастливых часов
       const menu = cafe.menu.filter((m) => !this.blocked(m.kind)).map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
-      const offer = evaluate(r, want, menu, r.pos, place(this.shopId).front, nearestFront(place(entry.placeId), r.pos), this.weather.kind);
+      const offer = evaluate(r, want, menu, r.pos, this.at(this.shopId).front, nearestFront(this.at(entry.placeId), r.pos), this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
       const pP = offer.item ? Math.min(1, offer.p * this.boost * this.cozyPull(r, want)) : 0;
@@ -681,7 +769,7 @@ export class Simulation {
       // Стойка киоска: меню видно издалека, обжитый вид тоже тянет
       return 1 + (this.cafe.has('board') ? UPGRADE_EFFECT.boardPull : 0) + (this.cafe.has('shelves') ? UPGRADE_EFFECT.shelvesPull : 0);
     }
-    if (this.cafe.premisesId !== 'cafe') return 1;
+    if (!this.cafe.premises.seats) return 1;
     const hall = this.cafe.interior;
     const sit = want.mode === 'replace';
     return 1 + hall.cozyLevel * (sit ? INTERIOR.attractSit : INTERIOR.attractGo) + (sit && hall.likes(r.kind) ? 0.05 : 0);
@@ -691,7 +779,7 @@ export class Simulation {
   private rivalChance(r: Resident, want: Want, entry: ScheduleEntry, minute: number): number {
     const rival = this.rival;
     if (!rival || !rival.isOpen(this.day, minute) || !rival.isOpen(this.day, minute + 10)) return 0;
-    const o = evaluate(r, want, rival.menu(this.day), r.pos, place(rival.placeId).front, nearestFront(place(entry.placeId), r.pos), this.weather.kind);
+    const o = evaluate(r, want, rival.menu(this.day), r.pos, this.at(rival.placeId).front, nearestFront(this.at(entry.placeId), r.pos), this.weather.kind);
     // Конкурент — сетевой, о нём знают все; лояльность к нему не растёт
     return o.item ? o.pPrice * o.pRoute * 0.8 : 0;
   }
@@ -731,7 +819,7 @@ export class Simulation {
     const r = this.residents[residentId];
     this.cash += price; // продукты уже оплачены при закупке
     const card = this.marketing.loyaltyCard;
-    const hall = this.cafe.premisesId === 'cafe' ? this.cafe.interior : null;
+    const hall = this.cafe.premises.seats ? this.cafe.interior : null;
     const cozy = hall
       ? hall.cozyLevel * INTERIOR.loyalty + (hall.likes(r.kind) ? INTERIOR.liked : 0)
       : this.cafe.has('shelves')
@@ -789,7 +877,7 @@ export class Simulation {
    * Тот узнаёт о кафе, заказывает по своему вкусу и сам немного привязывается.
    */
   private bringCompany(r: Resident, itemId: string): void {
-    if (this.cafe.premisesId !== 'cafe' || r.loyalty < LOYAL) return;
+    if (!this.cafe.premises.seats || r.loyalty < LOYAL) return;
     const hall = this.cafe.interior;
     if (this.seated() >= hall.seats) return;
     if (!this.rng.chance(INTERIOR.companyBase + INTERIOR.companyCozy * hall.cozyLevel)) return;
@@ -855,7 +943,7 @@ export class Simulation {
     else if (v.want.kind === 'coffee') [extra, chance] = [pick(['snack']), EXTRA.coffee];
     else if (v.want.kind === 'tea') [extra, chance] = [pick(['snack']), EXTRA.tea];
     else if (v.want.kind === 'lunch') [extra, chance] = [pick(['coffee', 'tea']), EXTRA.lunch];
-    if (this.cafe.premisesId === 'cafe') chance = Math.min(0.95, chance * (1 + INTERIOR.extraBoost * this.cafe.interior.cozyLevel));
+    if (this.cafe.premises.seats) chance = Math.min(0.95, chance * (1 + INTERIOR.extraBoost * this.cafe.interior.cozyLevel));
     if (!extra || !this.rng.chance(chance)) return;
     if (this.blocked(this.cafe.item(extra).kind)) return;
     const price = this.cafe.sellExtra(extra, this.minute);
@@ -1042,12 +1130,14 @@ export class Simulation {
     report.weekday = weekday(report.day);
     report.weather = this.weather;
     // Новый день: погода из прогноза, новый прогноз, будни или выходные
-    this.weather = this.forecast;
-    this.forecast = this.rollForecast(nextDay + 1);
-    report.forecast = this.weather;
+    if (!this.main) {
+      this.weather = this.forecast;
+      this.forecast = this.rollForecast(nextDay + 1);
+    }
+    report.forecast = this.main ? this.main.weather : this.weather;
     // Выручка и закупка уже прошли через кассу — списываем постоянные расходы и налог
     this.cash -= report.rent + report.utilities + report.wages + report.tax;
-    this.payLoan(report);
+    if (!this.main) this.payLoan(report);
     report.cashAfter = this.cash;
     this.reports.push(report);
     const reached = this.checkMilestones(report.day);
@@ -1059,6 +1149,8 @@ export class Simulation {
     if (this.rival?.opensDay === nextDay) this.events.push({ type: 'rival', what: 'open' });
     else if (this.rival && this.rival.promo(nextDay) && !this.rival.promo(nextDay - 1)) this.events.push({ type: 'rival', what: 'promo' });
 
+    // Банкротство считает главная точка: касса общая
+    if (this.main) return;
     if (this.cafe.opened && this.cash < 0) this.daysInRed += 1;
     else this.daysInRed = 0;
     if (this.daysInRed >= ECONOMY.bankruptDays) {
@@ -1071,6 +1163,8 @@ export class Simulation {
 
   /** Что предлагает банк или частник прямо сейчас: сколько максимум и почему нельзя */
   loanOffer(source: LoanSource): LoanOffer {
+    // Кредит один на всё дело: берут и платят в главной точке
+    if (this.main) return this.main.loanOffer(source);
     const no = (refusal: string): LoanOffer => ({ source, refusal, max: 0 });
     if (!this.cafe.opened || this.bankrupt) return no('Сначала открой точку');
     if (this.loan) return no('Сначала верни текущий кредит');
@@ -1098,6 +1192,7 @@ export class Simulation {
 
   /** Взять кредит: деньги сразу в кассу, платежи раз в неделю с этого дня */
   takeLoan(source: LoanSource, amount: number): boolean {
+    if (this.main) return this.main.takeLoan(source, amount);
     const o = this.loanOffer(source);
     const sum = Math.round(amount / LOAN.step) * LOAN.step;
     if (o.refusal || sum < LOAN_TERMS[source].min || sum > o.max) return false;
@@ -1111,6 +1206,7 @@ export class Simulation {
 
   /** Погасить досрочно: остаток долга, проценты дальше не идут */
   repayLoan(): boolean {
+    if (this.main) return this.main.repayLoan();
     const l = this.loan;
     if (!l || this.cash < l.left) return false;
     this.cash -= l.left;
@@ -1425,7 +1521,7 @@ export class Simulation {
 
   /** Зал есть только у кафе; киоск — навынос */
   get hasHall(): boolean {
-    return this.cafe.opened && this.cafe.premisesId === 'cafe';
+    return this.cafe.opened && this.cafe.premises.seats;
   }
 
   /** Поставить вещь на место; если там что-то стоит — оно продаётся */
@@ -1508,9 +1604,9 @@ export class Simulation {
     }
     r.noticed = false;
     // Откуда выходит: из здания или сквера — через один из его входов; на ходу — с того места, где идёт
-    const from = r.walking ? null : place(r.placeId);
+    const from = r.walking ? null : this.at(r.placeId);
     r.placeId = placeId;
-    r.path = this.route(r, place(placeId), from);
+    r.path = this.route(r, this.at(placeId), from);
     r.walking = true;
     r.visible = true;
   }
@@ -1533,7 +1629,7 @@ export class Simulation {
     }
     // Проходя мимо открытого кафе, можно его заметить — вывеска помогает
     if (this.cafe.opened && !r.aware && !r.noticed) {
-      const front = place(this.shopId).front;
+      const front = this.at(this.shopId).front;
       if (Math.abs(r.pos.x - front.x) < 45 && Math.abs(r.pos.y - front.y) < 60) {
         r.noticed = true;
         // Любопытный замечает новое место чаще, торопливый — реже
@@ -1546,7 +1642,7 @@ export class Simulation {
     }
     if (r.path.length === 0) {
       r.walking = false;
-      r.visible = !place(r.placeId).indoor;
+      r.visible = !this.at(r.placeId).indoor;
       this.onArrive(r);
     }
   }
@@ -1595,7 +1691,7 @@ export class Simulation {
   }
 
   private placeAt(r: Resident, placeId: string): void {
-    const p = place(placeId);
+    const p = this.at(placeId);
     r.placeId = placeId;
     r.pos = this.spotIn(p);
     r.path = [];
