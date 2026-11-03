@@ -1290,9 +1290,12 @@ export class Hud {
     } else if (this.tab === 'stand') {
       body = standTab(this.sim, this.standPick);
     } else {
+      const ownerLine = cafe.ownerAway
+        ? `<small>Ты стоишь за${NB}стойкой в${NB}первой точке. Здесь работают только бариста: найми их на${NB}все часы работы.</small>`
+        : `<small>Когда бариста нет, за${NB}стойкой ты сам${NB}— бесплатно, но${NB}${cafe.has('machine') ? '3' : '4'}${NB}мин на${NB}гостя и${NB}не${NB}больше ${ECONOMY.ownerHours}${NB}ч в${NB}день. С${NB}бариста${NB}— ${cafe.has('machine') ? '1,5' : '2'}${NB}мин, и${NB}обслуживают параллельно, а${NB}ты отдыхаешь.</small>
+      <p class="hint-line">Сегодня ты за${NB}стойкой: <b data-live="owner-hours"></b> из${NB}${ECONOMY.ownerHours}${NB}ч</p>`;
       body = `
-      <small>Когда бариста нет, за${NB}стойкой ты сам${NB}— бесплатно, но${NB}${cafe.has('machine') ? '3' : '4'}${NB}мин на${NB}гостя и${NB}не${NB}больше ${ECONOMY.ownerHours}${NB}ч в${NB}день. С${NB}бариста${NB}— ${cafe.has('machine') ? '1,5' : '2'}${NB}мин, и${NB}обслуживают параллельно, а${NB}ты отдыхаешь.</small>
-      <p class="hint-line">Сегодня ты за${NB}стойкой: <b data-live="owner-hours"></b> из${NB}${ECONOMY.ownerHours}${NB}ч</p>
+      ${ownerLine}
       ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
       <ul class="menu staff">${staffRows}</ul>
       ${

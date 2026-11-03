@@ -4,6 +4,7 @@ import { City, UNLOCK } from '../src/sim/city';
 import type { DayReport } from '../src/sim/cafe';
 import { PREMISES } from '../src/sim/economy';
 import { Simulation } from '../src/sim/simulation';
+import { staffWarnings } from '../src/sim/warnings';
 import { DELOVOY_PLACES, place } from '../src/sim/world';
 
 const DAY = MINUTES_PER_DAY;
@@ -97,6 +98,7 @@ describe('Город из двух точек', () => {
     const branch = city.openDistrict();
     branch.openCafe('bistro');
     expect(branch.cafe.unstaffed).toBe(true);
+    expect(staffWarnings(branch.cafe).join(' ')).toContain('первой точке');
     branch.hireBarista('shift');
     expect(branch.cafe.unstaffed).toBe(false);
   });

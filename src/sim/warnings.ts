@@ -93,7 +93,8 @@ export function uncoveredMinutes(cafe: Cafe, d: number): number {
 export function staffWarnings(cafe: Cafe): string[] {
   const out: string[] = [];
   // Владелец стоит за стойкой не больше ECONOMY.ownerHours в день
-  const limit = ECONOMY.ownerHours * 60;
+  // Во второй точке владельца нет: без бариста гостей не обслуживает никто
+  const limit = cafe.ownerAway ? 0 : ECONOMY.ownerHours * 60;
   const over: number[] = [];
   let most = 0;
   for (let d = 0; d < 7; d++) {
@@ -103,7 +104,11 @@ export function staffWarnings(cafe: Cafe): string[] {
       most = Math.max(most, free - limit);
     }
   }
-  if (over.length) {
+  if (over.length && cafe.ownerAway) {
+    out.push(
+      `${cap(daysText(over))} точка открыта без${NB}бариста: ты стоишь в${NB}первой точке, здесь гостей обслужить некому. Найми бариста на${NB}все часы работы`,
+    );
+  } else if (over.length) {
     const hours = Math.ceil(most / 30) / 2;
     out.push(
       `${cap(daysText(over))} без бариста точка открыта дольше, чем ты можешь стоять сам (${ECONOMY.ownerHours}${NB}ч): до${NB}${String(hours).replace('.', ',')}${NB}ч в${NB}день гостей некому обслужить`,
