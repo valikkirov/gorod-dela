@@ -3129,3 +3129,35 @@ button.small.danger {
 .menu-head h4 {
   margin: 0;
 }
+
+/* Район над картой: где ты и куда ехать на метро (Деловой квартал) */
+#district {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: grid;
+  gap: 1px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(251, 249, 244, 0.94);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(43, 47, 58, 0.14);
+}
+
+#district[hidden] {
+  display: none;
+}
+
+#district small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+#district b {
+  font-size: 14px;
+}

@@ -9,6 +9,8 @@ import { StreetScene, type SceneHooks } from './game/StreetScene';
 import { autosave, loadGame } from './game/save';
 import { showTutorial, tutorialDone } from './game/tutorial';
 import { Simulation } from './sim/simulation';
+import { City } from './sim/city';
+import type { DistrictId } from './sim/world';
 import { initMetrika } from './game/metrika';
 import { initTelegram } from './game/telegram';
 import { CHALLENGE, isChallenge, saveKeyFor } from './game/challenge';
@@ -23,14 +25,20 @@ const params = new URLSearchParams(location.search);
 // ?seed=N — новый город с этим seed (без загрузки сохранения); ?challenge — испытание недели
 const challenge = isChallenge();
 const saveKey = saveKeyFor(challenge);
-const sim =
+const city =
   (params.has('seed') ? null : loadGame(saveKey)) ??
-  new Simulation(challenge ? CHALLENGE.seed : Number(params.get('seed') ?? 1));
-autosave(sim, saveKey);
-const scene = new StreetScene();
-const drawer = new Drawer((css) => scene.setCovered(css));
+  new City(new Simulation(challenge ? CHALLENGE.seed : Number(params.get('seed') ?? 1)));
+// ?delovoy — сразу открыть деловой квартал (для проверки)
+if (params.has('delovoy')) city.openDistrict();
+autosave(city, saveKey);
+let scene = new StreetScene();
+let covered = -1;
+const drawer = new Drawer((css) => {
+  covered = css;
+  scene.setCovered(css);
+});
 const hud = new Hud(
-  sim,
+  city,
   () => {
     scene.select(null);
     scene.selectPlace(null, false);
@@ -57,8 +65,9 @@ const game = new Phaser.Game({
   scene: [],
 });
 
-const hooks: SceneHooks = {
+const hooksFor = (sim: Simulation): SceneHooks => ({
   sim,
+  city,
   getSpeed: () => hud.speed,
   onSelect: (r) => {
     hud.select(r);
@@ -76,8 +85,21 @@ const hooks: SceneHooks = {
     drawer.open();
   },
   onBankrupt: () => hud.onBankrupt(),
-};
-game.scene.add('street', scene, true, hooks);
+});
+game.scene.add('street', scene, true, hooksFor(city.main));
+
+/** Поехать в другой район: та же игра, другая карта и другая точка в панели */
+function switchTo(district: DistrictId): void {
+  const sim = city.point(district);
+  if (!sim || scene.hooksSim === sim) return;
+  hud.show(sim);
+  game.scene.remove('street');
+  scene = new StreetScene();
+  if (covered >= 0) scene.setCovered(covered);
+  game.scene.add('street', scene, true, hooksFor(sim));
+  Object.assign(window, { sim, scene });
+}
+hud.onSwitch = switchTo;
 
 // Первый запуск — короткое обучение (с ?seed — для отладки — не показываем)
 if (!params.has('seed') && !tutorialDone()) showTutorial(hud);
@@ -105,4 +127,4 @@ document.getElementById('zoom')!.addEventListener('click', (ev) => {
 });
 
 // Доступ из консоли браузера для отладки: window.sim
-Object.assign(window, { sim, scene });
+Object.assign(window, { sim: city.main, city, scene });

@@ -62,6 +62,13 @@ export class Fog {
     const h = WORLD.height + 2 * FOG_FAR;
     const cw = Math.ceil(w / RES);
     const ch = Math.ceil(h / RES);
+    // Туман одинаковый во всех районах: посчитан при первом показе — берём готовый
+    if (!scene.textures.exists('fog-map')) this.paint(scene, cw, ch, left, top);
+    scene.add.image(left, top, 'fog-map').setOrigin(0).setScale(RES).setDepth(depth);
+    this.addDrift(scene, depth, left, top, w);
+  }
+
+  private paint(scene: Phaser.Scene, cw: number, ch: number, left: number, top: number): void {
     const tex = scene.textures.createCanvas('fog-map', cw, ch);
     if (!tex) return;
     const ctx = tex.getContext();
@@ -96,7 +103,9 @@ export class Fog {
     }
     ctx.putImageData(data, 0, 0);
     tex.refresh();
-    scene.add.image(left, top, 'fog-map').setOrigin(0).setScale(RES).setDepth(depth);
+  }
+
+  private addDrift(scene: Phaser.Scene, depth: number, left: number, top: number, w: number): void {
     // Плывущий слой: только там, где туман уже сплошной (за краем EDGE.to + WOBBLE)
     const solid = EDGE.to + WOBBLE + 40;
     const bands: [number, number, number, number][] = [

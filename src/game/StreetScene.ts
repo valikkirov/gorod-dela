@@ -4,10 +4,11 @@ import { GAME_MINUTES_PER_SECOND } from '../sim/clock';
 import type { Resident } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import { WANT_LABEL } from '../sim/demand';
-import { formatMoney } from '../sim/economy';
+import { formatMoney, PREMISES, type PremisesId } from '../sim/economy';
 import { Borders, BORDER } from './borders';
 import { Fog } from './fog';
-import { CROSSWALK_Y, GRID, place, PLACES, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type Place } from '../sim/world';
+import { CROSSWALK_Y, DISTRICTS, GRID, place, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type DistrictId, type Place } from '../sim/world';
+import type { City } from '../sim/city';
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { WeatherFx, type FxKind } from './weatherFx';
 import { Animals } from './animals';
@@ -20,7 +21,10 @@ import type { WantKind } from '../sim/demand';
 import { iconUrl } from './icons';
 
 export interface SceneHooks {
+  /** Точка, которую показывает сцена (её район — карта) */
   sim: Simulation;
+  /** Весь город: время идёт у всех точек */
+  city: City;
   getSpeed: () => number;
   onSelect: (resident: Resident | null) => void;
   /** Нажали на здание (или на пустое место — null) */
@@ -105,6 +109,31 @@ const BUILDING_SPRITE: Record<string, string> = {
   'home-6': 'building-home-g',
   'home-7': 'building-home-h',
 };
+
+/** Деловой квартал: здания из Magnific (scripts/pack_delovoy.py) */
+const DELOVOY_SPRITE: Record<string, string> = {
+  metro: 'building-metro',
+  kiosk: 'building-kiosk-rent',
+  'bc-alfa': 'building-dl-alfa',
+  bistro: 'building-bistro-rent',
+  cowork: 'building-dl-cowork',
+  'bc-meridian': 'building-dl-meridian',
+  'bc-tower': 'building-dl-tower',
+  shop: 'building-dl-shop',
+  'apart-1': 'building-dl-apart-1',
+  'bc-east': 'building-dl-east',
+  'bc-bank': 'building-dl-bank',
+  school: 'building-dl-institute',
+  'metro-2': 'building-metro-exit2-north',
+  gym: 'building-dl-gym',
+  'apart-2': 'building-dl-apart-2',
+  'bc-glass': 'building-dl-glass',
+};
+
+const SPRITES: Record<DistrictId, Record<string, string>> = { klenovaya: BUILDING_SPRITE, delovoy: DELOVOY_SPRITE };
+
+/** Помещения с залом: гости видны в витринах, у входа меню-доска и терраса */
+const HALLS = new Set(['cafe', 'bistro']);
 
 /** Подпись помещения: насколько ниже верхнего края здания её центр */
 const LABEL_ROOF = 10;
@@ -219,6 +248,11 @@ const PROPS: [string, number, number][] = [
   ...parkFence(),
 ];
 
+/** Деловой квартал: улица и площадь как на Кленовой, за домами — офисный сквер без пруда и ограды */
+const DELOVOY_PROPS: [string, number, number][] = PROPS.filter(([f]) => f !== 'prop-pond' && !f.startsWith('prop-fence'));
+
+const DISTRICT_PROPS: Record<DistrictId, [string, number, number][]> = { klenovaya: PROPS, delovoy: DELOVOY_PROPS };
+
 /** Ограда большого сквера за Кленовой: вдоль леса, насыпи и дворов; со стороны маленького сквера — вход */
 function parkFence(): [string, number, number][] {
   const out: [string, number, number][] = [];
@@ -235,6 +269,7 @@ function parkFence(): [string, number, number][] {
 /** Помещения под бизнес игрока: спрайты «сдаётся» и «открыто», окна, подписи */
 const PREMISES_ART: Record<string, { rent: string; open: string; lights: string; rival: string; windows: { x: number; y: number; w: number; h: number }[] }> = {
   cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', rival: 'building-cafe-rival', windows: [] },
+  bistro: { rent: 'building-bistro-rent', open: 'building-bistro-open', lights: 'building-bistro-open-lights', rival: 'building-bistro-open', windows: [] },
   kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', rival: 'building-kiosk-rival', windows: [{ x: 18, y: 40, w: 56, h: 24 }] },
 };
 
@@ -251,6 +286,12 @@ const CAFE_WINDOWS = [
   { x: 118, y: 124, w: 50, h: 46 },
 ];
 const CAFE_DOOR_GLASS = { x: 184, y: 132, w: 24, h: 28 };
+/** Окна бистро (Деловой квартал): витрина под навесом и стекло двери */
+const BISTRO_WINDOWS = [
+  { x: 12, y: 140, w: 82, h: 30 },
+  { x: 96, y: 140, w: 84, h: 30 },
+];
+const BISTRO_DOOR_GLASS = { x: 192, y: 146, w: 22, h: 28 };
 
 interface Walker {
   sprite: Phaser.GameObjects.Image;
@@ -314,6 +355,23 @@ export class StreetScene extends Phaser.Scene {
     this.hooks = hooks;
   }
 
+  /** Какую точку показывает сцена — чтобы не пересоздавать её при повторном переходе */
+  get hooksSim(): Simulation | null {
+    return this.hooks?.sim ?? null;
+  }
+
+  private get district(): DistrictId {
+    return this.hooks.sim.district;
+  }
+
+  private get places(): Place[] {
+    return DISTRICTS[this.district].places;
+  }
+
+  private at(id: string): Place {
+    return place(id, this.district);
+  }
+
   preload(): void {
     for (const [key, atlas] of Object.entries(ATLASES)) this.load.image(key, atlas.url);
     // Значки причин над уходящими жителями — из общего набора иконок
@@ -328,19 +386,20 @@ export class StreetScene extends Phaser.Scene {
     for (const [key, atlas] of Object.entries(ATLASES)) {
       const tex = this.textures.get(key);
       for (const [name, [x, y, w, h]] of Object.entries(atlas.frames)) {
-        tex.add(name, 0, x * ART_SCALE, y * ART_SCALE, w * ART_SCALE, h * ART_SCALE);
+        if (!tex.has(name)) tex.add(name, 0, x * ART_SCALE, y * ART_SCALE, w * ART_SCALE, h * ART_SCALE);
       }
     }
     this.drawGround();
     this.drawBuildings();
-    for (const [frame, x, y] of PROPS) {
+    const props = DISTRICT_PROPS[this.district];
+    for (const [frame, x, y] of props) {
       const img = this.prop(frame, x, y);
       if (frame.startsWith('prop-tree')) {
         this.trees.push({ img, phase: x * 0.013 + y * 0.007 });
         this.treeBases.push({ x, y });
       }
     }
-    const c = place('cafe');
+    const c = this.at(this.district === 'delovoy' ? 'bistro' : 'cafe');
     this.menuBoard = this.prop('prop-menu-board', 246, c.rect.y + c.rect.h + 34);
     const cBase = c.rect.y + c.rect.h;
     this.terrace = this.prop('prop-cafe-terrace', c.rect.x + 12 + 90, cBase + 23).setDepth(cBase + 0.2);
@@ -348,11 +407,11 @@ export class StreetScene extends Phaser.Scene {
     this.noCoffee = this.prop('prop-sign-no-coffee', c.rect.x + 204 - 30, cBase + 6).setDepth(cBase + 0.4);
     // Палатка фестиваля — в сквере у входа с улицы
     this.tent = this.prop('prop-festival-tent', SQUARE.x + 300, SQUARE.y + 150);
-    for (const [frame, x, y] of PROPS) {
+    for (const [frame, x, y] of props) {
       if (frame !== 'prop-lamp') continue;
       this.pools.push(this.light('light-lamp-pool', x, y + 6));
     }
-    for (const p of PLACES) {
+    for (const p of this.places) {
       if (p.kind !== 'cafe' && p.kind !== 'shop') continue;
       const base = p.rect.y + p.rect.h;
       const spill = this.light('light-shop-spill', p.rect.x + p.rect.w / 2, base + 14);
@@ -433,10 +492,14 @@ export class StreetScene extends Phaser.Scene {
     // Сверху видна только кромка леса: первым на экране — метро и свободные помещения
     this.view.cy = MAP.top + this.scale.height / 2 / this.view.zoom;
     this.fitViewport();
-    this.scale.on('resize', () => {
+    const onResize = () => {
       if (this.view.auto) this.view.zoom = this.baseZoom();
       this.fitViewport();
-    });
+    };
+    this.scale.on('resize', onResize);
+    // Сцену пересоздают при переходе в другой район — слушатель масштаба уходит вместе с ней
+    this.events.once('shutdown', () => this.scale.off('resize', onResize));
+    this.events.once('destroy', () => this.scale.off('resize', onResize));
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.touches.set(p.id, { x: p.x, y: p.y });
@@ -578,8 +641,13 @@ export class StreetScene extends Phaser.Scene {
 
   update(time: number, delta: number): void {
     const realSeconds = Math.min(delta, 250) / 1000;
-    this.hooks.sim.advance(realSeconds * GAME_MINUTES_PER_SECOND * this.hooks.getSpeed());
+    this.hooks.city.advance(realSeconds * GAME_MINUTES_PER_SECOND * this.hooks.getSpeed());
     this.handleEvents();
+    // Другие точки живут без картинки: их события не копятся, банкротство общее
+    for (const other of this.hooks.city.points) {
+      if (other === this.hooks.sim) continue;
+      for (const e of other.drainEvents()) if (e.type === 'bankrupt') this.hooks.onBankrupt();
+    }
     this.drawCafe();
     this.drawNight();
     // Животные и погода живут в реальном времени, но замирают на паузе и не носятся на ускорении
@@ -649,7 +717,7 @@ export class StreetScene extends Phaser.Scene {
       return;
     }
     // Мимо жителей — может, в здание или сквер
-    const hit = PLACES.find((p) => x >= p.rect.x && x <= p.rect.x + p.rect.w && y >= p.rect.y && y <= p.rect.y + p.rect.h);
+    const hit = this.places.find((p) => x >= p.rect.x && x <= p.rect.x + p.rect.w && y >= p.rect.y && y <= p.rect.y + p.rect.h);
     if (hit) {
       this.selectPlace(hit === this.selectedPlace ? null : hit);
       return;
@@ -666,7 +734,7 @@ export class StreetScene extends Phaser.Scene {
         // Купил кофе — выходит со стаканчиком (в зале допивает на месте, но стакан с собой тоже бывает)
         if (sim.cafe.menu.find((m) => m.id === e.itemId)?.kind === 'coffee') this.walkers[e.residentId].coffeeUntil = sim.time + COFFEE_MINUTES;
         if (sim.cafe.menu.find((m) => m.id === e.itemId)?.kind === 'coffee' && Math.random() < 0.3) sound.play('sfx-coffee', 0.6);
-        const c = place(sim.shopId).rect;
+        const c = this.at(sim.shopId).rect;
         this.float(c.x + c.w / 2, c.y + Math.min(c.h - 70, 30), `+${formatMoney(e.price)}`, '#2e8b57', 24);
       } else if (e.type === 'reject') {
         const r = sim.residents[e.residentId];
@@ -683,7 +751,7 @@ export class StreetScene extends Phaser.Scene {
       } else if (e.type === 'day') {
         this.hooks.onDayEnd();
       } else if (e.type === 'rival' && sim.rival) {
-        const c = place(sim.rival.placeId).rect;
+        const c = this.at(sim.rival.placeId).rect;
         this.float(c.x + c.w / 2, c.y + 40, e.what === 'open' ? 'Открылся конкурент' : 'У конкурента акция', '#c0392b', 22);
       } else if (e.type === 'bankrupt') {
         this.hooks.onBankrupt();
@@ -794,8 +862,10 @@ export class StreetScene extends Phaser.Scene {
       const lightFrame = theirs ? `${art.rival}-lights` : art.lights;
       if (lights && lights.frame.name !== lightFrame) lights.setTexture(textureOf(lightFrame), lightFrame);
       // До открытия подписаны оба помещения; после — своё и конкурент
-      const name = mine ? cafe.title : theirs ? rival!.t.name : cafe.opened ? '' : 'Сдаётся';
-      const status = mine ? (open ? 'открыто' : 'закрыто') : theirs ? `конкурент · ${theirsOpen ? 'открыто' : 'закрыто'}` : cafe.opened ? '' : shop.place.name;
+      // Сдаётся только то, что можно снять в этом районе (киоск в квартале займёт сеть)
+      const rentable = !cafe.opened && PREMISES[shop.place.id as PremisesId]?.district === this.district;
+      const name = mine ? cafe.title : theirs ? rival!.t.name : rentable ? 'Сдаётся' : '';
+      const status = mine ? (open ? 'открыто' : 'закрыто') : theirs ? `конкурент · ${theirsOpen ? 'открыто' : 'закрыто'}` : rentable ? shop.place.name : '';
       shop.name.setText(name).setVisible(name !== '');
       shop.status.setText(status).setVisible(status !== '');
       shop.status.setColor(mine && open ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');
@@ -805,10 +875,11 @@ export class StreetScene extends Phaser.Scene {
       shop.name.setX(Math.max(x0, half));
       shop.status.setX(Math.max(x0, half));
     }
-    this.menuBoard.setVisible(mineId === 'cafe');
-    this.terrace.setVisible(mineId === 'cafe' || rival?.placeId === 'cafe');
+    const hall = mineId !== null && HALLS.has(mineId);
+    this.menuBoard.setVisible(hall);
+    this.terrace.setVisible(hall || rival?.placeId === 'cafe');
     const broken = sim.effects.some((e) => e.type === 'broken' && !e.slow && sim.time < e.until);
-    this.noCoffee.setVisible(mineId === 'cafe' && broken);
+    this.noCoffee.setVisible(hall && broken);
     this.kioskAwning?.setVisible(mineId === 'kiosk' && cafe.has('awning'));
     this.tent.setVisible(sim.effects.some((e) => e.type === 'boost' && e.day === sim.today));
 
@@ -817,16 +888,18 @@ export class StreetScene extends Phaser.Scene {
     g.clear();
     this.guestSpots = [];
     if (!mineId) return;
-    const r = place(mineId).rect;
+    const r = this.at(mineId).rect;
     if (!open) {
       g.fillStyle(0x4a5563, 0.7);
-      const windows = mineId === 'cafe' ? [...CAFE_WINDOWS, CAFE_DOOR_GLASS] : PREMISES_ART[mineId].windows;
+      const windows =
+        mineId === 'bistro' ? [...BISTRO_WINDOWS, BISTRO_DOOR_GLASS] : hall ? [...CAFE_WINDOWS, CAFE_DOOR_GLASS] : PREMISES_ART[mineId].windows;
       for (const w of windows) g.fillRect(r.x + w.x, r.y + w.y, w.w, w.h);
       return;
     }
-    if (mineId !== 'cafe') return; // в киоске не сидят
+    if (!hall) return; // в киоске не сидят
     const spots: { x: number; y: number }[] = [];
-    for (const w of CAFE_WINDOWS) for (let x = w.x + 8; x < w.x + w.w - 4; x += 12) spots.push({ x: r.x + x, y: r.y + w.y + 20 });
+    for (const w of mineId === 'bistro' ? BISTRO_WINDOWS : CAFE_WINDOWS)
+      for (let x = w.x + 8; x < w.x + w.w - 4; x += 12) spots.push({ x: r.x + x, y: r.y + w.y + 20 });
     let n = 0;
     for (const res of this.hooks.sim.residents) {
       if (res.placeId !== mineId || res.walking || n >= spots.length) continue;
@@ -1005,7 +1078,13 @@ export class StreetScene extends Phaser.Scene {
     // Земля начинается с края мира: выше — лес (borders.ts), Кленовая кончается у метро
     const top = 0;
     const rows = Math.ceil((MAP.top + MAP.height - top) / GRID.size);
-    const canvas = this.textures.createCanvas('ground-map', WORLD.width * S, rows * GRID.size * S);
+    // Земля района запекается один раз: при повторном переходе берём готовую
+    const key = `ground-map-${this.district}`;
+    if (this.textures.exists(key)) {
+      this.add.image(0, top, key).setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
+      return;
+    }
+    const canvas = this.textures.createCanvas(key, WORLD.width * S, rows * GRID.size * S);
     if (!canvas) return;
     const ctx = canvas.getContext();
     const cells: Cell[] = [];
@@ -1014,12 +1093,12 @@ export class StreetScene extends Phaser.Scene {
     // Полоса над миром продолжает верхний ряд клеток (улица уходит за край)
     paintGround(this, ctx, S, cells, (x, y) => groundTile(x, Math.max(0, y + top)));
     canvas.refresh();
-    this.add.image(0, top, 'ground-map').setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
+    this.add.image(0, top, key).setOrigin(0).setScale(1 / S).setDepth(DEPTH.ground);
   }
 
   private drawBuildings(): void {
-    for (const p of PLACES) {
-      const sprite = BUILDING_SPRITE[p.id];
+    for (const p of this.places) {
+      const sprite = SPRITES[this.district][p.id];
       // Названия домов не висят на крышах: нажми на здание — название и жильцы будут в панели
       if (!sprite) continue;
       const base = p.rect.y + p.rect.h;

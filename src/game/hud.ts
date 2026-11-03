@@ -45,7 +45,8 @@ import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type 
 import { statusText, type Regular } from '../sim/regulars';
 import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
 import type { Simulation } from '../sim/simulation';
-import { place, type Place } from '../sim/world';
+import type { DistrictId, Place } from '../sim/world';
+import { UNLOCK, type City } from '../sim/city';
 import { clearSave, exportSave, importSave } from './save';
 import { openFeedback } from './feedback';
 import { showTutorial } from './tutorial';
@@ -98,6 +99,15 @@ function streetNote(minute: number, weekend: boolean): string {
                     ? ['Вечер', `Все идут домой, молодёжь${NB}— гулять и${NB}в${NB}бар.`]
                     : ['Поздний вечер', `Улица пустеет: остаются ночные смены и${NB}молодёжь.`];
   return `<b>${title}</b> <span>${text}</span>`;
+}
+
+/** Сколько осталось до открытия делового квартала */
+export function unlockText(city: City): string {
+  const p = city.unlockProgress();
+  const goal = formatMoney(UNLOCK.weeklyProfit).replace(' ', NB);
+  const now = p.daysIntoWeek < 7 ? `за${NB}${p.daysIntoWeek}${NB}дн. этой недели: ${money(p.lastWeek)}` : `за${NB}неделю: ${money(p.lastWeek)}`;
+  return `<div><b>Деловой квартал</b>${NB}— за${NB}железной дорогой, туда ходит метро. Откроется, когда прибыль будет от${NB}${goal} в${NB}неделю две недели подряд.</div>
+    <div>Подряд: ${p.weeks} из${NB}${UNLOCK.weeks} · ${now}</div>`;
 }
 
 /** 1 гость, 2 гостя, 5 гостей */
@@ -257,6 +267,7 @@ export class Hud {
   private readonly cash = $('#cash');
   private readonly panel = $('#panel');
   private readonly note = $('#street-note');
+  private readonly district = $<HTMLButtonElement>('#district');
   private catalogOpen = false;
   /** Отчёт: за какой период и какой именно (null — последний) */
   private reportPeriod: 'day' | PeriodKind = 'day';
@@ -289,12 +300,18 @@ export class Hud {
   /** Какое событие уже показали карточкой — второй раз сама не всплывает */
   private eventShown = '';
 
+  /** Точка, на которую сейчас смотрит игрок */
+  private sim: Simulation;
+  /** Перейти в другой район — подставляет main */
+  onSwitch: (district: DistrictId) => void = () => {};
+
   constructor(
-    private readonly sim: Simulation,
+    private readonly city: City,
     private readonly onDeselect: () => void,
     private readonly selectInScene: (r: Resident) => void = () => {},
     private readonly challenge = false,
   ) {
+    this.sim = city.main;
     // Скорость — одна тёмная кнопка из двух половин: пауза/пуск и ×1 → ×2 → ×4 по кругу (UI 2.1)
     const speeds = $('#speeds');
     const pill = document.createElement('div');
@@ -320,7 +337,7 @@ export class Hud {
     skip.className = 'skip';
     skip.addEventListener('click', () => {
       if (this.sim.bankrupt) return;
-      this.sim.skipToMorning();
+      this.city.skipToMorning();
       this.render(true);
     });
     speeds.append(skip);
@@ -343,8 +360,65 @@ export class Hud {
       if (ev.key === 'Enter') this.finishRename(true);
       if (ev.key === 'Escape') this.finishRename(false);
     });
+    this.district.addEventListener('click', () => {
+      const other: DistrictId = this.sim.district === 'klenovaya' ? 'delovoy' : 'klenovaya';
+      if (this.city.unlocked) this.onSwitch(other);
+      else {
+        // Ещё закрыт: карточка метро — там условие и сколько осталось
+        this.selectPlace(this.sim.at('metro'));
+        this.onExpand();
+      }
+    });
     this.setSpeed(1);
     this.render(true);
+  }
+
+  /** Кнопка района над картой: где ты сейчас и куда можно поехать */
+  private districtPill(): void {
+    const el = this.district;
+    const show = this.city.unlocked || this.sim.cafe.opened;
+    el.hidden = !show;
+    if (!show) return;
+    let html: string;
+    if (this.city.unlocked) {
+      const there = this.sim.district === 'klenovaya' ? 'Деловой квартал' : 'Кленовая';
+      html = `<small>${this.sim.district === 'klenovaya' ? 'Кленовая' : 'Деловой квартал'}</small><b>🚇 ${there}${NB}→</b>`;
+    } else {
+      const p = this.city.unlockProgress();
+      html = `<small>Деловой квартал</small><b>🔒 ${p.weeks} из${NB}${UNLOCK.weeks} нед.</b>`;
+    }
+    if (el.innerHTML !== html) el.innerHTML = html;
+  }
+
+  /** Квартал только что открылся: карточка с предложением поехать */
+  private unlockCard(): void {
+    if (!this.city.justUnlocked || document.querySelector('.overlay')) return;
+    this.city.justUnlocked = false;
+    const resume = this.speed || 1;
+    this.setSpeed(0);
+    sound.play('ui-milestone');
+    goal('district', { id: 'delovoy' });
+    const root = document.createElement('div');
+    root.className = 'overlay';
+    root.innerHTML = `
+      <div class="sheet event-card" role="dialog" aria-label="Деловой квартал открыт">
+        <div class="event-icon">🏙️</div>
+        <b>Деловой квартал открыт</b>
+        <p>Две недели подряд прибыль от${NB}${money(UNLOCK.weeklyProfit)} в${NB}неделю${NB}— первая точка встала на${NB}ноги. За${NB}железной дорогой деловой квартал: бизнес-центры, коворкинг и${NB}институт, около 160${NB}офисных. Там сдаётся помещение под${NB}бистро с${NB}обедами.</p>
+        <p class="event-stake">Ты стоишь за${NB}стойкой в${NB}первой точке, во${NB}второй нужен бариста. Касса общая.</p>
+        <div class="event-options">
+          <button class="event-option" data-choice="go"><span>Поехать на${NB}метро</span><small>Посмотреть квартал и${NB}бистро</small></button>
+        </div>
+        <div class="actions"><small>Переход${NB}— кнопкой над${NB}картой или через метро</small><button class="link" data-choice="later">Позже</button></div>
+      </div>`;
+    document.body.append(root);
+    root.addEventListener('click', (ev) => {
+      const id = (ev.target as HTMLElement).closest<HTMLElement>('[data-choice]')?.dataset.choice;
+      if (!id) return;
+      root.remove();
+      this.setSpeed(resume);
+      if (id === 'go') this.onSwitch('delovoy');
+    });
   }
 
   setSpeed(s: number): void {
@@ -362,6 +436,21 @@ export class Hud {
       cycle.textContent = `×${this.lastSpeed}`;
       cycle.setAttribute('aria-label', `Скорость ×${this.lastSpeed}, нажми, чтобы сменить`);
     }
+  }
+
+  /** Переключиться на точку в другом районе: панель — с обзора */
+  show(sim: Simulation): void {
+    this.sim = sim;
+    this.selected = null;
+    this.selectedPlace = null;
+    this.view = 'cafe';
+    this.tab = 'overview';
+    this.openItem = null;
+    this.hallSlot = null;
+    this.standPick = null;
+    this.catalogOpen = false;
+    this.dish = null;
+    this.render(true);
   }
 
   /** Скорость до паузы — с неё продолжаем */
@@ -438,6 +527,8 @@ export class Hud {
     const negative = this.sim.cash < 0;
     if (negative && !this.wasNegative) sound.play('ui-money-low');
     this.wasNegative = negative;
+    this.districtPill();
+    this.unlockCard();
     this.render();
   }
 
@@ -459,6 +550,9 @@ export class Hud {
     const { action, item } = btn.dataset;
     const sim = this.sim;
     switch (action) {
+      case 'go-district':
+        this.onSwitch(item as DistrictId);
+        return;
       case 'open-cafe':
         if (sim.openCafe((item as PremisesId) ?? 'cafe')) goal('open', { premises: item });
         this.tab = 'overview';
@@ -734,7 +828,7 @@ export class Hud {
         break;
       case 'save-export':
         goal('save-export', { day: sim.today });
-        exportSave(sim);
+        exportSave(this.city);
         return;
     }
     this.render(true);
@@ -937,6 +1031,10 @@ export class Hud {
             .join(' · ')}</div></div>
           ${people(inside, `Сейчас у${NB}него`)}`;
       }
+      if (PREMISES[id]?.district !== sim.district) {
+        return `${head(p.name, 'не сдаётся')}
+          <div class="facts"><div>Помещение уже арендовала сеть «Кофе на${NB}бегу». Откроется через несколько дней после${NB}твоего бистро.</div></div>`;
+      }
       return `${head(p.name, sim.cafe.opened ? 'свободно' : 'сдаётся')}
         ${sim.cafe.opened ? `<div class="facts"><div>Помещение пустует.</div></div>` : `<ul class="menu premises-list">${this.premisesCard(id)}</ul>`}`;
     }
@@ -960,7 +1058,8 @@ export class Hud {
     if (p.kind === 'metro') {
       const come = residents.filter((r) => r.homeId === 'metro');
       return `${head(p.name, `выход из${NB}метро`)}
-        <div class="facts"><div>Приезжают на${NB}улицу на${NB}метро: ${come.length}</div>${awareLine(come, `из${NB}них`)}</div>`;
+        <div class="facts"><div>Приезжают на${NB}улицу на${NB}метро: ${come.length}</div>${awareLine(come, `из${NB}них`)}</div>
+        ${this.metroTrip()}`;
     }
     if (p.kind === 'school') {
       const study = residents.filter((r) => r.workId === p.id);
@@ -977,12 +1076,26 @@ export class Hud {
     return `${head(p.name, sub)}${people(here, p.kind === 'park' ? 'Сейчас гуляют' : 'Сейчас здесь')}`;
   }
 
+  /** Метро: поездка в другой район или сколько осталось до открытия квартала */
+  private metroTrip(): string {
+    if (this.sim.isBranch) return `<button class="primary" data-action="go-district" data-item="klenovaya">Вернуться на${NB}Кленовую</button>`;
+    if (this.city.unlocked) return `<button class="primary" data-action="go-district" data-item="delovoy">Поехать в${NB}Деловой квартал</button>`;
+    return `<div class="facts">${unlockText(this.city)}</div>`;
+  }
+
   private cafeView(): string {
     const { cafe } = this.sim;
     const today = cafe.today;
     if (!cafe.opened) {
       this.live.wanted = String(today.wanted);
       const card = (id: PremisesId) => this.premisesCard(id);
+      if (this.sim.isBranch) {
+        return `
+        <div class="row head"><b>Деловой квартал</b><span class="badge">Вторая точка</span></div>
+        <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Здесь работают и${NB}учатся: утром кофе, в${NB}обед очередь за${NB}едой, после${NB}19:00 и${NB}в${NB}выходные пусто.</p>
+        <ul class="menu premises-list">${card('bistro')}</ul>
+        <small>Ты стоишь за${NB}стойкой в${NB}первой точке. Во${NB}второй нужен бариста${NB}— найми его сразу после открытия. Касса общая.</small>`;
+      }
       return `
         <div class="row head"><b>Свободные помещения</b><span class="badge">Сдаются</span></div>
         <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Посмотри, кто и${NB}когда, — нажми на${NB}жителя.</p>
@@ -2226,7 +2339,7 @@ export class Hud {
   private residentView(r: Resident): string {
     const minute = Math.floor(minuteOfDay(this.sim.time));
     const now = currentEntry(r.schedule, minute);
-    const where = place(r.placeId).name;
+    const where = this.sim.at(r.placeId).name;
     const status = r.visit
       ? r.visit.stage === 'going'
         ? `Идёт в${NB}кафе`
@@ -2236,12 +2349,12 @@ export class Hud {
       : r.walking
         ? `${ACTIVITY_LABEL[r.activity]} · в${NB}пути → ${where}`
         : `${ACTIVITY_LABEL[r.activity]} · ${where}`;
-    const home = r.homeId === 'metro' ? `Приезжает на${NB}метро` : `Живёт: ${place(r.homeId).name}`;
+    const home = r.homeId === 'metro' ? `Приезжает на${NB}метро` : `Живёт: ${this.sim.at(r.homeId).name}`;
     const work =
       r.workId === null
         ? ''
         : `<div>${r.kind === 'student' ? 'Учится' : 'Работает'}: ${
-            r.workId === 'metro' ? `за${NB}пределами улицы` : place(r.workId).name
+            r.workId === 'metro' ? `за${NB}пределами улицы` : this.sim.at(r.workId).name
           }</div>`;
     const budget = (Object.keys(WANT_LABEL) as WantKind[])
       .map((k) => `${WANT_LABEL[k]} до${NB}${money(r.budget[k])}`)
@@ -2265,7 +2378,7 @@ export class Hud {
     const rows = r.schedule
       .map(
         (s) =>
-          `<li class="${s === now ? 'now' : ''}"><span>${fmtMinute(s.start)}</span>${ACTIVITY_LABEL[s.activity]} — ${place(s.placeId).name}</li>`,
+          `<li class="${s === now ? 'now' : ''}"><span>${fmtMinute(s.start)}</span>${ACTIVITY_LABEL[s.activity]} — ${this.sim.at(s.placeId).name}</li>`,
       )
       .join('');
     return `

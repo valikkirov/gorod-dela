@@ -1,6 +1,7 @@
 // Город: несколько точек игрока в разных районах. Касса, кредит, погода и банкротство — общие,
 // время идёт в ногу. Деловой квартал открывается, когда первая точка встала на ноги.
 import { SAVE_VERSION, Simulation, STEP, type SaveData } from './simulation';
+import { hm, MINUTES_PER_DAY } from './clock';
 import type { DistrictId } from './world';
 
 export const UNLOCK = {
@@ -30,6 +31,8 @@ export class City {
   private carry = 0;
   /** Квартал открыт — флаг не сбрасывается, даже если прибыль потом упала */
   unlocked = false;
+  /** Квартал открылся только что — интерфейс покажет карточку и сбросит флаг */
+  justUnlocked = false;
 
   constructor(
     readonly main: Simulation,
@@ -61,6 +64,12 @@ export class City {
     }
   }
 
+  /** Промотать до 6:00 утра все точки вместе */
+  skipToMorning(): void {
+    const left = (hm(6) - this.main.minute + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+    this.advance(left < 1 ? MINUTES_PER_DAY : left);
+  }
+
   /** Прибыль по неделям, считая от последнего закрытого дня назад */
   unlockProgress(): UnlockProgress {
     const opened = this.main.reports.filter((r) => r.opened);
@@ -80,6 +89,7 @@ export class City {
     if (this.unlocked) return false;
     if (this.unlockProgress().weeks < UNLOCK.weeks) return false;
     this.openDistrict();
+    this.justUnlocked = true;
     return true;
   }
 
