@@ -21,6 +21,9 @@ import {
   nearestFront,
   place,
   type DistrictId,
+  loopPath,
+  nearestLoop,
+  PARK_LOOP,
   snapToWalkway,
   walkLength,
   walkPath,
@@ -70,6 +73,8 @@ export interface SaveData {
   effects?: Effect[];
   lastEvent?: Partial<Record<EventId, number>>;
   eventRng?: number;
+  /** Прогулки по большому скверу — свой генератор, чтобы не сдвигать остальную жизнь */
+  parkRng?: number;
   milestones?: Partial<Record<MilestoneId, number>>;
   loan?: Loan | null;
   loanHistory?: LoanHistory;
@@ -98,6 +103,9 @@ export interface SaveData {
 const DELIVERY_AT = hm(6);
 /** Шанс дозаказа у тех, кто сидит в кафе */
 export const EXTRA = { bar: 0.7, coffee: 0.4, tea: 0.35, lunch: 0.35 } as const;
+
+/** Большой сквер: какая доля гуляющих идёт туда днём и вечером; раз во сколько минут гуляющий идёт дальше */
+const PARK_SHARE = { day: 0.6, night: 0.3, strollEvery: 12 } as const;
 
 /** Дольше этого житель не ждёт заказ и уходит по делам */
 const PATIENCE = 30;
@@ -161,6 +169,7 @@ export class Simulation {
   private lastEvent: Partial<Record<EventId, number>> = {};
   /** Свой генератор для событий: они не сдвигают жизнь жителей */
   private readonly eventRng: Rng;
+  private readonly parkRng: Rng;
   private flyersToday = false;
   get cash(): number {
     return this.wallet.cash;
@@ -223,6 +232,7 @@ export class Simulation {
     this.rng = new Rng(seed);
     this.skyRng = new Rng(seed * 7919 + 13);
     this.eventRng = new Rng(seed * 104729 + 7);
+    this.parkRng = new Rng(seed * 6007 + 3);
     this.time = startTime;
     this.day = dayNumber(startTime);
     this.cafe.today = Cafe.emptyDay(this.day);
@@ -273,6 +283,7 @@ export class Simulation {
       effects: this.effects,
       lastEvent: { ...this.lastEvent },
       eventRng: this.eventRng.snapshot,
+      parkRng: this.parkRng.snapshot,
       loan: this.loan,
       loanHistory: this.loanHistory,
       residents: this.residents.map((r) => {
@@ -330,6 +341,7 @@ export class Simulation {
     sim.effects = d.effects ?? [];
     sim.lastEvent = { ...(d.lastEvent ?? {}) };
     if (d.eventRng !== undefined) sim.eventRng.snapshot = d.eventRng;
+    if (d.parkRng !== undefined) sim.parkRng.snapshot = d.parkRng;
     sim.loan = d.loan ?? null;
     sim.loanHistory = { ...emptyHistory(), ...(d.loanHistory ?? {}) };
     sim.applyDaySchedules();
@@ -668,6 +680,7 @@ export class Simulation {
         this.goTo(r, r.entry.placeId);
       }
       if (r.walking) this.walk(r, dt);
+      else this.wander(r, dt);
     }
 
     this.cafe.serviceFactor = this.effects.some((e) => e.type === 'broken' && e.slow && this.time < e.until) ? 1.5 : 1;
@@ -675,6 +688,33 @@ export class Simulation {
     const { sales, failed } = this.cafe.tick(dt, minute);
     for (const sale of sales) this.onSale(sale.residentId, sale.price, sale.itemId);
     for (const id of failed) this.runOut(this.residents[id]);
+  }
+
+  // ——— Большой сквер ———
+
+  /** Гулять идут то в маленький сквер у перекрёстка, то в большой: днём чаще в большой, вечером — реже */
+  private parkFor(entry: ScheduleEntry): string {
+    if (entry.placeId !== 'park') return entry.placeId;
+    const share = entry.activity === 'night' ? PARK_SHARE.night : PARK_SHARE.day;
+    return this.parkRng.chance(share) ? 'bigpark' : 'park';
+  }
+
+  /** Кто гуляет в большом сквере, время от времени идёт дальше по кольцу — сквер живой */
+  private wander(r: Resident, dt: number): void {
+    if (r.walking || r.visit || r.rivalVisit || r.placeId !== 'bigpark') return;
+    if (!this.parkRng.chance(dt / PARK_SHARE.strollEvery)) return;
+    const from = nearestLoop(r.pos);
+    const n = PARK_LOOP.length;
+    const to = (from + (this.parkRng.chance(0.5) ? 1 : -1) * this.parkRng.int(1, 3) + n) % n;
+    r.path = this.loopSpot(loopPath(from, to));
+    r.walking = true;
+  }
+
+  /** Путь по кольцу с небольшим сдвигом последней точки: гуляющие не стоят друг в друге */
+  private loopSpot(path: Point[]): Point[] {
+    const last = path.at(-1);
+    if (last) path[path.length - 1] = { x: last.x + this.parkRng.jitter(8), y: last.y + this.parkRng.jitter(8) };
+    return path;
   }
 
   // ——— Жители и кафе ———
@@ -700,7 +740,7 @@ export class Simulation {
       this.goTo(r, r.homeId);
       return;
     }
-    this.goTo(r, entry.placeId);
+    this.goTo(r, this.parkFor(entry));
   }
 
   /** Решение «зайти или нет». true — житель идёт в кафе. */
@@ -1666,7 +1706,10 @@ export class Simulation {
     const { s, t } = best!;
     const path: Point[] = [];
     // Из здания с несколькими выходами житель появляется у выбранного, из сквера — идёт к его краю
-    if (s.door && from && entrancesOf(from).length > 1) {
+    if (from?.id === 'bigpark' && s.door) {
+      // Из большого сквера — по кольцу к выбранному входу
+      path.push(...loopPath(nearestLoop(r.pos), nearestLoop(s.door)));
+    } else if (s.door && from && entrancesOf(from).length > 1) {
       if (outdoor) path.push({ ...s.door });
       else r.pos = { ...s.door };
     }
@@ -1674,12 +1717,22 @@ export class Simulation {
     if (from && s.via) for (const p of [...s.via].reverse()) path.push({ ...p });
     for (const p of walkPath(s.front, t.front)) path.push(withLane(p, r.lane));
     if (t.via) for (const p of t.via) path.push({ ...p });
+    if (to.id === 'bigpark') {
+      // В большом сквере — от входа по кольцу к месту, где погулять
+      const gate = nearestLoop(t.door);
+      path.push({ ...t.door }, ...this.loopSpot(loopPath(gate, this.parkRng.int(0, PARK_LOOP.length - 1))));
+      return path;
+    }
     path.push(this.spotIn(to, t));
     return path;
   }
 
   /** Куда именно встать в месте назначения */
   private spotIn(p: Place, entrance: Entrance = entrancesOf(p)[0]): Point {
+    if (p.id === 'bigpark') {
+      const q = PARK_LOOP[this.parkRng.int(0, PARK_LOOP.length - 1)];
+      return { x: q.x + this.parkRng.jitter(8), y: q.y + this.parkRng.jitter(8) };
+    }
     if (p.kind === 'park') {
       // В сквере — где-нибудь на дорожках, не у самой остановки
       return {

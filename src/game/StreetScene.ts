@@ -7,7 +7,7 @@ import { WANT_LABEL } from '../sim/demand';
 import { formatMoney, PREMISES, type PremisesId } from '../sim/economy';
 import { Borders, BORDER } from './borders';
 import { Fog } from './fog';
-import { CROSSWALK_Y, DISTRICTS, GRID, place, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type DistrictId, type Place } from '../sim/world';
+import { BIG_PARK, CROSSWALK_Y, DISTRICTS, GRID, place, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type DistrictId, type Place } from '../sim/world';
 import type { City } from '../sim/city';
 import { COLORS, RESIDENT_COLOR } from './palette';
 import { WeatherFx, type FxKind } from './weatherFx';
@@ -210,26 +210,25 @@ const PROPS: [string, number, number][] = [
   ['prop-lamp', 1400, 1236],
   ['prop-bin', 1160, 1076],
   ['prop-bin', 880, 1236],
-  // Большой сквер за Кленовой: деревья, аттракционы и киоск с мороженым
+  // Большой сквер за Кленовой: дорожка кольцом (BIG_PARK), внутри пруд и аттракционы, снаружи деревья
   ['prop-tree-round', 770, 130],
   ['prop-tree-tall', 900, 90],
   ['prop-tree-tall', 1010, 60],
   ['prop-tree-tall', 1220, 110],
   ['prop-tree-round', 1370, 190],
   ['prop-tree-tall', 760, 250],
-  ['prop-tree-tall', 820, 330],
-  ['prop-tree-round', 990, 300],
-  ['prop-tree-tall', 1160, 370],
-  ['prop-tree-round', 1330, 320],
-  ['prop-tree-round', 1395, 430],
-  ['prop-tree-round', 780, 540],
-  ['prop-tree-tall', 940, 610],
+  ['prop-tree-round', 990, 250],
+  ['prop-tree-round', 1290, 250],
+  ['prop-tree-tall', 800, 400],
+  ['prop-tree-tall', 1150, 575],
+  ['prop-tree-round', 810, 570],
   ['prop-tree-tall', 1290, 580],
-  ['prop-tree-tall', 1395, 560],
+  ['prop-tree-tall', 1400, 580],
   ['prop-tree-round', 1400, 720],
-  ['prop-tree-round', 760, 760],
-  ['prop-tree-tall', 870, 790],
-  ['prop-tree-round', 1020, 780],
+  ['prop-tree-round', 990, 720],
+  ['prop-tree-round', 800, 800],
+  ['prop-tree-tall', 940, 800],
+  ['prop-tree-round', 1030, 800],
   ['prop-tree-round', 1200, 800],
   ['prop-tree-tall', 1320, 800],
   ['prop-playground', 1110, 240],
@@ -239,7 +238,12 @@ const PROPS: [string, number, number][] = [
   ['prop-bench', 1030, 565],
   ['prop-bench', 1180, 712],
   ['prop-bin', 1060, 712],
-  ['prop-bench', 1240, 680],
+  ['prop-bench', 1260, 680],
+  ['prop-bench', 1200, 272],
+  ['prop-lamp', 730, 450],
+  ['prop-lamp', 1392, 450],
+  ['prop-lamp', 960, 272],
+  ['prop-lamp', 1000, 652],
   // Двор южной стороны Садовой: у дверей кадки и скамейки, проходы между домами свободны
   ['prop-planter', 64, 1436],
   ['prop-bench', 590, 1434],
@@ -1207,8 +1211,17 @@ function groundTile(x: number, y: number): string {
     if (y === PARK_PATH.row || (x === PARK_PATH.col && y > PARK_PATH.row)) return 'tile-sidewalk';
     return 'tile-grass';
   }
+  if (x >= 700 && y < 840 && onBigParkPath(x, y)) return 'tile-sidewalk';
   if (x >= 700) return x >= 860 && y >= 840 ? 'tile-sidewalk' : 'tile-grass';
   return 'tile-sidewalk';
+}
+
+/** Клетка — на дорожке большого сквера */
+function onBigParkPath(x: number, y: number): boolean {
+  return (
+    BIG_PARK.rows.some((r) => y === r.y && x >= r.x0 && x <= r.x1) ||
+    BIG_PARK.cols.some((c) => x === c.x && y >= c.y0 && y <= c.y1)
+  );
 }
 
 /** Пятиконечная звёздочка с контуром, ~12 px */

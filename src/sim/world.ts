@@ -72,6 +72,99 @@ export const CROSSWALK_Y = 520;
 /** Сквер на углу двух улиц */
 export const SQUARE: Rect = { x: 460, y: 760, w: 400, h: 280 };
 
+/**
+ * Большой сквер за домами правой стороны: дорожка кольцом вокруг пруда и аттракционов.
+ * Клетки дорожек (левый верхний угол клетки 40 × 40): ряды y 280 и 600 от x 740 до 1340,
+ * столбцы x 740 (до 720 — к входу с Кленовой) и 1340, проход x 860 от кольца вниз к Садовой.
+ */
+export const BIG_PARK = {
+  rect: { x: 700, y: 14, w: 740, h: 828 } as Rect,
+  rows: [
+    { y: 280, x0: 740, x1: 1340 },
+    { y: 600, x0: 740, x1: 1340 },
+    // Вход с Кленовой: от прохода между Домом 3 и маленьким сквером
+    { y: 720, x0: 700, x1: 740 },
+  ],
+  cols: [
+    { x: 740, y0: 280, y1: 720 },
+    { x: 1340, y0: 280, y1: 600 },
+    // Проход к Садовой между маленьким сквером и Домом 4
+    { x: 860, y0: 600, y1: 840 },
+  ],
+} as const;
+
+/** Кольцо дорожки по середине клеток, по часовой стрелке. Жители гуляют от точки к точке */
+export const PARK_LOOP: Point[] = [
+  { x: 760, y: 300 },
+  { x: 900, y: 300 },
+  { x: 1060, y: 300 },
+  { x: 1210, y: 300 },
+  { x: 1360, y: 300 },
+  { x: 1360, y: 460 },
+  { x: 1360, y: 620 },
+  { x: 1210, y: 620 },
+  { x: 1060, y: 620 },
+  { x: 880, y: 620 },
+  { x: 760, y: 620 },
+  { x: 760, y: 460 },
+];
+
+/** Точки кольца, к которым выходят входы: с Садовой (проход x 860) и с Кленовой (столбец x 740) */
+export const PARK_GATES = { sadovaya: 9, klenovaya: 10 } as const;
+
+/** Путь по кольцу от точки i до точки j (без i), короткой стороной */
+export function loopPath(i: number, j: number): Point[] {
+  const n = PARK_LOOP.length;
+  const fwd = (j - i + n) % n;
+  const step = fwd <= n - fwd ? 1 : -1;
+  const out: Point[] = [];
+  for (let k = i; k !== j; ) {
+    k = (k + step + n) % n;
+    out.push({ ...PARK_LOOP[k] });
+  }
+  return out;
+}
+
+/** Ближайшая к точке вершина кольца */
+export function nearestLoop(p: Point): number {
+  let best = 0;
+  let bestD = Infinity;
+  PARK_LOOP.forEach((q, i) => {
+    const d = Math.abs(q.x - p.x) + Math.abs(q.y - p.y);
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/** Большой сквер: два входа — с Садовой через проход и с Кленовой между Домом 3 и маленьким сквером */
+function bigPark(name: string, territoryId: string): Place {
+  const fromSadovaya: Entrance = {
+    door: { ...PARK_LOOP[PARK_GATES.sadovaya] },
+    front: { x: 880, y: 1060 },
+    via: [{ x: 880, y: 860 }],
+  };
+  const fromKlenovaya: Entrance = {
+    door: { ...PARK_LOOP[PARK_GATES.klenovaya] },
+    front: { x: 440, y: 740 },
+    via: [{ x: 720, y: 740 }, { x: 760, y: 740 }],
+  };
+  return {
+    id: 'bigpark',
+    kind: 'park',
+    name,
+    territoryId,
+    side: 'center',
+    rect: BIG_PARK.rect,
+    door: fromSadovaya.door,
+    front: fromSadovaya.front,
+    entrances: [fromSadovaya, fromKlenovaya],
+    indoor: false,
+  };
+}
+
 export function sidewalkX(side: 'left' | 'right'): number {
   return side === 'left' ? SIDEWALK.leftX : SIDEWALK.rightX;
 }
@@ -221,6 +314,7 @@ export const PLACES: Place[] = [
     ],
     indoor: false,
   },
+  bigPark('Большой сквер', SADOVAYA_ID),
   // Садовая, северная сторона
   sadovaya('home-4', 'home', 'Дом 4', 900, 240, 168, 117),
   sadovaya('home-5', 'home', 'Дом 5', 1180, 240, 168, 120),
@@ -257,6 +351,7 @@ export const DELOVOY_PLACES: Place[] = [
   building('apart-1', 'home', 'Апартаменты «Сити»', 'right', 566, 734, 45, PROSPEKT),
   { ...BUS_PLACE, territoryId: PROSPEKT },
   { ...PARK_PLACE, name: 'Площадь с\u00a0фонтаном', territoryId: PEREULOK },
+  bigPark('Сквер «Деловой»', PEREULOK),
   sadovaya('bc-east', 'office', 'БЦ «Восток»', 900, 240, 168, 120, PEREULOK),
   sadovaya('bc-bank', 'office', 'Банк и\u00a0офисы', 1180, 240, 168, 120, PEREULOK),
   sadovayaSouth('school', 'school', 'Институт экономики', 20, 240, 167, 118, 280, PEREULOK),
