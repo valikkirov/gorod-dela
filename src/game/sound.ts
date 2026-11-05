@@ -52,12 +52,20 @@ class SoundSystem {
   private loops = new Map<string, Loop>();
   private lastScene = 0;
 
+  /** Почему звук сейчас стоит: свёрнута вкладка, окно без фокуса, пауза от площадки (реклама) */
+  private holds = new Set<string>();
+
   constructor() {
-    document.addEventListener('visibilitychange', () => {
-      if (!this.ctx) return;
-      if (document.hidden) void this.ctx.suspend();
-      else if (this.enabled) void this.ctx.resume();
-    });
+    document.addEventListener('visibilitychange', () => this.hold('hidden', document.hidden));
+  }
+
+  /** Остановить звук по причине или снять её; звук идёт, только когда причин нет */
+  hold(reason: string, on: boolean): void {
+    if (on) this.holds.add(reason);
+    else this.holds.delete(reason);
+    if (!this.ctx) return;
+    if (this.holds.size > 0) void this.ctx.suspend();
+    else if (this.enabled) void this.ctx.resume();
   }
 
   /** Включить или выключить. Вызывается из нажатия — браузер разрешает звук только после жеста */
@@ -111,7 +119,7 @@ class SoundSystem {
         if ((n.startsWith('sfx-') || n.startsWith('ui-')) && n !== 'sfx-festival') void this.buffer(n);
       }
     }
-    void this.ctx.resume();
+    if (this.holds.size === 0) void this.ctx.resume();
     this.lastScene = 0;
   }
 

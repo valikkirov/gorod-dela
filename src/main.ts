@@ -17,9 +17,15 @@ import { CHALLENGE, isChallenge, saveKeyFor } from './game/challenge';
 import { Drawer, isWide } from './game/drawer';
 import { sound } from './game/sound';
 import { initSoundPanel } from './game/soundPanel';
+import { gameReady, initPlatform, IS_YANDEX, onPlatformPause, setPlaying } from './game/platform';
 
-initMetrika();
-void initTelegram();
+// В Яндекс Играх своя статистика и нет Telegram: внешние скрипты не грузим
+if (!IS_YANDEX) {
+  initMetrika();
+  void initTelegram();
+}
+// Яндекс Игры: SDK и облачное сохранение — до загрузки игры (на сайте — сразу)
+await initPlatform();
 
 const params = new URLSearchParams(location.search);
 // ?seed=N — новый город с этим seed (без загрузки сохранения); ?challenge — испытание недели
@@ -85,6 +91,11 @@ const hooksFor = (sim: Simulation): SceneHooks => ({
     drawer.open();
   },
   onBankrupt: () => hud.onBankrupt(),
+  onCreate: () => {
+    // Карта нарисована — площадке можно сказать, что игра загружена (повторный вызов при смене района безвреден)
+    gameReady();
+    syncPlaying();
+  },
 });
 game.scene.add('street', scene, true, hooksFor(city.main));
 
@@ -100,6 +111,36 @@ function switchTo(district: DistrictId): void {
   Object.assign(window, { sim, scene });
 }
 hud.onSwitch = switchTo;
+
+// ——— Площадка: «игра загружена», геймплей идёт или стоит, пауза по просьбе площадки ———
+let platformPaused = false;
+const syncPlaying = () => setPlaying(hud.speed > 0 && !document.hidden && !platformPaused);
+hud.onSpeedChange = syncPlaying;
+document.addEventListener('visibilitychange', syncPlaying);
+let resumeSpeed = 1;
+onPlatformPause(
+  () => {
+    platformPaused = true;
+    resumeSpeed = hud.speed;
+    hud.setSpeed(0);
+    sound.hold('platform', true);
+  },
+  () => {
+    platformPaused = false;
+    hud.setSpeed(resumeSpeed);
+    sound.hold('platform', false);
+  },
+);
+if (IS_YANDEX) {
+  // Окно игры без фокуса (нажали на интерфейс площадки) — звук молчит
+  window.addEventListener('blur', () => sound.hold('focus', true));
+  window.addEventListener('focus', () => sound.hold('focus', false));
+  // Ни выделения, ни контекстного меню по игровому полю и панели
+  document.addEventListener('contextmenu', (ev) => {
+    if (!(ev.target as HTMLElement).closest('textarea, input')) ev.preventDefault();
+  });
+  document.documentElement.classList.add('in-yandex');
+}
 
 // Первый запуск — короткое обучение (с ?seed — для отладки — не показываем)
 if (!params.has('seed') && !tutorialDone()) showTutorial(hud);

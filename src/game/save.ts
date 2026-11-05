@@ -1,5 +1,6 @@
 import { City, type CitySave } from '../sim/city';
 import type { SaveData } from '../sim/simulation';
+import { clearCloud, IS_YANDEX, savedLocally, takeCloudSave } from './platform';
 
 // Сохранение в браузере игрока. Каждый браузер и устройство — своя игра.
 const KEY = `${location.pathname.includes('/preview/') ? 'gorod-dela:preview' : 'gorod-dela'}:save`;
@@ -7,7 +8,8 @@ const KEY = `${location.pathname.includes('/preview/') ? 'gorod-dela:preview' : 
 
 export function loadGame(key = KEY): City | null {
   try {
-    const raw = localStorage.getItem(key);
+    // Яндекс Игры: облачное сохранение, если оно новее, чем в этом браузере
+    const raw = (IS_YANDEX && key === KEY ? takeCloudSave() : null) ?? localStorage.getItem(key);
     if (!raw) return null;
     return City.restore(JSON.parse(raw) as CitySave | SaveData);
   } catch {
@@ -16,15 +18,18 @@ export function loadGame(key = KEY): City | null {
   }
 }
 
-export function saveGame(city: City, key = KEY): void {
+export function saveGame(city: City, key = KEY, urgent = false): void {
+  const json = JSON.stringify(city.serialize());
+  if (IS_YANDEX && key === KEY) savedLocally(json, urgent);
   try {
-    localStorage.setItem(key, JSON.stringify(city.serialize()));
+    localStorage.setItem(key, json);
   } catch {
     // Приватный режим или переполнено — игра идёт дальше без сохранения
   }
 }
 
 export function clearSave(key = KEY): void {
+  if (IS_YANDEX && key === KEY) clearCloud();
   try {
     localStorage.removeItem(key);
   } catch {
@@ -35,14 +40,14 @@ export function clearSave(key = KEY): void {
 /** Автосохранение: каждые 5 секунд и когда вкладку сворачивают или закрывают */
 export function autosave(city: City, key = KEY): void {
   let stopped = false;
-  const save = () => {
-    if (!stopped) saveGame(city, key);
+  const save = (urgent = false) => {
+    if (!stopped) saveGame(city, key, urgent);
   };
   setInterval(save, 5000);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') save();
+    if (document.visibilityState === 'hidden') save(true);
   });
-  window.addEventListener('pagehide', save);
+  window.addEventListener('pagehide', () => save(true));
   // Перед «Начать заново» отключаем, чтобы не записать старую игру поверх
   window.addEventListener('gorod-dela:reset', () => {
     stopped = true;

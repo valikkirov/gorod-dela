@@ -49,6 +49,7 @@ import type { DistrictId, Place } from '../sim/world';
 import { UNLOCK, type City } from '../sim/city';
 import { clearSave, exportSave, importSave } from './save';
 import { openFeedback } from './feedback';
+import { IS_YANDEX } from './platform';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
 import { hallTab } from './hall';
@@ -421,8 +422,12 @@ export class Hud {
     });
   }
 
+  /** Скорость сменилась — площадке нужно знать, идёт ли игра */
+  onSpeedChange: () => void = () => {};
+
   setSpeed(s: number): void {
     this.speed = this.sim.bankrupt ? 0 : s;
+    this.onSpeedChange();
     if (this.speed > 0) this.lastSpeed = this.speed;
     const pause = document.querySelector<HTMLButtonElement>('#speeds [data-role="pause"]');
     const cycle = document.querySelector<HTMLButtonElement>('#speeds [data-role="cycle"]');
@@ -926,7 +931,9 @@ export class Hud {
     goal('restart', { day: this.sim.today });
     window.dispatchEvent(new Event('gorod-dela:reset'));
     clearSave(saveKeyFor(this.challenge));
-    location.href = this.challenge ? challengeUrl() : location.pathname;
+    // В Яндекс Играх адрес не трогаем: в нём параметры площадки
+    if (IS_YANDEX) location.reload();
+    else location.href = this.challenge ? challengeUrl() : location.pathname;
   }
 
   // ——— Отрисовка панели ———
@@ -1102,7 +1109,7 @@ export class Hud {
         ${this.challengeBanner()}
         <ul class="menu premises-list">${card('kiosk')}${card('cafe')}</ul>
         <small>Формат начинается с${NB}места: у${NB}метро — поток пассажиров, в${NB}кафе с${NB}залом гости сидят и${NB}дозаказывают.</small>
-        ${this.sim.time > hm(7) ? this.restartBlock() : this.challenge ? '' : this.transferBlock()}`;
+        ${this.sim.time > hm(7) ? this.restartBlock() : this.challenge || IS_YANDEX ? '' : this.transferBlock()}`;
     }
 
     const minute = this.sim.minute;
@@ -1874,7 +1881,13 @@ export class Hud {
       ? `<div class="restart"><small>Кафе, деньги и${NB}весь прогресс сотрутся.</small>
           <div class="hire"><button class="small" data-action="restart-ask">Отмена</button>
           <button class="small danger" data-action="restart">Да, начать заново</button></div></div>`
-      : `<div class="links">
+      : IS_YANDEX
+        ? `<div class="links">
+           <button class="link" data-action="tutorial">Как играть</button>
+           <button class="link" data-action="restart-ask">Начать заново</button>
+         </div>
+         <small class="saved">Игра сохраняется автоматически</small>`
+        : `<div class="links">
            <button class="link" data-action="feedback">Предложить идею</button>
            <button class="link" data-action="tutorial">Как играть</button>
            <button class="link" data-action="restart-ask">Начать заново</button>

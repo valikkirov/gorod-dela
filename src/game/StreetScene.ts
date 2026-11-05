@@ -34,6 +34,8 @@ export interface SceneHooks {
   onFrame: () => void;
   onDayEnd: () => void;
   onBankrupt: () => void;
+  /** Сцена создана и нарисована */
+  onCreate?: () => void;
 }
 
 const REASON_SHORT: Record<RejectReason, string> = {
@@ -472,6 +474,7 @@ export class StreetScene extends Phaser.Scene {
     }));
     this.highlight = this.add.graphics().setDepth(DEPTH.labels - 0.5);
     this.setupCamera();
+    this.hooks.onCreate?.();
   }
 
   // ——— Камера: перетаскивание, щипок, колесо, кнопки ———

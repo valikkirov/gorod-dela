@@ -5,7 +5,8 @@ import { formatMoney } from '../sim/economy';
 import type { Simulation } from '../sim/simulation';
 
 /** Telegram-группа игры «Зинаида Петровна · Город дела». Пусто — кнопка просто копирует текст. */
-export const FEEDBACK_URL = 'https://t.me/+u-malhj9mupkNGNi';
+// В Яндекс Играх внешних ссылок нет (требование 8.4.2): кнопки «Предложить идею» там тоже нет
+export const FEEDBACK_URL = import.meta.env.VITE_PLATFORM === 'yandex' ? '' : 'https://t.me/+u-malhj9mupkNGNi';
 
 const NB = ' ';
 

@@ -7,7 +7,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "build:yandex": "tsc && vite build --mode yandex --outDir dist-yandex && node scripts/zip-yandex.mjs"
   },
   "repository": {
     "type": "git",
@@ -20,6 +21,7 @@
   "dependencies": {
     "@fontsource/nunito": "^5.3.0",
     "@fontsource/rubik": "^5.3.0",
+    "lz-string": "^1.5.0",
     "phaser": "^4.2.1"
   },
   "devDependencies": {

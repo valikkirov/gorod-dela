@@ -3161,3 +3161,16 @@ button.small.danger {
 #district b {
   font-size: 14px;
 }
+
+/* Яндекс Игры: долгое нажатие и мышь не выделяют текст интерфейса (требования 1.6.1.8, 1.6.2.7) */
+.in-yandex #app {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.in-yandex #app textarea,
+.in-yandex #app input {
+  -webkit-user-select: text;
+  user-select: text;
+}
