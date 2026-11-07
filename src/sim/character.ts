@@ -6,14 +6,15 @@ import type { ResidentKind } from './residents';
 import { dishProfile } from './dishes';
 import { Rng } from './rng';
 
+import { L } from './i18n';
 export type TasteAxis = 'sweet' | 'strong' | 'hearty' | 'novel';
 export const AXES: TasteAxis[] = ['sweet', 'strong', 'hearty', 'novel'];
 
 export const AXIS_LABEL: Record<TasteAxis, string> = {
-  sweet: 'сладкое',
-  strong: 'крепкое',
-  hearty: 'сытное',
-  novel: 'необычное',
+  sweet: L('сладкое'),
+  strong: L('крепкое'),
+  hearty: L('сытное'),
+  novel: L('необычное'),
 };
 
 /** Профиль позиции: насколько она сладкая, крепкая, сытная, необычная (0…1) */
@@ -115,15 +116,15 @@ export const TASTE = {
 export type MemoryNote = 'tasty' | 'not-my-taste' | 'pricey' | 'good-price' | 'long-wait' | 'quick' | 'queue' | 'out-of-stock' | 'new';
 
 export const NOTE_LABEL: Record<MemoryNote, string> = {
-  tasty: 'вкусно',
-  'not-my-taste': 'не по вкусу',
-  pricey: 'дороговато',
-  'good-price': 'недорого',
-  'long-wait': 'долго ждать',
-  quick: 'быстро',
-  queue: 'очередь',
-  'out-of-stock': 'не было',
-  new: 'новое для себя',
+  tasty: L('вкусно'),
+  'not-my-taste': L('не по вкусу'),
+  pricey: L('дороговато'),
+  'good-price': L('недорого'),
+  'long-wait': L('долго ждать'),
+  quick: L('быстро'),
+  queue: L('очередь'),
+  'out-of-stock': L('не было'),
+  new: L('новое для себя'),
 };
 
 export interface Memory {
@@ -172,12 +173,12 @@ export function remember(memory: Memory[], m: Memory): Memory[] {
 /** Черты для карточки: только заметные */
 export function traitWords(c: Character): string[] {
   const w: string[] = [];
-  if (c.hurry >= 0.6) w.push('торопится');
-  else if (c.hurry <= 0.25) w.push('не спешит');
-  if (c.thrift >= 0.65) w.push('экономный');
-  else if (c.thrift <= 0.25) w.push('не считает деньги');
-  if (c.curiosity >= 0.65) w.push('любит новое');
-  else if (c.curiosity <= 0.25) w.push('верен привычкам');
+  if (c.hurry >= 0.6) w.push(L('торопится'));
+  else if (c.hurry <= 0.25) w.push(L('не спешит'));
+  if (c.thrift >= 0.65) w.push(L('экономный'));
+  else if (c.thrift <= 0.25) w.push(L('не считает деньги'));
+  if (c.curiosity >= 0.65) w.push(L('любит новое'));
+  else if (c.curiosity <= 0.25) w.push(L('верен привычкам'));
   return w;
 }
 

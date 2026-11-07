@@ -5,6 +5,7 @@ import type { ItemKind } from './cafe';
 import type { Profile, TasteAxis } from './character';
 import type { IngredientId } from './stock';
 
+import { L } from './i18n';
 export type BaseId = 'milk-coffee' | 'black-coffee' | 'pastry' | 'toast' | 'soup' | 'hot' | 'tea' | 'lemonade';
 export type AddInId = 'syrup' | 'chocolate' | 'honey' | 'spices' | 'double' | 'berries' | 'cheese' | 'ham';
 
@@ -37,25 +38,25 @@ export interface AddIn {
 const P = (sweet: number, strong: number, hearty: number, novel: number): Profile => ({ sweet, strong, hearty, novel });
 
 export const BASES: readonly DishBase[] = [
-  { id: 'milk-coffee', name: 'Кофе с молоком', short: 'Латте', kind: 'coffee', recipe: { beans: 1, milk: 1 }, profile: P(0.35, 0.5, 0.3, 0.15), prep: 0, price: 220, addIns: ['syrup', 'chocolate', 'honey', 'spices', 'double'] },
-  { id: 'black-coffee', name: 'Чёрный кофе', short: 'Американо', kind: 'coffee', recipe: { beans: 1 }, profile: P(0, 0.85, 0.1, 0.1), prep: 0, price: 150, addIns: ['double', 'spices', 'syrup', 'honey'] },
-  { id: 'pastry', name: 'Выпечка', short: 'Булочка', kind: 'snack', recipe: { bakery: 1 }, profile: P(0.4, 0, 0.4, 0.15), prep: 0.5, price: 160, addIns: ['chocolate', 'berries', 'cheese', 'honey', 'spices'] },
-  { id: 'toast', name: 'Тост', short: 'Тост', kind: 'snack', recipe: { bakery: 1, kitchen: 0.3 }, profile: P(0.05, 0.15, 0.6, 0.2), prep: 1, price: 230, addIns: ['cheese', 'ham', 'berries', 'honey'] },
-  { id: 'soup', name: 'Суп', short: 'Суп', kind: 'lunch', recipe: { kitchen: 1 }, profile: P(0.05, 0.2, 0.65, 0.15), prep: 1, price: 250, addIns: ['cheese', 'ham', 'spices'] },
-  { id: 'hot', name: 'Горячее', short: 'Горячее', kind: 'lunch', recipe: { kitchen: 1.8 }, profile: P(0.1, 0.2, 0.95, 0.2), prep: 2, price: 360, addIns: ['cheese', 'ham', 'spices'] },
-  { id: 'tea', name: 'Чай', short: 'Чай', kind: 'tea', recipe: { drinks: 1 }, profile: P(0.25, 0.25, 0.05, 0.1), prep: 0, price: 150, addIns: ['honey', 'berries', 'spices', 'syrup'] },
-  { id: 'lemonade', name: 'Лимонад', short: 'Лимонад', kind: 'tea', recipe: { drinks: 2 }, profile: P(0.7, 0, 0, 0.4), prep: 0.5, price: 200, addIns: ['berries', 'syrup', 'spices'] },
+  { id: 'milk-coffee', name: L('Кофе с молоком'), short: L('Латте'), kind: 'coffee', recipe: { beans: 1, milk: 1 }, profile: P(0.35, 0.5, 0.3, 0.15), prep: 0, price: 220, addIns: ['syrup', 'chocolate', 'honey', 'spices', 'double'] },
+  { id: 'black-coffee', name: L('Чёрный кофе'), short: L('Американо'), kind: 'coffee', recipe: { beans: 1 }, profile: P(0, 0.85, 0.1, 0.1), prep: 0, price: 150, addIns: ['double', 'spices', 'syrup', 'honey'] },
+  { id: 'pastry', name: L('Выпечка'), short: L('Булочка'), kind: 'snack', recipe: { bakery: 1 }, profile: P(0.4, 0, 0.4, 0.15), prep: 0.5, price: 160, addIns: ['chocolate', 'berries', 'cheese', 'honey', 'spices'] },
+  { id: 'toast', name: L('Тост'), short: L('Тост'), kind: 'snack', recipe: { bakery: 1, kitchen: 0.3 }, profile: P(0.05, 0.15, 0.6, 0.2), prep: 1, price: 230, addIns: ['cheese', 'ham', 'berries', 'honey'] },
+  { id: 'soup', name: L('Суп'), short: L('Суп'), kind: 'lunch', recipe: { kitchen: 1 }, profile: P(0.05, 0.2, 0.65, 0.15), prep: 1, price: 250, addIns: ['cheese', 'ham', 'spices'] },
+  { id: 'hot', name: L('Горячее'), short: L('Горячее'), kind: 'lunch', recipe: { kitchen: 1.8 }, profile: P(0.1, 0.2, 0.95, 0.2), prep: 2, price: 360, addIns: ['cheese', 'ham', 'spices'] },
+  { id: 'tea', name: L('Чай'), short: L('Чай'), kind: 'tea', recipe: { drinks: 1 }, profile: P(0.25, 0.25, 0.05, 0.1), prep: 0, price: 150, addIns: ['honey', 'berries', 'spices', 'syrup'] },
+  { id: 'lemonade', name: L('Лимонад'), short: L('Лимонад'), kind: 'tea', recipe: { drinks: 2 }, profile: P(0.7, 0, 0, 0.4), prep: 0.5, price: 200, addIns: ['berries', 'syrup', 'spices'] },
 ];
 
 export const ADDINS: readonly AddIn[] = [
-  { id: 'syrup', name: 'Сироп', with: 'с сиропом', ingredient: 'syrup', qty: 1, delta: { sweet: 0.35, novel: 0.1 } },
-  { id: 'chocolate', name: 'Шоколад', with: 'с шоколадом', ingredient: 'chocolate', qty: 1, delta: { sweet: 0.3, hearty: 0.15 } },
-  { id: 'honey', name: 'Мёд', with: 'с мёдом', ingredient: 'honey', qty: 1, delta: { sweet: 0.25 } },
-  { id: 'spices', name: 'Специи', with: 'со специями', ingredient: 'spices', qty: 1, delta: { novel: 0.35, strong: 0.1 } },
-  { id: 'double', name: 'Двойной эспрессо', with: 'с двойным эспрессо', ingredient: 'beans', qty: 1, delta: { strong: 0.35 } },
-  { id: 'berries', name: 'Ягоды', with: 'с ягодами', ingredient: 'berries', qty: 1, delta: { sweet: 0.15, novel: 0.25 } },
-  { id: 'cheese', name: 'Сыр', with: 'с сыром', ingredient: 'cheese', qty: 1, delta: { hearty: 0.3, novel: 0.05 } },
-  { id: 'ham', name: 'Ветчина', with: 'с ветчиной', ingredient: 'ham', qty: 1, delta: { hearty: 0.35 } },
+  { id: 'syrup', name: L('Сироп'), with: L('с сиропом'), ingredient: 'syrup', qty: 1, delta: { sweet: 0.35, novel: 0.1 } },
+  { id: 'chocolate', name: L('Шоколад'), with: L('с шоколадом'), ingredient: 'chocolate', qty: 1, delta: { sweet: 0.3, hearty: 0.15 } },
+  { id: 'honey', name: L('Мёд'), with: L('с мёдом'), ingredient: 'honey', qty: 1, delta: { sweet: 0.25 } },
+  { id: 'spices', name: L('Специи'), with: L('со специями'), ingredient: 'spices', qty: 1, delta: { novel: 0.35, strong: 0.1 } },
+  { id: 'double', name: L('Двойной эспрессо'), with: L('с двойным эспрессо'), ingredient: 'beans', qty: 1, delta: { strong: 0.35 } },
+  { id: 'berries', name: L('Ягоды'), with: L('с ягодами'), ingredient: 'berries', qty: 1, delta: { sweet: 0.15, novel: 0.25 } },
+  { id: 'cheese', name: L('Сыр'), with: L('с сыром'), ingredient: 'cheese', qty: 1, delta: { hearty: 0.3, novel: 0.05 } },
+  { id: 'ham', name: L('Ветчина'), with: L('с ветчиной'), ingredient: 'ham', qty: 1, delta: { hearty: 0.35 } },
 ];
 
 /** Фирменное блюдо: если оно гостю по вкусу, конкурент переманивает его реже */
@@ -131,5 +132,5 @@ export function defaultDishName(id: string): string {
   const withs = d.addIns.map((a) => a.with);
   // «с сыром и с ветчиной» → «с сыром и ветчиной»
   const rest = withs.slice(1).map((w) => w.replace(/^со? /, ''));
-  return `${d.base.short} ${[withs[0], ...rest].join(' и ')}`;
+  return `${d.base.short} ${[withs[0], ...rest].join(L(' и '))}`;
 }

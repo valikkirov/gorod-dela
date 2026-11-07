@@ -33,11 +33,11 @@ import {
   type Point,
 } from './world';
 
+import { L, tr } from './i18n';
 /** Шаг симуляции в игровых минутах. Мелкий — чтобы движение было плавным. */
 export const STEP = 0.2;
 /** Меняется, когда сохранения старой версии больше нельзя загрузить */
 export const SAVE_VERSION = 2;
-const NB = '\u00a0';
 
 /** Сколько порций новой добавки заказать и держать, когда придумано блюдо */
 const DISH_STARTER = 15;
@@ -402,7 +402,7 @@ export class Simulation {
     // В киоске нет кухни и бара — стартовое меню без них
     for (const m of [...this.cafe.menu]) if (!this.cafe.fits(m.id)) this.cafe.removeItem(m.id);
     if (!this.cafe.hasItem('croissant')) this.cafe.addItem('croissant');
-    this.note('open', `${pr.name}: открыто`, undefined, '');
+    this.note('open', tr`${pr.name}: открыто`, undefined, '');
     this.rival = new Rival(premisesId, this.day + RIVAL.delayDays);
     // Сразу знают соседи и продавцы напротив; у киоска — те, кто ходит через метро
     for (const r of this.residents) {
@@ -457,12 +457,12 @@ export class Simulation {
     const from = weekHoursText(this.cafe.week);
     this.cafe.week = week.map((h) => (h ? { ...h } : null));
     const to = weekHoursText(this.cafe.week);
-    if (from !== to) this.note('hours', 'Часы работы', from, to);
+    if (from !== to) this.note('hours', L('Часы работы'), from, to);
   }
 
   hireBarista(contract: Contract): boolean {
     const b = this.cafe.hire(contract);
-    if (b) this.note(`staff:${b.id}`, 'Нанят бариста', undefined, contract === 'shift' ? 'на смену' : 'почасово');
+    if (b) this.note(`staff:${b.id}`, L('Нанят бариста'), undefined, contract === 'shift' ? L('на смену') : L('почасово'));
     return b !== null;
   }
 
@@ -474,7 +474,7 @@ export class Simulation {
     const hired = list.findIndex((c) => c.key === `staff:${id}`);
     // Нанял и уволил в тот же день — в истории ничего не было
     if (hired >= 0) list.splice(hired, 1);
-    else this.note(`staff:${id}`, 'Уволен бариста', undefined, b.contract === 'shift' ? 'на смене' : 'почасовой');
+    else this.note(`staff:${id}`, L('Уволен бариста'), undefined, b.contract === 'shift' ? L('на смене') : L('почасовой'));
   }
 
   /** Разово вызвать или отпустить почасового бариста — только на сегодня */
@@ -490,7 +490,7 @@ export class Simulation {
     const from = scheduleText(b);
     this.cafe.setSchedule(id, schedule);
     const n = this.cafe.staff.indexOf(b) + 1;
-    this.note(`schedule:${id}`, `График бариста ${n}`, from, scheduleText(b));
+    this.note(`schedule:${id}`, tr`График бариста ${n}`, from, scheduleText(b));
   }
 
   /** Промотать до 6:00 следующего утра (если сейчас раньше 6:00 — до сегодняшних 6:00) */
@@ -501,7 +501,7 @@ export class Simulation {
 
   addMenuItem(id: string): boolean {
     const ok = this.cafe.addItem(id);
-    if (ok) this.toggle(`menu:${id}`, `Меню: ${itemName(id, this.cafe.own)}`, 'добавлен', 'убран', true);
+    if (ok) this.toggle(`menu:${id}`, tr`Меню: ${itemName(id, this.cafe.own)}`, L('добавлен'), L('убран'), true);
     return ok;
   }
 
@@ -517,7 +517,7 @@ export class Simulation {
       stock.keepWeekend[id] = DISH_STARTER;
       stock.order(id, DISH_STARTER - (stock.pending[id] ?? 0));
     }
-    this.toggle(`menu:${it.id}`, `Своё блюдо: ${it.name}`, 'убрано', 'в меню', true);
+    this.toggle(`menu:${it.id}`, tr`Своё блюдо: ${it.name}`, L('убрано'), L('в меню'), true);
     return true;
   }
 
@@ -538,14 +538,14 @@ export class Simulation {
   deleteDish(id: string): boolean {
     const name = itemName(id, this.cafe.own);
     const ok = this.cafe.deleteDish(id);
-    if (ok) this.toggle(`menu:${id}`, `Своё блюдо: ${name}`, 'в меню', 'убрано', false);
+    if (ok) this.toggle(`menu:${id}`, tr`Своё блюдо: ${name}`, L('в меню'), L('убрано'), false);
     return ok;
   }
 
   removeMenuItem(id: string): boolean {
     const name = itemName(id, this.cafe.own);
     const ok = this.cafe.removeItem(id);
-    if (ok) this.toggle(`menu:${id}`, `Меню: ${name}`, 'добавлен', 'убран', false);
+    if (ok) this.toggle(`menu:${id}`, tr`Меню: ${name}`, L('добавлен'), L('убран'), false);
     return ok;
   }
 
@@ -944,9 +944,9 @@ export class Simulation {
     // Знакомое лицо — история в отчёт
     if (this.regularById.has(r.id)) {
       const f = isFemale(friend.name);
-      const who = { work: 'коллегу', home: f ? 'соседку' : 'соседа', kind: f ? 'подругу' : 'друга' }[near(friend)!];
+      const who = { work: L('коллегу'), home: f ? L('соседку') : L('соседа'), kind: f ? L('подругу') : L('друга') }[near(friend)!];
       const first = r.name.split(' ')[0];
-      (t.news ??= []).push(`${first} ${isFemale(r.name) ? 'привела' : 'привёл'} ${who}${NB}— ${friend.name.split(' ')[0]} взял${f ? 'а' : ''} ${pick.name.toLowerCase()}`);
+      (t.news ??= []).push(tr`${first} ${isFemale(r.name) ? L('привела') : L('привёл')} ${who} — ${friend.name.split(' ')[0]} взял${f ? L('а') : ''} ${pick.name.toLowerCase()}`);
     }
   }
 
@@ -1066,14 +1066,14 @@ export class Simulation {
   buySign(): boolean {
     if (this.marketing.sign || !this.cafe.opened) return false;
     this.marketing.sign = true;
-    this.note('sign', 'Повешена вывеска', undefined, formatMoney(MARKETING.signCost));
+    this.note('sign', L('Повешена вывеска'), undefined, formatMoney(MARKETING.signCost));
     this.cash -= MARKETING.signCost;
     this.cafe.today.marketing += MARKETING.signCost;
     return true;
   }
 
   setFlyers(on: boolean): void {
-    if (on !== this.marketing.flyers) this.toggle('flyers', 'Листовки у\u00a0метро', 'раздаём', 'остановлены', on);
+    if (on !== this.marketing.flyers) this.toggle('flyers', L('Листовки у\u00a0метро'), L('раздаём'), L('остановлены'), on);
     this.marketing.flyers = on;
     if (on) this.flyersToday = true;
   }
@@ -1081,7 +1081,7 @@ export class Simulation {
   launchSocial(): boolean {
     if (this.marketing.socialDaysLeft > 0 || !this.cafe.opened) return false;
     this.marketing.socialDaysLeft = MARKETING.socialDays;
-    this.note('social', 'Запущены соцсети', undefined, `${MARKETING.socialDays}\u00a0дней`, 'со\u00a0следующего утра');
+    this.note('social', L('Запущены соцсети'), undefined, tr`${MARKETING.socialDays}\u00a0дней`, L('со\u00a0следующего утра'));
     this.cash -= MARKETING.socialCampaign;
     this.cafe.today.marketing += MARKETING.socialCampaign;
     return true;
@@ -1090,11 +1090,11 @@ export class Simulation {
   setHappyHours(h: HappyHours | null): void {
     const from = happyText(this.marketing.happy);
     this.marketing.happy = h && h.to > h.from && h.discount > 0 ? h : null;
-    this.note('happy', 'Счастливые часы', from, happyText(this.marketing.happy));
+    this.note('happy', L('Счастливые часы'), from, happyText(this.marketing.happy));
   }
 
   setLoyaltyCard(on: boolean): void {
-    if (on !== this.marketing.loyaltyCard) this.toggle('card', 'Карта лояльности', 'включена', 'выключена', on);
+    if (on !== this.marketing.loyaltyCard) this.toggle('card', L('Карта лояльности'), L('включена'), L('выключена'), on);
     this.marketing.loyaltyCard = on;
   }
 
@@ -1103,7 +1103,7 @@ export class Simulation {
   orderIngredient(id: IngredientId, qty: number): void {
     this.cafe.stock.order(id, qty);
     const total = this.cafe.stock.pending[id] ?? qty;
-    this.note(`order:${id}`, `Заказ: ${ingredient(id).name.toLowerCase()}`, undefined, `${total}\u00a0порц.`, 'привезут в\u00a06:00');
+    this.note(`order:${id}`, tr`Заказ: ${ingredient(id).name.toLowerCase()}`, undefined, tr`${total}\u00a0порц.`, L('привезут в\u00a06:00'));
   }
 
   cancelOrder(id: IngredientId): void {
@@ -1119,10 +1119,10 @@ export class Simulation {
     levels[id] = Math.max(0, Math.round(qty));
     this.note(
       `keep:${id}:${weekend ? 'we' : 'wd'}`,
-      `Держать ${ingredient(id).name.toLowerCase()} (${weekend ? 'выходные' : 'будни'})`,
+      tr`Держать ${ingredient(id).name.toLowerCase()} (${weekend ? L('выходные') : L('будни')})`,
       String(from),
       String(levels[id]),
-      'автозаказ ночью',
+      L('автозаказ ночью'),
     );
   }
 
@@ -1206,21 +1206,21 @@ export class Simulation {
     // Кредит один на всё дело: берут и платят в главной точке
     if (this.main) return this.main.loanOffer(source);
     const no = (refusal: string): LoanOffer => ({ source, refusal, max: 0 });
-    if (!this.cafe.opened || this.bankrupt) return no('Сначала открой точку');
-    if (this.loan) return no('Сначала верни текущий кредит');
+    if (!this.cafe.opened || this.bankrupt) return no(L('Сначала открой точку'));
+    if (this.loan) return no(L('Сначала верни текущий кредит'));
     const h = this.loanHistory;
     if (h.repaidDay !== null && this.day < h.repaidDay + LOAN.cooldownDays) {
-      return no(`Новый кредит${NB}— через ${h.repaidDay + LOAN.cooldownDays - this.day}${NB}дн. после погашения прошлого`);
+      return no(tr`Новый кредит — через ${h.repaidDay + LOAN.cooldownDays - this.day} дн. после погашения прошлого`);
     }
     if (source === 'private') {
-      if (h.privateTaken >= LOAN.privateTimes) return no(`Частник выручал уже ${LOAN.privateTimes}${NB}раза и${NB}больше не${NB}даёт`);
+      if (h.privateTaken >= LOAN.privateTimes) return no(tr`Частник выручал уже ${LOAN.privateTimes} раза и больше не даёт`);
       return { source, refusal: null, max: LOAN.privateMax };
     }
     const worked = this.day - this.openedDay;
-    if (worked < LOAN.bankFromDay) return no(`Банк смотрит историю: приходи через ${LOAN.bankFromDay - worked}${NB}дн. работы`);
+    if (worked < LOAN.bankFromDay) return no(tr`Банк смотрит историю: приходи через ${LOAN.bankFromDay - worked} дн. работы`);
     const opened = this.reports.filter((r) => r.opened);
     const lastWeek = opened.slice(-7).reduce((s, r) => s + r.profit, 0);
-    if (lastWeek < -LOAN.bankRefuseLoss) return no(`Банк не${NB}кредитует точку в${NB}убытке: за${NB}неделю ${formatMoney(lastWeek)}`);
+    if (lastWeek < -LOAN.bankRefuseLoss) return no(tr`Банк не кредитует точку в убытке: за неделю ${formatMoney(lastWeek)}`);
     let goodWeeks = 0;
     for (let i = 0; i + 7 <= opened.length; i += 7) if (opened.slice(i, i + 7).reduce((s, r) => s + r.profit, 0) > 0) goodWeeks += 1;
     const milestones = Object.keys(this.milestones).length;
@@ -1240,7 +1240,7 @@ export class Simulation {
     if (source === 'private') this.loanHistory.privateTaken += 1;
     this.cash += sum;
     this.cafe.today.loanTaken = (this.cafe.today.loanTaken ?? 0) + sum;
-    this.note('loan', `Кредит: ${LOAN_LABEL[source].toLowerCase()}`, undefined, formatMoney(sum));
+    this.note('loan', tr`Кредит: ${LOAN_LABEL[source].toLowerCase()}`, undefined, formatMoney(sum));
     return true;
   }
 
@@ -1251,7 +1251,7 @@ export class Simulation {
     if (!l || this.cash < l.left) return false;
     this.cash -= l.left;
     this.cafe.today.loanPaid = (this.cafe.today.loanPaid ?? 0) + l.left;
-    this.note('loan', 'Кредит погашен досрочно', undefined, formatMoney(l.left));
+    this.note('loan', L('Кредит погашен досрочно'), undefined, formatMoney(l.left));
     this.loan = null;
     this.loanHistory.repaidDay = this.day;
     return true;
@@ -1433,7 +1433,7 @@ export class Simulation {
       t.revenue += e.pay;
       t.sold[e.itemId] = (t.sold[e.itemId] ?? 0) + e.qty;
       cafe.countItem(e.itemId, e.pay, 0);
-      (t.events ??= []).push(`🏢 Заказ офиса: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`);
+      (t.events ??= []).push(tr`🏢 Заказ офиса: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`);
     }
   }
 
@@ -1444,7 +1444,7 @@ export class Simulation {
       this.effects.splice(this.effects.indexOf(e), 1);
       const t = this.cafe.today;
       if (!e.success) {
-        (t.events ??= []).push('📱 Обзор блогера так и\u00a0не\u00a0вышел');
+        (t.events ??= []).push(L('📱 Обзор блогера так и\u00a0не\u00a0вышел'));
         continue;
       }
       const fans = this.residents.filter((r) => !r.aware && (r.kind === 'youth' || r.kind === 'student' || r.kind === 'visitor'));
@@ -1454,7 +1454,7 @@ export class Simulation {
         this.learn(r, 'social');
         n += 1;
       }
-      (t.events ??= []).push(`📱 Вышел обзор блогера: о\u00a0вас узнали ${n}\u00a0человек`);
+      (t.events ??= []).push(tr`📱 Вышел обзор блогера: о\u00a0вас узнали ${n}\u00a0человек`);
     }
   }
 
@@ -1538,7 +1538,7 @@ export class Simulation {
     this.cafe.upgrades.push(id);
     if (id === 'showcase') this.cafe.stock.extendShelf(UPGRADE_EFFECT.showcaseShelfDays);
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + u.cost;
-    this.note(`upgrade:${id}`, u.name, undefined, `куплено за ${formatMoney(u.cost)}`);
+    this.note(`upgrade:${id}`, u.name, undefined, tr`куплено за ${formatMoney(u.cost)}`);
     return true;
   }
 
@@ -1550,7 +1550,7 @@ export class Simulation {
     this.cash -= e.cost;
     this.cafe.equipment.push(id);
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + e.cost;
-    this.note(`equipment:${id}`, e.name, undefined, `куплено за ${formatMoney(e.cost)}`);
+    this.note(`equipment:${id}`, e.name, undefined, tr`куплено за ${formatMoney(e.cost)}`);
     return true;
   }
 
@@ -1574,7 +1574,7 @@ export class Simulation {
     this.cash -= cost;
     this.cafe.interior.layout[slot] = id;
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
-    this.note(`hall:${slot}`, 'Зал', old ? furniture(old).name : undefined, furniture(id).name);
+    this.note(`hall:${slot}`, L('Зал'), old ? furniture(old).name : undefined, furniture(id).name);
     return true;
   }
 
@@ -1587,7 +1587,7 @@ export class Simulation {
     this.cash += refund;
     delete this.cafe.interior.layout[slot];
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) - refund;
-    this.note(`hall:${slot}`, 'Зал', furniture(old).name, 'продано');
+    this.note(`hall:${slot}`, L('Зал'), furniture(old).name, L('продано'));
     return true;
   }
 
@@ -1599,7 +1599,7 @@ export class Simulation {
     this.cash -= cost;
     this.cafe.interior.load(preset(id).layout);
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
-    this.note('hall', 'Зал', undefined, `комплектация «${preset(id).name}»`);
+    this.note('hall', L('Зал'), undefined, tr`комплектация «${preset(id).name}»`);
     return true;
   }
 
@@ -1757,7 +1757,7 @@ const pad = (n: number): string => String(n).padStart(2, '0');
 const clockText = (m: number): string => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
 
 function happyText(h: HappyHours | null): string {
-  return h ? `${clockText(h.from)}–${clockText(h.to)}, −${Math.round(h.discount * 100)}\u00a0%` : 'выкл.';
+  return h ? `${clockText(h.from)}–${clockText(h.to)}, −${Math.round(h.discount * 100)}\u00a0%` : L('выкл.');
 }
 
 function itemName(id: string, own: MenuItem[] = []): string {

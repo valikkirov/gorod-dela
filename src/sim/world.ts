@@ -1,3 +1,4 @@
+import { L } from './i18n';
 // Карта района: деловая улица Кленовая (сверху вниз) и жилая Садовая (поперёк), Т-образный перекрёсток.
 // Координаты в «пикселях мира». Иерархия территорий из GDD (улица → район → город) — поле territoryId.
 
@@ -255,7 +256,7 @@ export const PLACES: Place[] = [
   {
     id: 'metro',
     kind: 'metro',
-    name: 'Метро «Кленовая»',
+    name: L('Метро «Кленовая»'),
     territoryId: KLENOVAYA,
     side: 'center',
     rect: { x: 280, y: 10, w: 160, h: 78 },
@@ -271,7 +272,7 @@ export const PLACES: Place[] = [
     // Киоск у выхода из метро — второе помещение под бизнес
     id: 'kiosk',
     kind: 'cafe',
-    name: 'Киоск у метро',
+    name: L('Киоск у метро'),
     territoryId: KLENOVAYA,
     side: 'left',
     rect: { x: 140, y: 4, w: 120, h: 72 },
@@ -279,18 +280,18 @@ export const PLACES: Place[] = [
     front: { x: SIDEWALK.leftX, y: 90 },
     indoor: true,
   },
-  building('home-1', 'home', 'Дом 1', 'left', 100, 268, 204),
-  building('cafe', 'cafe', 'Твоё кафе', 'left', 308, 496, 204),
-  building('home-2', 'home', 'Дом 2', 'left', 536, 704, 204),
-  building('office-north', 'office', 'Офис «Север»', 'left', 744, 952, 193),
-  building('office-bc', 'office', 'Бизнес-центр', 'right', 100, 348, 58),
-  building('shop', 'shop', 'Продукты', 'right', 388, 526, 32),
-  building('home-3', 'home', 'Дом 3', 'right', 566, 734, 36),
+  building('home-1', 'home', L('Дом 1'), 'left', 100, 268, 204),
+  building('cafe', 'cafe', L('Твоё кафе'), 'left', 308, 496, 204),
+  building('home-2', 'home', L('Дом 2'), 'left', 536, 704, 204),
+  building('office-north', 'office', L('Офис «Север»'), 'left', 744, 952, 193),
+  building('office-bc', 'office', L('Бизнес-центр'), 'right', 100, 348, 58),
+  building('shop', 'shop', L('Продукты'), 'right', 388, 526, 32),
+  building('home-3', 'home', L('Дом 3'), 'right', 566, 734, 36),
   {
     // Остановка автобуса у сквера: сюда пересаживаются с метро
     id: 'bus',
     kind: 'bus',
-    name: 'Остановка',
+    name: L('Остановка'),
     territoryId: KLENOVAYA,
     side: 'center',
     rect: { x: 466, y: 976, w: 108, h: 64 },
@@ -301,7 +302,7 @@ export const PLACES: Place[] = [
   {
     id: 'park',
     kind: 'park',
-    name: 'Сквер',
+    name: L('Сквер'),
     territoryId: SADOVAYA_ID,
     side: 'center',
     rect: SQUARE,
@@ -314,16 +315,16 @@ export const PLACES: Place[] = [
     ],
     indoor: false,
   },
-  bigPark('Большой сквер', SADOVAYA_ID),
+  bigPark(L('Большой сквер'), SADOVAYA_ID),
   // Садовая, северная сторона
-  sadovaya('home-4', 'home', 'Дом 4', 900, 240, 168, 117),
-  sadovaya('home-5', 'home', 'Дом 5', 1180, 240, 168, 120),
+  sadovaya('home-4', 'home', L('Дом 4'), 900, 240, 168, 117),
+  sadovaya('home-5', 'home', L('Дом 5'), 1180, 240, 168, 120),
   // Садовая, южная сторона: школа, второй выход метро, помещение, дома. Между ними проходы во двор
-  sadovayaSouth('school', 'school', 'Школа', 20, 240, 167, 118, 280),
-  { ...sadovayaSouth('metro-2', 'metro', 'Метро «Кленовая», выход на Садовую', 300, 160, 82, 78, 480), decor: true, closed: true },
-  { ...sadovayaSouth('premises-2', 'vacant', 'Помещение на Садовой', 500, 240, 152, 201, 760), decor: true },
-  sadovayaSouth('home-6', 'home', 'Дом 6', 780, 240, 155, 206, 1040),
-  sadovayaSouth('home-7', 'home', 'Дом 7', 1060, 240, 168, 201, 1320),
+  sadovayaSouth('school', 'school', L('Школа'), 20, 240, 167, 118, 280),
+  { ...sadovayaSouth('metro-2', 'metro', L('Метро «Кленовая», выход на Садовую'), 300, 160, 82, 78, 480), decor: true, closed: true },
+  { ...sadovayaSouth('premises-2', 'vacant', L('Помещение на Садовой'), 500, 240, 152, 201, 760), decor: true },
+  sadovayaSouth('home-6', 'home', L('Дом 6'), 780, 240, 155, 206, 1040),
+  sadovayaSouth('home-7', 'home', L('Дом 7'), 1060, 240, 168, 201, 1320),
 ];
 
 // ——— Деловой квартал: вторая карта, «за железной дорогой», туда едут на метро ———
@@ -339,26 +340,26 @@ const PARK_PLACE = PLACES.find((p) => p.id === 'park')!;
 const METRO_PLACE = PLACES.find((p) => p.id === 'metro')!;
 
 export const DELOVOY_PLACES: Place[] = [
-  { ...METRO_PLACE, name: 'Метро «Деловая»', territoryId: PROSPEKT },
+  { ...METRO_PLACE, name: L('Метро «Деловая»'), territoryId: PROSPEKT },
   // Конкурент по утреннему кофе встаёт сюда; пока свободно — просто киоск
-  { ...KIOSK_PLACE, name: 'Киоск у\u00a0метро', territoryId: PROSPEKT },
-  building('bc-alfa', 'office', 'БЦ «Альфа»', 'left', 100, 268, 200, PROSPEKT),
-  building('bistro', 'cafe', 'Помещение под\u00a0бистро', 'left', 308, 496, 204, PROSPEKT),
-  building('cowork', 'office', 'Коворкинг «Улей»', 'left', 536, 704, 183, PROSPEKT),
-  building('bc-meridian', 'office', 'БЦ «Меридиан»', 'left', 744, 952, 117, PROSPEKT),
-  building('bc-tower', 'office', 'Башня «Деловая»', 'right', 100, 348, 32, PROSPEKT),
-  building('shop', 'shop', 'Магазин «Перекус»', 'right', 388, 526, 25, PROSPEKT),
-  building('apart-1', 'home', 'Апартаменты «Сити»', 'right', 566, 734, 45, PROSPEKT),
+  { ...KIOSK_PLACE, name: L('Киоск у\u00a0метро'), territoryId: PROSPEKT },
+  building('bc-alfa', 'office', L('БЦ «Альфа»'), 'left', 100, 268, 200, PROSPEKT),
+  building('bistro', 'cafe', L('Помещение под\u00a0бистро'), 'left', 308, 496, 204, PROSPEKT),
+  building('cowork', 'office', L('Коворкинг «Улей»'), 'left', 536, 704, 183, PROSPEKT),
+  building('bc-meridian', 'office', L('БЦ «Меридиан»'), 'left', 744, 952, 117, PROSPEKT),
+  building('bc-tower', 'office', L('Башня «Деловая»'), 'right', 100, 348, 32, PROSPEKT),
+  building('shop', 'shop', L('Магазин «Перекус»'), 'right', 388, 526, 25, PROSPEKT),
+  building('apart-1', 'home', L('Апартаменты «Сити»'), 'right', 566, 734, 45, PROSPEKT),
   { ...BUS_PLACE, territoryId: PROSPEKT },
-  { ...PARK_PLACE, name: 'Площадь с\u00a0фонтаном', territoryId: PEREULOK },
-  bigPark('Сквер «Деловой»', PEREULOK),
-  sadovaya('bc-east', 'office', 'БЦ «Восток»', 900, 240, 168, 120, PEREULOK),
-  sadovaya('bc-bank', 'office', 'Банк и\u00a0офисы', 1180, 240, 168, 120, PEREULOK),
-  sadovayaSouth('school', 'school', 'Институт экономики', 20, 240, 167, 118, 280, PEREULOK),
-  { ...sadovayaSouth('metro-2', 'metro', 'Метро «Деловая», второй выход', 300, 160, 82, 78, 480, PEREULOK), decor: true, closed: true },
-  { ...sadovayaSouth('gym', 'vacant', 'Фитнес-клуб', 500, 240, 152, 201, 760, PEREULOK), decor: true },
-  sadovayaSouth('apart-2', 'home', 'Жилой дом', 780, 240, 180, 196, 1040, PEREULOK),
-  sadovayaSouth('bc-glass', 'office', 'БЦ «Стекло»', 1060, 240, 175, 160, 1320, PEREULOK),
+  { ...PARK_PLACE, name: L('Площадь с\u00a0фонтаном'), territoryId: PEREULOK },
+  bigPark(L('Сквер «Деловой»'), PEREULOK),
+  sadovaya('bc-east', 'office', L('БЦ «Восток»'), 900, 240, 168, 120, PEREULOK),
+  sadovaya('bc-bank', 'office', L('Банк и\u00a0офисы'), 1180, 240, 168, 120, PEREULOK),
+  sadovayaSouth('school', 'school', L('Институт экономики'), 20, 240, 167, 118, 280, PEREULOK),
+  { ...sadovayaSouth('metro-2', 'metro', L('Метро «Деловая», второй выход'), 300, 160, 82, 78, 480, PEREULOK), decor: true, closed: true },
+  { ...sadovayaSouth('gym', 'vacant', L('Фитнес-клуб'), 500, 240, 152, 201, 760, PEREULOK), decor: true },
+  sadovayaSouth('apart-2', 'home', L('Жилой дом'), 780, 240, 180, 196, 1040, PEREULOK),
+  sadovayaSouth('bc-glass', 'office', L('БЦ «Стекло»'), 1060, 240, 175, 160, 1320, PEREULOK),
 ];
 
 export type DistrictId = 'klenovaya' | 'delovoy';
@@ -373,8 +374,8 @@ export interface District {
 }
 
 export const DISTRICTS: Record<DistrictId, District> = {
-  klenovaya: { id: 'klenovaya', name: 'Кленовая', streets: ['Кленовая', 'Садовая'], places: PLACES },
-  delovoy: { id: 'delovoy', name: 'Деловой квартал', streets: ['Деловой проспект', 'Банковский переулок'], places: DELOVOY_PLACES },
+  klenovaya: { id: 'klenovaya', name: L('Кленовая'), streets: [L('Кленовая'), L('Садовая')], places: PLACES },
+  delovoy: { id: 'delovoy', name: L('Деловой квартал'), streets: [L('Деловой проспект'), L('Банковский переулок')], places: DELOVOY_PLACES },
 };
 
 const BY_ID: Record<DistrictId, Map<string, Place>> = {

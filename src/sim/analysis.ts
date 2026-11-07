@@ -6,6 +6,7 @@ import { formatMoney } from './economy';
 import type { ResidentKind } from './residents';
 import { WEATHER_LABEL } from './weather';
 
+import { L, tr } from './i18n';
 const NB = ' ';
 const money = formatMoney;
 
@@ -24,56 +25,56 @@ const ACTIONABLE: RejectReason[] = [
 ];
 
 const REASON_WHY: Record<RejectReason, string> = {
-  'not-open': `кафе ещё не${NB}открыто`,
-  closed: `было закрыто`,
-  expensive: 'дорого',
-  'off-route': `не${NB}по${NB}пути`,
-  'no-item': `не${NB}нашли нужного в${NB}меню`,
-  queue: 'очередь',
-  'no-time': `не${NB}дождались заказа`,
-  mood: `не${NB}сегодня`,
-  'out-of-stock': 'кончились продукты',
-  unaware: `не${NB}знали о${NB}кафе`,
-  rival: `ушли к${NB}конкуренту`,
-  taste: `не${NB}их вкус`,
-  'no-staff': `некому было обслужить`,
+  'not-open': tr`кафе ещё не открыто`,
+  closed: tr`было закрыто`,
+  expensive: L('дорого'),
+  'off-route': tr`не по пути`,
+  'no-item': tr`не нашли нужного в меню`,
+  queue: L('очередь'),
+  'no-time': tr`не дождались заказа`,
+  mood: tr`не сегодня`,
+  'out-of-stock': L('кончились продукты'),
+  unaware: tr`не знали о кафе`,
+  rival: tr`ушли к конкуренту`,
+  taste: tr`не их вкус`,
+  'no-staff': tr`некому было обслужить`,
 };
 
 /** Кому: «Студентам дорого» */
 const KIND_DATIVE: Record<ResidentKind, string> = {
-  office: 'Офисным',
-  student: 'Студентам',
-  pensioner: 'Пенсионерам',
-  shopkeeper: 'Продавцам',
-  remote: 'Фрилансерам',
-  youth: 'Молодёжи',
-  nightworker: `Ночной${NB}смене`,
-  passenger: 'Пассажирам',
-  visitor: `Гостям${NB}района`,
+  office: L('Офисным'),
+  student: L('Студентам'),
+  pensioner: L('Пенсионерам'),
+  shopkeeper: L('Продавцам'),
+  remote: L('Фрилансерам'),
+  youth: L('Молодёжи'),
+  nightworker: tr`Ночной смене`,
+  passenger: L('Пассажирам'),
+  visitor: tr`Гостям района`,
 };
 
 /** «чаще всего офисные» */
 const KIND_GENITIVE_PL: Record<ResidentKind, string> = {
-  office: 'офисные',
-  student: 'студенты',
-  pensioner: 'пенсионеры',
-  shopkeeper: 'продавцы',
-  remote: 'фрилансеры',
-  youth: 'молодёжь',
-  nightworker: `ночная${NB}смена`,
-  passenger: 'пассажиры',
-  visitor: `гости${NB}района`,
+  office: L('офисные'),
+  student: L('студенты'),
+  pensioner: L('пенсионеры'),
+  shopkeeper: L('продавцы'),
+  remote: L('фрилансеры'),
+  youth: L('молодёжь'),
+  nightworker: tr`ночная смена`,
+  passenger: L('пассажиры'),
+  visitor: tr`гости района`,
 };
 
 /** «в прошлый понедельник», «в прошлую среду», «в прошлое воскресенье» */
 const LAST_WEEKDAY = [
-  'в прошлый понедельник',
-  'в прошлый вторник',
-  'в прошлую среду',
-  'в прошлый четверг',
-  'в прошлую пятницу',
-  'в прошлую субботу',
-  'в прошлое воскресенье',
+  L('в прошлый понедельник'),
+  L('в прошлый вторник'),
+  L('в прошлую среду'),
+  L('в прошлый четверг'),
+  L('в прошлую пятницу'),
+  L('в прошлую субботу'),
+  L('в прошлое воскресенье'),
 ].map((s) => s.replace(/ /g, NB));
 
 export interface Comparison {
@@ -108,14 +109,14 @@ export interface DayAnalysis {
 
 const sum = (a: number[] | undefined): number => (a ? a.reduce((x, y) => x + y, 0) : 0);
 const pad = (n: number): string => String(n % 24).padStart(2, '0');
-const span = (from: number, to: number): string => `с${NB}${pad(from)}:00 до${NB}${pad(to)}:00`;
+const span = (from: number, to: number): string => tr`с ${pad(from)}:00 до ${pad(to)}:00`;
 /** «ушёл 21 человек», «ушли 7 человек»: гости — только те, кто купил */
-const left = (n: number): string => (n % 10 === 1 && n % 100 !== 11 ? 'ушёл' : 'ушли');
+const left = (n: number): string => (n % 10 === 1 && n % 100 !== 11 ? L('ушёл') : L('ушли'));
 const people = (n: number): string => {
   const d = n % 10;
   const dd = n % 100;
-  if (d >= 2 && d <= 4 && (dd < 12 || dd > 14)) return `${n}${NB}человека`;
-  return `${n}${NB}человек`;
+  if (d >= 2 && d <= 4 && (dd < 12 || dd > 14)) return tr`${n} человека`;
+  return tr`${n} человек`;
 };
 
 /** С чем честно сравнивать: тот же день недели неделю назад, иначе последний день того же типа (будни/выходные) */
@@ -127,10 +128,10 @@ export function comparableDay(reports: DayReport[], r: DayReport): Comparison | 
   if (!pick) return null;
   const label =
     pick.day === r.day - 1
-      ? 'вчера'
+      ? L('вчера')
       : pick === sameWeekday && r.weekday !== undefined
       ? LAST_WEEKDAY[r.weekday]
-      : `в${NB}последний ${isWeekend(r.day) ? 'выходной' : 'будний'} день (${WEEKDAY_FULL[pick.weekday ?? 0].toLowerCase()})`;
+      : tr`в последний ${isWeekend(r.day) ? L('выходной') : L('будний')} день (${WEEKDAY_FULL[pick.weekday ?? 0].toLowerCase()})`;
   return { report: pick, label, sameWeather: pick.weather?.kind === r.weather?.kind };
 }
 
@@ -155,14 +156,14 @@ function dayOffAnalysis(r: DayReport): DayAnalysis {
   const hour = peakHour(r.lostHour?.closed);
   return {
     comparison: null,
-    headline: `Выходной. Итог дня ${money(r.profit)}`,
-    compare: `Выходной: точка не${NB}работала`,
-    factor: `Аренда, коммуналка и${NB}зарплата в${NB}выходной — ${money(fixed)}.`,
+    headline: tr`Выходной. Итог дня ${money(r.profit)}`,
+    compare: tr`Выходной: точка не работала`,
+    factor: tr`Аренда, коммуналка и зарплата в выходной — ${money(fixed)}.`,
     lost: null,
     byKind: lostByKind(r),
     observations:
       want > 0
-        ? [`К${NB}закрытой двери пришли ${want}${NB}раз${hour === null ? '' : `, больше всего ${span(hour, hour + 1)}`}. Реши, нужен ли этот выходной.`]
+        ? [tr`К закрытой двери пришли ${want} раз${hour === null ? '' : tr`, больше всего ${span(hour, hour + 1)}`}. Реши, нужен ли этот выходной.`]
         : [],
   };
 }
@@ -170,44 +171,44 @@ function dayOffAnalysis(r: DayReport): DayAnalysis {
 function headline(r: DayReport, c: Comparison | null): string {
   if (!r.opened) {
     const want = sum(r.lostHour?.['not-open']);
-    return want > 0 ? `Кафе ещё не${NB}открыто. Зайти хотели ${want}${NB}раз` : `Кафе ещё не${NB}открыто`;
+    return want > 0 ? tr`Кафе ещё не открыто. Зайти хотели ${want} раз` : tr`Кафе ещё не открыто`;
   }
-  const result = `Итог дня ${money(r.profit)}`;
-  if (!c) return `${result}. Сравнивать пока не${NB}с${NB}чем`;
+  const result = tr`Итог дня ${money(r.profit)}`;
+  if (!c) return tr`${result}. Сравнивать пока не с чем`;
   const d = r.profit - c.report.profit;
-  if (Math.abs(d) < 100) return `${result} — так же, как ${c.label}`;
-  return `${result} — на${NB}${money(Math.abs(d))} ${d > 0 ? 'лучше' : 'хуже'}, чем ${c.label}`;
+  if (Math.abs(d) < 100) return tr`${result} — так же, как ${c.label}`;
+  return tr`${result} — на ${money(Math.abs(d))} ${d > 0 ? L('лучше') : L('хуже')}, чем ${c.label}`;
 }
 
 function compareText(r: DayReport, c: Comparison | null): string {
   if (!r.opened) return '';
-  if (!c) return `Сравнивать пока не${NB}с${NB}чем`;
+  if (!c) return tr`Сравнивать пока не с чем`;
   const d = r.profit - c.report.profit;
-  if (Math.abs(d) < 100) return `Так же, как ${c.label}`;
-  return `На${NB}${money(Math.abs(d))} ${d > 0 ? 'лучше' : 'хуже'}, чем ${c.label}`;
+  if (Math.abs(d) < 100) return tr`Так же, как ${c.label}`;
+  return tr`На ${money(Math.abs(d))} ${d > 0 ? L('лучше') : L('хуже')}, чем ${c.label}`;
 }
 
 function factor(r: DayReport, c: Comparison | null): string {
   if (!r.opened) {
     const hour = peakHour(r.lostHour?.['not-open']);
-    return hour === null ? '' : `Больше всего хотели зайти ${span(hour, hour + 1)}.`;
+    return hour === null ? '' : tr`Больше всего хотели зайти ${span(hour, hour + 1)}.`;
   }
   if (!c) {
     const costs: [string, number][] = [
-      [`аренду и${NB}коммуналку`, r.rent + r.utilities],
-      ['закупку', r.purchases],
-      ['зарплату', r.wages],
-      ['маркетинг', r.marketing],
+      [tr`аренду и коммуналку`, r.rent + r.utilities],
+      [L('закупку'), r.purchases],
+      [L('зарплату'), r.wages],
+      [L('маркетинг'), r.marketing],
     ];
     costs.sort((a, b) => b[1] - a[1]);
     const spent = costs.reduce((a, [, n]) => a + n, 0) + r.tax;
-    return `Выручка ${money(r.revenue)}, расходы ${money(spent)}. Больше всего ушло на${NB}${costs[0][0]}: ${money(costs[0][1])}.`;
+    return tr`Выручка ${money(r.revenue)}, расходы ${money(spent)}. Больше всего ушло на ${costs[0][0]}: ${money(costs[0][1])}.`;
   }
   const p = c.report;
   const weather =
     c.sameWeather || !p.weather || !r.weather
       ? ''
-      : ` Погода другая: тогда ${WEATHER_LABEL[p.weather.kind].toLowerCase()}, сегодня ${WEATHER_LABEL[r.weather.kind].toLowerCase()} — сравнение неточное.`;
+      : tr` Погода другая: тогда ${WEATHER_LABEL[p.weather.kind].toLowerCase()}, сегодня ${WEATHER_LABEL[r.weather.kind].toLowerCase()} — сравнение неточное.`;
   // Вклад каждой статьи в разницу итога
   const parts: [string, number][] = [
     ['revenue', r.revenue - p.revenue],
@@ -217,25 +218,25 @@ function factor(r: DayReport, c: Comparison | null): string {
   ];
   const total = r.profit - p.profit;
   parts.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-  if (Math.abs(total) < 100 && Math.abs(parts[0][1]) < 100) return `Почти без${NB}изменений.${weather}`;
+  if (Math.abs(total) < 100 && Math.abs(parts[0][1]) < 100) return tr`Почти без изменений.${weather}`;
   // Главное — то, что сильнее всего толкнуло итог в ту же сторону, куда он сдвинулся
   const main = parts.find(([, d]) => Math.sign(d) === Math.sign(total) && Math.abs(d) >= 100) ?? parts[0];
   const describe = ([key, delta]: [string, number]): string => {
     const up = delta > 0;
     const amount = money(Math.abs(delta));
     if (key === 'revenue') {
-      const guests = r.guests === p.guests ? `при${NB}том же числе гостей (${r.guests}), значит, дело в${NB}среднем чеке` : `гостей ${r.guests} против ${p.guests}`;
-      return `выручка ${up ? 'выше' : 'ниже'} на${NB}${amount}, ${guests}`;
+      const guests = r.guests === p.guests ? tr`при том же числе гостей (${r.guests}), значит, дело в среднем чеке` : tr`гостей ${r.guests} против ${p.guests}`;
+      return tr`выручка ${up ? L('выше') : L('ниже')} на ${amount}, ${guests}`;
     }
-    if (key === 'purchases') return `закупка ${up ? 'меньше' : 'больше'} на${NB}${amount}`;
-    if (key === 'wages') return `зарплата ${up ? 'меньше' : 'больше'} на${NB}${amount}`;
-    return up ? `на${NB}маркетинг ушло меньше на${NB}${amount}` : `маркетинг ${money(r.marketing)}`;
+    if (key === 'purchases') return tr`закупка ${up ? L('меньше') : L('больше')} на ${amount}`;
+    if (key === 'wages') return tr`зарплата ${up ? L('меньше') : L('больше')} на ${amount}`;
+    return up ? tr`на маркетинг ушло меньше на ${amount}` : tr`маркетинг ${money(r.marketing)}`;
   };
-  let text = `Главное — ${describe(main)}.`;
+  let text = tr`Главное — ${describe(main)}.`;
   // Если самое крупное изменение тянуло в другую сторону — тоже скажем
   const other = parts.find((x) => x !== main && Math.abs(x[1]) > Math.abs(main[1]) * 0.6 && Math.abs(x[1]) >= 300);
-  if (other) text += ` При этом ${describe(other)}.`;
-  const changed = (r.changes?.length ?? 0) > 0 ? ` Сегодня менялись условия — смотри «Изменения» ниже.` : '';
+  if (other) text += tr` При этом ${describe(other)}.`;
+  const changed = (r.changes?.length ?? 0) > 0 ? tr` Сегодня менялись условия — смотри «Изменения» ниже.` : '';
   return text + weather + changed;
 }
 
@@ -308,27 +309,27 @@ function observations(r: DayReport): string[] {
   if (crowd) {
     let n = 0;
     for (let h = crowd[0]; h < crowd[1]; h++) n += waited(h);
-    out.push([n * 2, `${cap0(span(crowd[0], crowd[1]))} стойка была занята почти всё время, ${left(n)} ${people(n)}.`]);
+    out.push([n * 2, tr`${cap0(span(crowd[0], crowd[1]))} стойка была занята почти всё время, ${left(n)} ${people(n)}.`]);
   }
   // Пусто: бариста на смене, а стойка простаивает два часа и дольше
   const idle = longestRun((h) => staff[h] > 30 && load(h) < 0.25);
   if (idle && idle[1] - idle[0] >= 2) {
     out.push([
       (idle[1] - idle[0]) * 2,
-      `${cap0(span(idle[0], idle[1]))} бариста был на${NB}смене, а${NB}стойка была занята меньше четверти времени.`,
+      tr`${cap0(span(idle[0], idle[1]))} бариста был на смене, а стойка была занята меньше четверти времени.`,
     ]);
   }
   // Хотели зайти, когда было закрыто
   const closed = sum(lost.closed);
   if (closed >= 4) {
     const run = heaviestRun(lost.closed ?? []);
-    const when = run ? ` — чаще всего ${span(run[0], run[1])}` : '';
-    out.push([closed, `Хотели зайти, когда было закрыто: ${closed}${NB}раз${when}.`]);
+    const when = run ? tr` — чаще всего ${span(run[0], run[1])}` : '';
+    out.push([closed, tr`Хотели зайти, когда было закрыто: ${closed} раз${when}.`]);
   }
   // Цена отсекает целую группу — возможно, это просто не${NB}твоя аудитория
   for (const [kind, reasons] of Object.entries(r.lostKind ?? {}) as [ResidentKind, Partial<Record<RejectReason, number>>][]) {
     const n = reasons.expensive ?? 0;
-    if (n >= 4) out.push([n, `${KIND_DATIVE[kind]} дорого: ${n}${NB}отказов. Решай, твоя ли это аудитория — скидка для${NB}них снизит доход с${NB}остальных.`]);
+    if (n >= 4) out.push([n, tr`${KIND_DATIVE[kind]} дорого: ${n} отказов. Решай, твоя ли это аудитория — скидка для них снизит доход с остальных.`]);
   }
   // Конкурент: кто именно уходит к нему
   const toRival = r.missed.rival ?? 0;
@@ -337,15 +338,15 @@ function observations(r: DayReport): string[] {
       .map(([k, v]) => [k, v.rival ?? 0] as const)
       .filter(([, n]) => n > 0)
       .sort((a, b) => b[1] - a[1]);
-    const who = kinds.length ? ` — чаще всего ${KIND_GENITIVE_PL[kinds[0][0]]}` : '';
-    const promo = r.rivalPromo ? ` У${NB}него шла акция.` : '';
-    out.push([toRival * 1.5, `К${NB}конкуренту ушли ${toRival}${NB}гостей${who}.${promo}`]);
+    const who = kinds.length ? tr` — чаще всего ${KIND_GENITIVE_PL[kinds[0][0]]}` : '';
+    const promo = r.rivalPromo ? tr` У него шла акция.` : '';
+    out.push([toRival * 1.5, tr`К конкуренту ушли ${toRival} гостей${who}.${promo}`]);
   }
   const unaware = r.missed.unaware ?? 0;
-  if (unaware >= 8) out.push([unaware * 0.8, `${unaware}${NB}раз хотели куда-нибудь зайти, но о${NB}кафе не${NB}знали.`]);
+  if (unaware >= 8) out.push([unaware * 0.8, tr`${unaware} раз хотели куда-нибудь зайти, но о кафе не знали.`]);
   const oos = r.missed['out-of-stock'] ?? 0;
-  if (oos >= 2) out.push([oos * 3, `Кончились продукты — ${left(oos)} ${people(oos)}. Это дефицит; порча — отдельно, в${NB}списании.`]);
-  if (r.writtenOff >= 1000) out.push([r.writtenOff / 300, `Испортилось и${NB}списано продуктов на${NB}${money(r.writtenOff)}.`]);
+  if (oos >= 2) out.push([oos * 3, tr`Кончились продукты — ${left(oos)} ${people(oos)}. Это дефицит; порча — отдельно, в списании.`]);
+  if (r.writtenOff >= 1000) out.push([r.writtenOff / 300, tr`Испортилось и списано продуктов на ${money(r.writtenOff)}.`]);
 
   return out
     .sort((a, b) => b[0] - a[0])

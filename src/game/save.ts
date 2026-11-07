@@ -1,7 +1,8 @@
 import { City, type CitySave } from '../sim/city';
 import type { SaveData } from '../sim/simulation';
-import { clearCloud, IS_YANDEX, savedLocally, takeCloudSave } from './platform';
+import { clearCloud, IS_PORTAL, savedLocally, takeCloudSave } from './platform';
 
+import { L } from '../sim/i18n';
 // Сохранение в браузере игрока. Каждый браузер и устройство — своя игра.
 const KEY = `${location.pathname.includes('/preview/') ? 'gorod-dela:preview' : 'gorod-dela'}:save`;
 // Испытание недели хранится под своим ключом — обычная игра не затирается
@@ -9,7 +10,7 @@ const KEY = `${location.pathname.includes('/preview/') ? 'gorod-dela:preview' : 
 export function loadGame(key = KEY): City | null {
   try {
     // Яндекс Игры: облачное сохранение, если оно новее, чем в этом браузере
-    const raw = (IS_YANDEX && key === KEY ? takeCloudSave() : null) ?? localStorage.getItem(key);
+    const raw = (IS_PORTAL && key === KEY ? takeCloudSave() : null) ?? localStorage.getItem(key);
     if (!raw) return null;
     return City.restore(JSON.parse(raw) as CitySave | SaveData);
   } catch {
@@ -20,7 +21,7 @@ export function loadGame(key = KEY): City | null {
 
 export function saveGame(city: City, key = KEY, urgent = false): void {
   const json = JSON.stringify(city.serialize());
-  if (IS_YANDEX && key === KEY) savedLocally(json, urgent);
+  if (IS_PORTAL && key === KEY) savedLocally(json, urgent);
   try {
     localStorage.setItem(key, json);
   } catch {
@@ -29,7 +30,7 @@ export function saveGame(city: City, key = KEY, urgent = false): void {
 }
 
 export function clearSave(key = KEY): void {
-  if (IS_YANDEX && key === KEY) clearCloud();
+  if (IS_PORTAL && key === KEY) clearCloud();
   try {
     localStorage.removeItem(key);
   } catch {
@@ -78,16 +79,16 @@ export async function importSave(file: File, key = KEY): Promise<string | null> 
   try {
     parsed = JSON.parse(await file.text());
   } catch {
-    return 'Это не файл игры';
+    return L('Это не файл игры');
   }
-  if (parsed.tag !== FILE_TAG || !parsed.data) return 'Это не файл игры';
-  if (!City.restore(parsed.data)) return 'Файл от слишком старой версии игры';
+  if (parsed.tag !== FILE_TAG || !parsed.data) return L('Это не файл игры');
+  if (!City.restore(parsed.data)) return L('Файл от слишком старой версии игры');
   // Останавливаем автосохранение, чтобы текущая игра не записалась поверх загруженной
   window.dispatchEvent(new Event('gorod-dela:reset'));
   try {
     localStorage.setItem(key, JSON.stringify(parsed.data));
   } catch {
-    return 'Браузер не дал записать игру — проверь, не включён ли приватный режим';
+    return L('Браузер не дал записать игру — проверь, не включён ли приватный режим');
   }
   return null;
 }

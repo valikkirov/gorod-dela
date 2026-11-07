@@ -8,14 +8,15 @@ import type { Rng } from './rng';
 import { WEATHER_WANT, type WeatherKind } from './weather';
 import type { Point } from './world';
 
+import { L } from './i18n';
 export type WantKind = ItemKind;
 
 export const WANT_LABEL: Record<WantKind, string> = {
-  coffee: 'кофе',
-  lunch: 'обед',
-  tea: 'чай',
-  snack: 'перекус',
-  bar: 'выпить',
+  coffee: L('кофе'),
+  lunch: L('обед'),
+  tea: L('чай'),
+  snack: L('перекус'),
+  bar: L('выпить'),
 };
 
 export interface Want {

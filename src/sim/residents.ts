@@ -4,6 +4,7 @@ import { makeCharacter, type Character, type Memory } from './character';
 import { Rng } from './rng';
 import type { DistrictId, Point } from './world';
 
+import { L } from './i18n';
 export type ResidentKind =
   | 'office'
   | 'student'
@@ -16,15 +17,15 @@ export type ResidentKind =
   | 'visitor';
 
 export const KIND_LABEL: Record<ResidentKind, string> = {
-  office: 'Офисный сотрудник',
-  student: 'Студент',
-  pensioner: 'Пенсионер',
-  shopkeeper: 'Продавец',
-  remote: 'Фрилансер',
-  youth: 'Молодёжь',
-  nightworker: 'Ночная смена',
-  passenger: 'Пассажир',
-  visitor: 'Гость района',
+  office: L('Офисный сотрудник'),
+  student: L('Студент'),
+  pensioner: L('Пенсионер'),
+  shopkeeper: L('Продавец'),
+  remote: L('Фрилансер'),
+  youth: L('Молодёжь'),
+  nightworker: L('Ночная смена'),
+  passenger: L('Пассажир'),
+  visitor: L('Гость района'),
 };
 
 /** Не живут и не работают на улице — только проходят или приезжают отдохнуть */
@@ -33,13 +34,13 @@ export const OUTSIDERS: ResidentKind[] = ['passenger', 'visitor'];
 export type Activity = 'home' | 'work' | 'study' | 'lunch' | 'groceries' | 'walk' | 'night';
 
 export const ACTIVITY_LABEL: Record<Activity, string> = {
-  home: 'Дома',
-  work: 'На работе',
-  study: 'На учёбе',
-  lunch: 'Обед',
-  groceries: 'За продуктами',
-  walk: 'Прогулка',
-  night: 'Вечер с друзьями',
+  home: L('Дома'),
+  work: L('На работе'),
+  study: L('На учёбе'),
+  lunch: L('Обед'),
+  groceries: L('За продуктами'),
+  walk: L('Прогулка'),
+  night: L('Вечер с друзьями'),
 };
 
 export interface ScheduleEntry {

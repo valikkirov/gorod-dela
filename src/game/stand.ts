@@ -6,6 +6,7 @@ import { KIOSK_FITS, milestone, upgrade, UPGRADE_EFFECT, type UpgradeId } from '
 import type { Simulation } from '../sim/simulation';
 import { namedIcon } from './icons';
 
+import { L, tr } from '../sim/i18n';
 const NB = ' ';
 const money = formatMoney;
 
@@ -50,35 +51,35 @@ export function standTab(sim: Simulation, selected: UpgradeId | null): string {
 
   const minutes = cafe.serviceMinutes;
   const board = cafe.has('board') ? Math.round((UPGRADE_EFFECT.boardNotice - 1) * 100) : 0;
-  const kpis = `<div class="kpis">
-      <div><small>На${NB}гостя</small><b>${minutes.toFixed(1).replace('.', ',')}${NB}мин</b></div>
-      <div><small>Заметность</small><b>${board ? `+${board}${NB}%` : 'обычная'}</b></div>
-      <div><small>Докупают</small><b>${cafe.has('pastry') ? `1${NB}из${NB}${Math.round(1 / UPGRADE_EFFECT.pastryChance)}` : '—'}</b></div>
+  const kpis = tr`<div class="kpis">
+      <div><small>На гостя</small><b>${minutes.toFixed(1).replace('.', ',')} мин</b></div>
+      <div><small>Заметность</small><b>${board ? `+${board}${NB}%` : L('обычная')}</b></div>
+      <div><small>Докупают</small><b>${cafe.has('pastry') ? tr`1 из ${Math.round(1 / UPGRADE_EFFECT.pastryChance)}` : '—'}</b></div>
     </div>`;
 
   const rows = KIOSK_FITS.map((id, i) => {
     const u = upgrade(id);
     const st = sim.upgradeState(id);
     if (st === 'premises') return '';
-    const badge = st === 'owned' ? '<span class="badge on">стоит</span>' : `<span class="badge">${money(u.cost)}</span>`;
+    const badge = st === 'owned' ? L('<span class="badge on">стоит</span>') : `<span class="badge">${money(u.cost)}</span>`;
     const control =
       st === 'owned'
         ? ''
         : st === 'locked'
-          ? `<small class="lock">Откроется после вехи «${milestone(u.unlock!).title}»</small>`
+          ? tr`<small class="lock">Откроется после вехи «${milestone(u.unlock!).title}»</small>`
           : `<button class="small" data-action="buy-upgrade" data-item="${id}" ${st === 'money' ? 'disabled' : ''}>${
-              st === 'money' ? `Не${NB}хватает денег` : `Поставить за${NB}${money(u.cost)}`
+              st === 'money' ? tr`Не хватает денег` : tr`Поставить за ${money(u.cost)}`
             }</button>`;
     return `<li class="upgrade${selected === id ? ' selected' : ''}" id="fit-${id}">
       <div class="row">${namedIcon(ICON[id] ?? '')}<b class="grow">${i + 1}. ${u.name}</b>${badge}</div>
       <small>${u.effect}</small>${control}</li>`;
   }).join('');
 
-  return `
+  return tr`
     <div class="stand">${layers.join('')}${pins.join('')}</div>
-    <small>Нажми на${NB}номер в${NB}киоске${NB}— покажу, что это и${NB}сколько стоит.</small>
+    <small>Нажми на номер в киоске — покажу, что это и сколько стоит.</small>
     ${kpis}
     <h4>Улучшения стойки</h4>
-    <small>Покупаются один раз. Это вложение: в${NB}прибыль дня не${NB}входит, но${NB}из${NB}кассы уходит.</small>
+    <small>Покупаются один раз. Это вложение: в прибыль дня не входит, но из кассы уходит.</small>
     <ul class="menu upgrades">${rows}</ul>`;
 }

@@ -3,6 +3,7 @@
 import type { DayReport, RejectReason } from './cafe';
 import { formatMoney } from './economy';
 
+import { getLang, L, tr } from './i18n';
 const NB = ' ';
 const money = formatMoney;
 
@@ -30,14 +31,14 @@ export function periodByIndex(kind: PeriodKind, index: number): Period {
 
 /** Статьи расходов в порядке показа */
 export const COST_LINES = [
-  ['purchases', 'Закупка'],
-  ['rent', 'Аренда'],
-  ['utilities', 'Коммуналка'],
-  ['wages', 'Зарплата'],
-  ['tax', 'Налог'],
-  ['marketing', 'Маркетинг'],
-  ['other', 'События'],
-  ['interest', 'Проценты по кредиту'],
+  ['purchases', L('Закупка')],
+  ['rent', L('Аренда')],
+  ['utilities', L('Коммуналка')],
+  ['wages', L('Зарплата')],
+  ['tax', L('Налог')],
+  ['marketing', L('Маркетинг')],
+  ['other', L('События')],
+  ['interest', L('Проценты по кредиту')],
 ] as const;
 export type CostKey = (typeof COST_LINES)[number][0];
 
@@ -140,22 +141,22 @@ export function funnel(s: PeriodSummary): [string, number][] {
   const could = knew - n('closed') - n('no-item');
   const decided = could - n('expensive') - n('off-route') - n('mood') - n('rival') - n('taste');
   return [
-    ['Хотели зайти', s.wanted],
-    [`Знали о${NB}точке`, Math.max(0, knew)],
-    [`Было открыто и${NB}нашлось нужное`, Math.max(0, could)],
-    ['Решили зайти', Math.max(0, decided)],
-    ['Обслужены', s.guests],
+    [L('Хотели зайти'), s.wanted],
+    [tr`Знали о точке`, Math.max(0, knew)],
+    [tr`Было открыто и нашлось нужное`, Math.max(0, could)],
+    [L('Решили зайти'), Math.max(0, decided)],
+    [L('Обслужены'), s.guests],
   ];
 }
 
 /** Сравнение с прошлым периодом: «на 7 490 ₽ больше, чем на прошлой неделе» */
 export function compareLine(s: PeriodSummary, prev: PeriodSummary | null): string {
-  const what = s.period.kind === 'week' ? `на${NB}прошлой неделе` : `в${NB}прошлом месяце`;
-  if (!prev || prev.openDays === 0) return s.period.kind === 'week' ? 'Первая неделя: сравнивать пока не с чем' : 'Первый месяц: сравнивать пока не с чем';
-  if (!s.complete) return `Период ещё идёт: ${s.days.length}${NB}из${NB}${PERIOD_DAYS[s.period.kind]}${NB}дней`;
+  const what = s.period.kind === 'week' ? tr`на прошлой неделе` : tr`в прошлом месяце`;
+  if (!prev || prev.openDays === 0) return s.period.kind === 'week' ? L('Первая неделя: сравнивать пока не с чем') : L('Первый месяц: сравнивать пока не с чем');
+  if (!s.complete) return tr`Период ещё идёт: ${s.days.length} из ${PERIOD_DAYS[s.period.kind]} дней`;
   const d = s.profit - prev.profit;
-  if (Math.abs(d) < 100) return `Так же, как ${what}`;
-  return `На${NB}${money(Math.abs(d))} ${d > 0 ? 'больше' : 'меньше'}, чем ${what}`;
+  if (Math.abs(d) < 100) return tr`Так же, как ${what}`;
+  return tr`На ${money(Math.abs(d))} ${d > 0 ? L('больше') : L('меньше')}, чем ${what}`;
 }
 
 /** Два-три вывода за период: что приносит деньги, где теряем гостей, сколько выбросили */
@@ -163,18 +164,18 @@ export function insights(s: PeriodSummary, name: (id: string) => string, reasonT
   const out: string[] = [];
   const [top, second] = s.items;
   if (top && second && second.sold < top.sold * 0.7 && second.margin > top.margin * 0.75) {
-    out.push(`${name(second.id)} приносит почти столько же, сколько ${name(top.id).toLowerCase()}: ${money(second.margin)} маржи против ${money(top.margin)}, хотя продаётся реже.`);
+    out.push(tr`${name(second.id)} приносит почти столько же, сколько ${name(top.id).toLowerCase()}: ${money(second.margin)} маржи против ${money(top.margin)}, хотя продаётся реже.`);
   } else if (top) {
-    out.push(`Больше всего зарабатывает ${name(top.id).toLowerCase()}: ${money(top.margin)} маржи, продано ${top.sold}.`);
+    out.push(tr`Больше всего зарабатывает ${name(top.id).toLowerCase()}: ${money(top.margin)} маржи, продано ${top.sold}.`);
   }
   const lost = (Object.entries(s.missed) as [RejectReason, number][])
     .filter(([r]) => r !== 'not-open' && r !== 'mood' && r !== 'unaware')
     .sort((a, b) => b[1] - a[1])[0];
-  if (lost && lost[1] >= 10) out.push(`${lost[1].toLocaleString('ru-RU').replace(/\s/g, NB)}${NB}раз не${NB}зашли, потому что ${reasonText(lost[0])}.`);
+  if (lost && lost[1] >= 10) out.push(tr`${lost[1].toLocaleString(getLang() === 'ru' ? 'ru-RU' : 'en-US').replace(/\s/g, NB)} раз не зашли, потому что ${reasonText(lost[0])}.`);
   if (s.purchases > 0 && s.writtenOff > 0) {
     const pct = Math.round((s.writtenOff / s.purchases) * 100);
-    if (pct >= 5) out.push(`Списано ${money(s.writtenOff)} продуктов${NB}— ${pct}${NB}% закупки.`);
+    if (pct >= 5) out.push(tr`Списано ${money(s.writtenOff)} продуктов — ${pct} % закупки.`);
   }
-  if (s.invested > 0) out.push(`Вложено в${NB}улучшения ${money(s.invested)}${NB}— в${NB}итог не${NB}входит, но${NB}из${NB}кассы ушло.`);
+  if (s.invested > 0) out.push(tr`Вложено в улучшения ${money(s.invested)} — в итог не входит, но из кассы ушло.`);
   return out.slice(0, 3);
 }

@@ -5,6 +5,7 @@ import { REJECT_LABEL, type RejectReason } from './cafe';
 import type { WantKind } from './demand';
 import { isFemale, type Resident, type ResidentKind } from './residents';
 
+import { L, tr } from './i18n';
 export interface RegularNote {
   day: number;
   minute: number;
@@ -16,11 +17,11 @@ export interface RegularNote {
 export type RegularStatus = 'unaware' | 'new' | 'visiting' | 'regular' | 'lost';
 
 export const STATUS_LABEL: Record<RegularStatus, string> = {
-  unaware: 'Не знает о\u00a0кафе',
-  new: 'Ещё не\u00a0заходил',
-  visiting: 'Заходит',
-  regular: 'Постоянный гость',
-  lost: 'Перестал заходить',
+  unaware: L('Не знает о\u00a0кафе'),
+  new: L('Ещё не\u00a0заходил'),
+  visiting: L('Заходит'),
+  regular: L('Постоянный гость'),
+  lost: L('Перестал заходить'),
 };
 
 export interface Regular {
@@ -48,12 +49,12 @@ interface Pick {
 }
 
 const PICKS: Pick[] = [
-  { kind: 'office', trait: 'Кофе по\u00a0дороге в\u00a0офис', usual: 'coffee', local: true, name: 'Марина Орлова', work: 'office-north' },
-  { kind: 'pensioner', trait: 'Любит тихие часы и\u00a0чай', usual: 'tea', local: true, name: 'Зинаида Петровна', home: 'home-1' },
-  { kind: 'student', trait: 'Считает каждый рубль', usual: 'snack', local: true, name: 'Лёша Ковалёв' },
-  { kind: 'remote', trait: 'Сидит с\u00a0ноутбуком подолгу', usual: 'coffee', local: true },
-  { kind: 'youth', trait: 'Вечером\u00a0— с\u00a0друзьями', usual: 'bar', local: true },
-  { kind: 'passenger', trait: 'Пересадка, берёт с\u00a0собой', usual: 'coffee', local: false },
+  { kind: 'office', trait: L('Кофе по\u00a0дороге в\u00a0офис'), usual: 'coffee', local: true, name: L('Марина Орлова'), work: 'office-north' },
+  { kind: 'pensioner', trait: L('Любит тихие часы и\u00a0чай'), usual: 'tea', local: true, name: L('Зинаида Петровна'), home: 'home-1' },
+  { kind: 'student', trait: L('Считает каждый рубль'), usual: 'snack', local: true, name: L('Лёша Ковалёв') },
+  { kind: 'remote', trait: L('Сидит с\u00a0ноутбуком подолгу'), usual: 'coffee', local: true },
+  { kind: 'youth', trait: L('Вечером\u00a0— с\u00a0друзьями'), usual: 'bar', local: true },
+  { kind: 'passenger', trait: L('Пересадка, берёт с\u00a0собой'), usual: 'coffee', local: false },
 ];
 
 /** История не растёт бесконечно: для статуса нужна неделя, для карточки — последние визиты */
@@ -106,18 +107,18 @@ export function statusOf(reg: Regular, r: Resident, day: number): { status: Regu
 export function newsLine(name: string, from: RegularStatus, to: RegularStatus, reason?: RejectReason): string | null {
   const f = isFemale(name);
   const first = name.split(' ')[0];
-  if (to === 'regular') return `${first} теперь в\u00a0постоянных гостях`;
-  if (to === 'lost') return `${first} ${f ? 'перестала' : 'перестал'} заходить${reason ? `: ${REJECT_LABEL[reason].toLowerCase()}` : ''}`;
-  if (to === 'visiting' && from === 'new') return `${first} впервые ${f ? 'зашла' : 'зашёл'}`;
-  if (to === 'visiting' && from === 'lost') return `${first} ${f ? 'вернулась' : 'вернулся'}`;
-  if (to === 'visiting' && from === 'regular') return `${first} стал${f ? 'а' : ''} заходить реже`;
+  if (to === 'regular') return tr`${first} теперь в\u00a0постоянных гостях`;
+  if (to === 'lost') return tr`${first} ${f ? L('перестала') : L('перестал')} заходить${reason ? `: ${REJECT_LABEL[reason].toLowerCase()}` : ''}`;
+  if (to === 'visiting' && from === 'new') return tr`${first} впервые ${f ? L('зашла') : L('зашёл')}`;
+  if (to === 'visiting' && from === 'lost') return `${first} ${f ? L('вернулась') : L('вернулся')}`;
+  if (to === 'visiting' && from === 'regular') return tr`${first} стал${f ? L('а') : ''} заходить реже`;
   return null;
 }
 
 /** Статус с учётом рода: «Перестала заходить» */
 export function statusText(status: RegularStatus, name: string): string {
   const f = isFemale(name);
-  if (status === 'new') return f ? 'Ещё не\u00a0заходила' : STATUS_LABEL.new;
-  if (status === 'lost') return f ? 'Перестала заходить' : STATUS_LABEL.lost;
+  if (status === 'new') return f ? L('Ещё не\u00a0заходила') : STATUS_LABEL.new;
+  if (status === 'lost') return f ? L('Перестала заходить') : STATUS_LABEL.lost;
   return STATUS_LABEL[status];
 }

@@ -8,14 +8,15 @@ import { recipeCost, Stock, type IngredientId, type StockSave } from './stock';
 import type { ResidentKind } from './residents';
 import type { Weather } from './weather';
 
+import { L, tr } from './i18n';
 export type ItemKind = 'coffee' | 'snack' | 'lunch' | 'tea' | 'bar';
 
 export const KIND_TITLE: Record<ItemKind, string> = {
-  coffee: 'Кофе',
-  snack: 'Выпечка и перекус',
-  lunch: 'Обеды',
-  tea: 'Чай и напитки',
-  bar: 'Бар',
+  coffee: L('Кофе'),
+  snack: L('Выпечка и перекус'),
+  lunch: L('Обеды'),
+  tea: L('Чай и напитки'),
+  bar: L('Бар'),
 };
 
 export interface MenuItem {
@@ -42,19 +43,19 @@ export type RejectReason =
   | 'no-staff';
 
 export const REJECT_LABEL: Record<RejectReason, string> = {
-  'not-open': 'Кафе ещё не открыто',
-  closed: 'Закрыто',
-  expensive: 'Дорого',
-  'off-route': 'Не по пути',
-  'no-item': 'Нет нужного в меню',
-  queue: 'Очередь',
-  'no-time': 'Не дождался',
-  mood: 'Не сегодня',
-  'out-of-stock': 'Нет в наличии',
-  unaware: 'Не знает о кафе',
-  rival: 'Ушёл к конкуренту',
-  taste: 'Не\u00a0его вкус',
-  'no-staff': 'Некому обслужить',
+  'not-open': L('Кафе ещё не открыто'),
+  closed: L('Закрыто'),
+  expensive: L('Дорого'),
+  'off-route': L('Не по пути'),
+  'no-item': L('Нет нужного в меню'),
+  queue: L('Очередь'),
+  'no-time': L('Не дождался'),
+  mood: L('Не сегодня'),
+  'out-of-stock': L('Нет в наличии'),
+  unaware: L('Не знает о кафе'),
+  rival: L('Ушёл к конкуренту'),
+  taste: L('Не\u00a0его вкус'),
+  'no-staff': L('Некому обслужить'),
 };
 
 export interface DayReport {
@@ -158,19 +159,19 @@ export const hours24 = (): number[] => new Array<number>(24).fill(0);
 /** Всё, что кафе может продавать. Цена — стартовая, игрок меняет её сам.
  *  Для ИП из алкоголя доступны только пиво и сидр; вино и крепкое — с лицензией ООО (позже). */
 export const CATALOG: readonly MenuItem[] = [
-  { id: 'americano', name: 'Американо', kind: 'coffee', price: 150, cost: 30 },
-  { id: 'cappuccino', name: 'Капучино', kind: 'coffee', price: 220, cost: 50 },
-  { id: 'latte', name: 'Латте', kind: 'coffee', price: 230, cost: 55 },
-  { id: 'raf', name: 'Раф', kind: 'coffee', price: 280, cost: 70 },
-  { id: 'croissant', name: 'Круассан', kind: 'snack', price: 160, cost: 60 },
-  { id: 'sandwich', name: 'Сэндвич', kind: 'snack', price: 250, cost: 100 },
-  { id: 'syrniki', name: 'Сырники', kind: 'snack', price: 280, cost: 90 },
-  { id: 'soup', name: 'Суп дня', kind: 'lunch', price: 250, cost: 80 },
-  { id: 'lunch', name: 'Бизнес-ланч', kind: 'lunch', price: 390, cost: 160 },
-  { id: 'tea', name: 'Чай с пирогом', kind: 'tea', price: 180, cost: 50 },
-  { id: 'lemonade', name: 'Лимонад', kind: 'tea', price: 200, cost: 40 },
-  { id: 'beer', name: 'Пиво', kind: 'bar', price: 300, cost: 110 },
-  { id: 'cider', name: 'Сидр', kind: 'bar', price: 320, cost: 120 },
+  { id: 'americano', name: L('Американо'), kind: 'coffee', price: 150, cost: 30 },
+  { id: 'cappuccino', name: L('Капучино'), kind: 'coffee', price: 220, cost: 50 },
+  { id: 'latte', name: L('Латте'), kind: 'coffee', price: 230, cost: 55 },
+  { id: 'raf', name: L('Раф'), kind: 'coffee', price: 280, cost: 70 },
+  { id: 'croissant', name: L('Круассан'), kind: 'snack', price: 160, cost: 60 },
+  { id: 'sandwich', name: L('Сэндвич'), kind: 'snack', price: 250, cost: 100 },
+  { id: 'syrniki', name: L('Сырники'), kind: 'snack', price: 280, cost: 90 },
+  { id: 'soup', name: L('Суп дня'), kind: 'lunch', price: 250, cost: 80 },
+  { id: 'lunch', name: L('Бизнес-ланч'), kind: 'lunch', price: 390, cost: 160 },
+  { id: 'tea', name: L('Чай с пирогом'), kind: 'tea', price: 180, cost: 50 },
+  { id: 'lemonade', name: L('Лимонад'), kind: 'tea', price: 200, cost: 40 },
+  { id: 'beer', name: L('Пиво'), kind: 'bar', price: 300, cost: 110 },
+  { id: 'cider', name: L('Сидр'), kind: 'bar', price: 320, cost: 120 },
 ];
 
 /** Стартовое меню — то, что можно продавать без доп. оборудования */
@@ -253,15 +254,15 @@ export interface Barista {
 
 export const ALL_DAYS = (): boolean[] => new Array<boolean>(7).fill(true);
 
-const DAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+const DAY_SHORT = [L('Пн'), L('Вт'), L('Ср'), L('Чт'), L('Пт'), L('Сб'), L('Вс')];
 const clock = (m: number): string =>
   `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
 /** «каждый день», «Пн–Пт», «Сб–Вс», «Пн, Ср, Пт», «не выходит» */
 export function daysText(days: boolean[]): string {
   const on = days.map((d, i) => (d ? i : -1)).filter((i) => i >= 0);
-  if (on.length === 7) return 'каждый день';
-  if (on.length === 0) return 'не выходит';
+  if (on.length === 7) return L('каждый день');
+  if (on.length === 0) return L('не выходит');
   const run = on.every((d, i) => i === 0 || d === on[i - 1] + 1);
   if (run && on.length >= 3) return `${DAY_SHORT[on[0]]}–${DAY_SHORT[on.at(-1)!]}`;
   return on.map((i) => DAY_SHORT[i]).join(', ');
@@ -269,15 +270,15 @@ export function daysText(days: boolean[]): string {
 
 /** «08:00–20:00», «круглосуточно», «выходной» */
 export function dayHoursText(h: DayHours | null): string {
-  if (!h) return 'выходной';
-  if (h.closeAt - h.openAt >= MINUTES_PER_DAY) return 'круглосуточно';
+  if (!h) return L('выходной');
+  if (h.closeAt - h.openAt >= MINUTES_PER_DAY) return L('круглосуточно');
   return `${clock(h.openAt)}–${clock(h.closeAt)}`;
 }
 
 /** Неделя одной строкой: «Пн–Пт 08:00–20:00, Сб–Вс 10:00–22:00» — подряд идущие одинаковые дни склеиваются */
 export function weekHoursText(week: (DayHours | null)[]): string {
   const texts = week.map(dayHoursText);
-  if (texts.every((t) => t === texts[0])) return texts[0] === 'выходной' ? 'выходной всю неделю' : `каждый день ${texts[0]}`;
+  if (texts.every((t) => t === texts[0])) return texts[0] === L('выходной') ? L('выходной всю неделю') : tr`каждый день ${texts[0]}`;
   const parts: string[] = [];
   for (let i = 0; i < 7; ) {
     let j = i;

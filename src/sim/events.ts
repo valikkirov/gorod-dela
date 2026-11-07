@@ -5,6 +5,7 @@
 import { ECONOMY, formatMoney } from './economy';
 import { ingredient, type IngredientId } from './stock';
 
+import { L, tr } from './i18n';
 export type EventId = 'breakdown' | 'festival' | 'supplier' | 'office-order' | 'blogger' | 'day-off';
 
 export const EVENTS = {
@@ -60,7 +61,6 @@ export interface EventCard {
   fallback: string;
 }
 
-const NB = ' ';
 const money = (n: number) => formatMoney(n);
 
 export function supplierPrice(id: IngredientId): { full: number; sale: number } {
@@ -75,23 +75,23 @@ export function card(e: PendingEvent): EventCard {
       return e.spareMachine
         ? {
             icon: '🔧',
-            title: 'Сломалась кофемашина',
-            text: `Одна из${NB}двух кофемашин не${NB}включается. Вторая работает, но${NB}заказы будут готовиться в${NB}полтора раза дольше.`,
-            stake: `Если ждать мастера до${NB}завтра, сегодня очередь будет длиннее и${NB}часть гостей уйдёт`,
+            title: L('Сломалась кофемашина'),
+            text: tr`Одна из двух кофемашин не включается. Вторая работает, но заказы будут готовиться в полтора раза дольше.`,
+            stake: tr`Если ждать мастера до завтра, сегодня очередь будет длиннее и часть гостей уйдёт`,
             options: [
-              { id: 'urgent', label: 'Срочный мастер', hint: `${money(b.urgentCost)}, через 45${NB}минут всё как было` },
-              { id: 'later', label: 'Мастер завтра', hint: `${money(b.laterCost)}, сегодня работаем медленнее` },
+              { id: 'urgent', label: L('Срочный мастер'), hint: tr`${money(b.urgentCost)}, через 45 минут всё как было` },
+              { id: 'later', label: L('Мастер завтра'), hint: tr`${money(b.laterCost)}, сегодня работаем медленнее` },
             ],
             fallback: 'later',
           }
         : {
             icon: '🔧',
-            title: 'Сломалась кофемашина',
-            text: `Утром кофемашина не${NB}включилась. Пока её не${NB}починят, кофе не${NB}будет — остальное меню работает.`,
-            stake: `Если ждать мастера до${NB}завтра, продажи кофе сегодня потеряны`,
+            title: L('Сломалась кофемашина'),
+            text: tr`Утром кофемашина не включилась. Пока её не починят, кофе не будет — остальное меню работает.`,
+            stake: tr`Если ждать мастера до завтра, продажи кофе сегодня потеряны`,
             options: [
-              { id: 'urgent', label: 'Срочный мастер', hint: `${money(b.urgentCost)}, кофе снова будет через 45${NB}минут` },
-              { id: 'later', label: 'Мастер завтра', hint: `${money(b.laterCost)}, сегодня без кофе` },
+              { id: 'urgent', label: L('Срочный мастер'), hint: tr`${money(b.urgentCost)}, кофе снова будет через 45 минут` },
+              { id: 'later', label: L('Мастер завтра'), hint: tr`${money(b.laterCost)}, сегодня без кофе` },
             ],
             fallback: 'later',
           };
@@ -100,16 +100,16 @@ export function card(e: PendingEvent): EventCard {
       const f = EVENTS.festival;
       return {
         icon: '🎈',
-        title: 'Праздник района в сквере',
-        text: `Сегодня в${NB}сквере праздник: музыка, ярмарка, народ со${NB}всего района. Организаторы предлагают место для${NB}столика с${NB}вашим меню.`,
-        stake: `Шанс разом познакомить с${NB}точкой полрайона. Без${NB}запаса на${NB}складе гости уйдут ни${NB}с${NB}чем`,
+        title: L('Праздник района в сквере'),
+        text: tr`Сегодня в сквере праздник: музыка, ярмарка, народ со всего района. Организаторы предлагают место для столика с вашим меню.`,
+        stake: tr`Шанс разом познакомить с точкой полрайона. Без запаса на складе гости уйдут ни с чем`,
         options: [
           {
             id: 'stall',
-            label: 'Поставить столик',
-            hint: `${money(f.cost)}: все, кто придёт в${NB}сквер, узнают о${NB}вас, гостей сегодня больше. Проверь склад`,
+            label: L('Поставить столик'),
+            hint: tr`${money(f.cost)}: все, кто придёт в сквер, узнают о вас, гостей сегодня больше. Проверь склад`,
           },
-          { id: 'skip', label: 'Не участвовать', hint: 'Бесплатно, обычный выходной' },
+          { id: 'skip', label: L('Не участвовать'), hint: L('Бесплатно, обычный выходной') },
         ],
         fallback: 'skip',
       };
@@ -119,12 +119,12 @@ export function card(e: PendingEvent): EventCard {
       const p = supplierPrice(e.ingredientId!);
       return {
         icon: '📦',
-        title: 'Поставщик распродаёт остатки',
-        text: `${ing.name}: ${EVENTS.supplier.qty}${NB}порций за${NB}${money(p.sale)} вместо ${money(p.full)}. Привезут сразу. Хранится ${ing.shelfDays}${NB}дн.${NB}— что не${NB}продашь, спишется.`,
-        stake: `Выгодно, только если успеешь продать до${NB}конца срока`,
+        title: L('Поставщик распродаёт остатки'),
+        text: tr`${ing.name}: ${EVENTS.supplier.qty} порций за ${money(p.sale)} вместо ${money(p.full)}. Привезут сразу. Хранится ${ing.shelfDays} дн. — что не продашь, спишется.`,
+        stake: tr`Выгодно, только если успеешь продать до конца срока`,
         options: [
-          { id: 'take', label: 'Взять партию', hint: `−${money(p.sale)}, на${NB}складе +${EVENTS.supplier.qty}${NB}порций` },
-          { id: 'decline', label: 'Отказаться', hint: 'Ничего не меняется' },
+          { id: 'take', label: L('Взять партию'), hint: tr`−${money(p.sale)}, на складе +${EVENTS.supplier.qty} порций` },
+          { id: 'decline', label: L('Отказаться'), hint: L('Ничего не меняется') },
         ],
         fallback: 'decline',
       };
@@ -133,16 +133,16 @@ export function card(e: PendingEvent): EventCard {
       const o = EVENTS.order;
       return {
         icon: '🏢',
-        title: 'Заказ от офиса «Север»',
-        text: `Офис заказывает ${o.qty}${NB}порций «${e.itemName}» на${NB}завтра к${NB}полудню и${NB}платит ${money(e.pay!)} (это со${NB}скидкой 10${NB}%). Продукты под заказ привезут отдельно. Готовить начнёте в${NB}11:00, перед обедом: пока заказ не${NB}готов, стойка занята и${NB}новых гостей не${NB}обслуживают.`,
-        stake: `Крупная оплата, но${NB}в${NB}обед стойка будет занята`,
+        title: L('Заказ от офиса «Север»'),
+        text: tr`Офис заказывает ${o.qty} порций «${e.itemName}» на завтра к полудню и платит ${money(e.pay!)} (это со скидкой 10 %). Продукты под заказ привезут отдельно. Готовить начнёте в 11:00, перед обедом: пока заказ не готов, стойка занята и новых гостей не обслуживают.`,
+        stake: tr`Крупная оплата, но в обед стойка будет занята`,
         options: [
           {
             id: 'accept',
-            label: 'Взять заказ',
-            hint: `+${money(e.pay!)} завтра, продукты −${money(e.ingredientCost!)}. Один без${NB}бариста готовить его около 40${NB}минут`,
+            label: L('Взять заказ'),
+            hint: tr`+${money(e.pay!)} завтра, продукты −${money(e.ingredientCost!)}. Один без бариста готовить его около 40 минут`,
           },
-          { id: 'decline', label: 'Отказаться', hint: 'Ничего не меняется' },
+          { id: 'decline', label: L('Отказаться'), hint: L('Ничего не меняется') },
         ],
         fallback: 'decline',
       };
@@ -151,12 +151,12 @@ export function card(e: PendingEvent): EventCard {
       const b = EVENTS.blogger;
       return {
         icon: '📱',
-        title: 'Блогер хочет снять обзор',
-        text: `Местный блогер просит угостить его с${NB}друзьями и${NB}обещает рассказать о${NB}вас подписчикам. Обзоры у${NB}него выходят не${NB}всегда.`,
-        stake: `Риск: продукты уйдут, а${NB}обзор может не${NB}выйти`,
+        title: L('Блогер хочет снять обзор'),
+        text: tr`Местный блогер просит угостить его с друзьями и обещает рассказать о вас подписчикам. Обзоры у него выходят не всегда.`,
+        stake: tr`Риск: продукты уйдут, а обзор может не выйти`,
         options: [
-          { id: 'treat', label: 'Угостить', hint: `${money(b.cost)} продуктами. Если обзор выйдет, о${NB}вас узнает молодёжь` },
-          { id: 'decline', label: 'Вежливо отказать', hint: 'Ничего не меняется' },
+          { id: 'treat', label: L('Угостить'), hint: tr`${money(b.cost)} продуктами. Если обзор выйдет, о вас узнает молодёжь` },
+          { id: 'decline', label: L('Вежливо отказать'), hint: L('Ничего не меняется') },
         ],
         fallback: 'decline',
       };
@@ -165,12 +165,12 @@ export function card(e: PendingEvent): EventCard {
       const extra = Math.round(ECONOMY.shiftWage * EVENTS.dayOff.extra);
       return {
         icon: '🙋',
-        title: 'Бариста просит отгул',
-        text: `Бариста на${NB}смене просит сегодня выходной: семейные дела. Без него ты один за${NB}стойкой.`,
-        stake: `Если отпустить, в${NB}часы пик гостей может быть некому обслужить`,
+        title: L('Бариста просит отгул'),
+        text: tr`Бариста на смене просит сегодня выходной: семейные дела. Без него ты один за стойкой.`,
+        stake: tr`Если отпустить, в часы пик гостей может быть некому обслужить`,
         options: [
-          { id: 'let', label: 'Отпустить', hint: `Сегодня без бариста, зарплату за${NB}смену не${NB}платишь` },
-          { id: 'ask', label: 'Попросить выйти', hint: `Он выйдет, но${NB}за${NB}смену +${money(extra)}` },
+          { id: 'let', label: L('Отпустить'), hint: tr`Сегодня без бариста, зарплату за смену не платишь` },
+          { id: 'ask', label: L('Попросить выйти'), hint: tr`Он выйдет, но за смену +${money(extra)}` },
         ],
         fallback: 'let',
       };
@@ -182,5 +182,5 @@ export function card(e: PendingEvent): EventCard {
 export function resultLine(e: PendingEvent, optionId: string, auto: boolean): string {
   const c = card(e);
   const opt = c.options.find((o) => o.id === optionId)!;
-  return `${c.icon} ${c.title}: ${opt.label.toLowerCase()}${auto ? ` (не${NB}успели решить)` : ''}`;
+  return `${c.icon} ${c.title}: ${opt.label.toLowerCase()}${auto ? tr` (не успели решить)` : ''}`;
 }

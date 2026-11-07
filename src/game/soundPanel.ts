@@ -2,6 +2,7 @@
 // и громкость трёх групп (город, музыка, эффекты). Ноль у группы — она выключена.
 import { BUS_LABEL, sound, type Bus } from './sound';
 
+import { L, tr } from '../sim/i18n';
 const NB = ' ';
 
 export function initSoundPanel(): void {
@@ -9,12 +10,12 @@ export function initSoundPanel(): void {
   const panel = document.createElement('div');
   panel.id = 'sound-panel';
   panel.setAttribute('role', 'dialog');
-  panel.setAttribute('aria-label', 'Настройки звука');
+  panel.setAttribute('aria-label', L('Настройки звука'));
   panel.hidden = true;
   document.getElementById('game')!.append(panel);
 
   const render = () => {
-    panel.innerHTML = `
+    panel.innerHTML = tr`
       <label class="sound-on"><b>Звук</b>
         <input type="checkbox" data-sound="on" ${sound.enabled ? 'checked' : ''} />
         <span class="toggle" aria-hidden="true"></span>
@@ -25,13 +26,13 @@ export function initSoundPanel(): void {
           return `<label class="sound-row ${sound.enabled ? '' : 'off'}">
             <span>${BUS_LABEL[bus]}</span>
             <input type="range" min="0" max="100" step="5" value="${v}" data-bus="${bus}" ${sound.enabled ? '' : 'disabled'} aria-label="${BUS_LABEL[bus]}" />
-            <small data-level="${bus}">${v ? `${v}${NB}%` : 'выкл.'}</small>
+            <small data-level="${bus}">${v ? `${v}${NB}%` : L('выкл.')}</small>
           </label>`;
         })
         .join('')}`;
     btn.textContent = sound.enabled ? '🔊' : '🔇';
     btn.classList.toggle('active', sound.enabled);
-    btn.setAttribute('aria-label', 'Настройки звука');
+    btn.setAttribute('aria-label', L('Настройки звука'));
   };
   render();
 
@@ -61,6 +62,6 @@ export function initSoundPanel(): void {
     const v = Number(el.value);
     sound.setLevel(bus, v / 100);
     const label = panel.querySelector(`[data-level="${bus}"]`);
-    if (label) label.textContent = v ? `${v}${NB}%` : 'выкл.';
+    if (label) label.textContent = v ? `${v}${NB}%` : L('выкл.');
   });
 }

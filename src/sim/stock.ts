@@ -1,6 +1,7 @@
 // Склад: ингредиенты, сроки годности, закупка с доставкой утром, оптовые скидки.
 import { dishRecipe } from './dishes';
 
+import { L } from './i18n';
 export type IngredientId =
   | 'beans'
   | 'milk'
@@ -27,19 +28,19 @@ export interface Ingredient {
 }
 
 export const INGREDIENTS: readonly Ingredient[] = [
-  { id: 'beans', name: 'Кофейное зерно', unitCost: 30, shelfDays: null },
-  { id: 'milk', name: 'Молоко', unitCost: 20, shelfDays: 3 },
-  { id: 'bakery', name: 'Выпечка', unitCost: 60, shelfDays: 1 },
-  { id: 'kitchen', name: 'Продукты для кухни', unitCost: 80, shelfDays: 2 },
-  { id: 'drinks', name: 'Чай и лимонад', unitCost: 20, shelfDays: null },
-  { id: 'bar', name: 'Пиво и сидр', unitCost: 110, shelfDays: null },
-  { id: 'syrup', name: 'Сиропы', unitCost: 10, shelfDays: null },
-  { id: 'chocolate', name: 'Шоколад', unitCost: 15, shelfDays: null },
-  { id: 'honey', name: 'Мёд', unitCost: 12, shelfDays: null },
-  { id: 'spices', name: 'Специи', unitCost: 5, shelfDays: null },
-  { id: 'berries', name: 'Ягоды', unitCost: 25, shelfDays: 2 },
-  { id: 'cheese', name: 'Сыр', unitCost: 25, shelfDays: 4 },
-  { id: 'ham', name: 'Ветчина', unitCost: 35, shelfDays: 3 },
+  { id: 'beans', name: L('Кофейное зерно'), unitCost: 30, shelfDays: null },
+  { id: 'milk', name: L('Молоко'), unitCost: 20, shelfDays: 3 },
+  { id: 'bakery', name: L('Выпечка'), unitCost: 60, shelfDays: 1 },
+  { id: 'kitchen', name: L('Продукты для кухни'), unitCost: 80, shelfDays: 2 },
+  { id: 'drinks', name: L('Чай и лимонад'), unitCost: 20, shelfDays: null },
+  { id: 'bar', name: L('Пиво и сидр'), unitCost: 110, shelfDays: null },
+  { id: 'syrup', name: L('Сиропы'), unitCost: 10, shelfDays: null },
+  { id: 'chocolate', name: L('Шоколад'), unitCost: 15, shelfDays: null },
+  { id: 'honey', name: L('Мёд'), unitCost: 12, shelfDays: null },
+  { id: 'spices', name: L('Специи'), unitCost: 5, shelfDays: null },
+  { id: 'berries', name: L('Ягоды'), unitCost: 25, shelfDays: 2 },
+  { id: 'cheese', name: L('Сыр'), unitCost: 25, shelfDays: 4 },
+  { id: 'ham', name: L('Ветчина'), unitCost: 35, shelfDays: 3 },
 ];
 
 /** Добавки: на складе по нулям, пока игрок не придумает блюдо */

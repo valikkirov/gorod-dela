@@ -4,7 +4,7 @@ import { card } from '../sim/events';
 import type { Simulation } from '../sim/simulation';
 import { goal } from './metrika';
 
-const NB = ' ';
+import { tr } from '../sim/i18n';
 
 interface SpeedControl {
   speed: number;
@@ -21,7 +21,7 @@ export function showEventCard(sim: Simulation, hud: SpeedControl, onDone: () => 
   const fallback = c.options.find((o) => o.id === c.fallback)!;
   const root = document.createElement('div');
   root.className = 'overlay';
-  root.innerHTML = `
+  root.innerHTML = tr`
     <div class="sheet event-card" role="dialog" aria-label="${c.title}">
       <div class="event-icon">${c.icon}</div>
       <b>${c.title}</b>
@@ -37,7 +37,7 @@ export function showEventCard(sim: Simulation, hud: SpeedControl, onDone: () => 
           .join('')}
       </div>
       <div class="actions">
-        <small>Не${NB}решишь до${NB}конца дня${NB}— будет «${fallback.label}»</small>
+        <small>Не решишь до конца дня — будет «${fallback.label}»</small>
         <button class="link" data-choice="later">Решить позже</button>
       </div>
     </div>`;

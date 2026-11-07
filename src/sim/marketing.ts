@@ -1,13 +1,14 @@
+import { L } from './i18n';
 // Маркетинг: о кафе сначала надо узнать. Каналы, сарафан и акции.
 
 export type AwareSource = 'start' | 'walk' | 'flyers' | 'social' | 'word';
 
 export const AWARE_LABEL: Record<AwareSource, string> = {
-  start: 'Соседи с открытия',
-  walk: 'Заметили, проходя мимо',
-  flyers: 'Листовки у метро',
-  social: 'Соцсети',
-  word: 'Сарафан — рассказали знакомые',
+  start: L('Соседи с открытия'),
+  walk: L('Заметили, проходя мимо'),
+  flyers: L('Листовки у метро'),
+  social: L('Соцсети'),
+  word: L('Сарафан — рассказали знакомые'),
 };
 
 export const MARKETING = {

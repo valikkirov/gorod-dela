@@ -2,6 +2,7 @@
 import type { WantKind } from './demand';
 import type { Rng } from './rng';
 
+import { L } from './i18n';
 export type WeatherKind = 'sunny' | 'hot' | 'cloudy' | 'rain';
 
 export interface Weather {
@@ -14,7 +15,7 @@ export interface Weather {
 
 export type WindLevel = 0 | 1 | 2;
 
-export const WIND_LABEL: Record<WindLevel, string> = { 0: 'тихо', 1: 'ветерок', 2: 'ветрено' };
+export const WIND_LABEL: Record<WindLevel, string> = { 0: L('тихо'), 1: L('ветерок'), 2: L('ветрено') };
 
 /**
  * Ветер в день: из seed и номера дня, без общего генератора погоды — так он не сдвигает
@@ -30,10 +31,10 @@ export function windFor(seed: number, day: number, kind: WeatherKind): WindLevel
 }
 
 export const WEATHER_LABEL: Record<WeatherKind, string> = {
-  sunny: 'Ясно',
-  hot: 'Жара',
-  cloudy: 'Пасмурно',
-  rain: 'Дождь',
+  sunny: L('Ясно'),
+  hot: L('Жара'),
+  cloudy: L('Пасмурно'),
+  rain: L('Дождь'),
 };
 
 export const WEATHER_ICON: Record<WeatherKind, string> = {
@@ -87,8 +88,8 @@ export const WEATHER_WANT: Record<WeatherKind, Partial<Record<WantKind, number>>
 
 /** Подсказка в отчёте: что обычно меняет такая погода */
 export const WEATHER_HINT: Record<WeatherKind, string> = {
-  sunny: 'Обычный день, вечером больше гуляют',
-  hot: 'Хотят лимонад и холодное пиво, горячий кофе — меньше',
-  cloudy: 'Чуть больше берут кофе',
-  rain: 'В сквер почти не ходят, зато прячутся в кафе: чай и кофе',
+  sunny: L('Обычный день, вечером больше гуляют'),
+  hot: L('Хотят лимонад и холодное пиво, горячий кофе — меньше'),
+  cloudy: L('Чуть больше берут кофе'),
+  rain: L('В сквер почти не ходят, зато прячутся в кафе: чай и кофе'),
 };

@@ -1,3 +1,4 @@
+import { L } from '../sim/i18n';
 // Нижний лист с управлением на телефоне: свёрнут (видна верхняя часть), наполовину или почти на весь экран.
 // Тянется за ручку, по тапу на ручку переключается. На компьютере панель — колонка справа, лист не работает.
 export type DrawerSize = 'peek' | 'half' | 'full';
@@ -65,7 +66,7 @@ export class Drawer {
     this.el.dataset.size = size;
     // Свёрнутый лист показывает шапку заведения — прокручиваем наверх
     if (size === 'peek') document.getElementById('panel')!.scrollTop = 0;
-    this.grip.setAttribute('aria-label', size === 'full' ? 'Свернуть панель' : 'Развернуть панель');
+    this.grip.setAttribute('aria-label', size === 'full' ? L('Свернуть панель') : L('Развернуть панель'));
     // Сворачивается — карта сразу занимает освободившееся место; разворачивается — после анимации
     if (shrinking && size === 'peek') this.onCover(isWide() ? 0 : 14);
     clearTimeout(this.timer);

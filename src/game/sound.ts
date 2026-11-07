@@ -1,3 +1,4 @@
+import { L } from '../sim/i18n';
 // Звук: фон улицы и музыка по времени суток, короткие звуки событий и интерфейса.
 // По умолчанию выключен — включается кнопкой в шапке, выбор запоминается в браузере.
 // Файлы — src/game/sound/*.mp3 (сгенерированы в Magnific, обрезаны и выровнены по громкости,
@@ -15,7 +16,7 @@ export type Bus = keyof typeof BUS;
 
 /** Громкость, которую выставил игрок: 0–1 для каждой группы */
 export type Mix = Record<Bus, number>;
-export const BUS_LABEL: Record<Bus, string> = { amb: 'Звуки города', music: 'Музыка', sfx: 'Эффекты' };
+export const BUS_LABEL: Record<Bus, string> = { amb: L('Звуки города'), music: L('Музыка'), sfx: L('Эффекты') };
 
 /** Сколько миллисекунд звук не повторяется — чтобы на ×4 касса не трещала */
 const THROTTLE: Record<string, number> = {

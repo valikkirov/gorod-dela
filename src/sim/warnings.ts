@@ -6,10 +6,10 @@ import { ECONOMY, formatMoney } from './economy';
 import { ingredient, recipeOf, type IngredientId } from './stock';
 import { windowOn } from './cafe';
 
-const NB = ' ';
+import { L, tr } from './i18n';
 
 /** «в субботу» — день недели в винительном падеже */
-const WEEKDAY_ACC = ['в понедельник', 'во вторник', 'в среду', 'в четверг', 'в пятницу', 'в субботу', 'в воскресенье'];
+const WEEKDAY_ACC = [L('в понедельник'), L('во вторник'), L('в среду'), L('в четверг'), L('в пятницу'), L('в субботу'), L('в воскресенье')];
 
 /** Через сколько дней приедет заказ, сделанный в эту минуту: поставка в 6:00 */
 export function deliveryInDays(minuteOfDay: number): number {
@@ -28,13 +28,13 @@ export function orderWarning(cafe: Cafe, id: IngredientId, minuteOfDay: number):
   const arrive = deliveryInDays(minuteOfDay);
   for (let k = arrive; k < arrive + shelf; k++) if (cafe.hoursOn(cafe.weekday + k)) return null;
   const day = WEEKDAY_ACC[(((cafe.weekday + arrive) % 7) + 7) % 7];
-  return `Привезут ${day}, а${NB}точка закрыта, пока ${ing.name.toLowerCase()} не${NB}испортится${NB}— заказ уйдёт в${NB}списание`;
+  return tr`Привезут ${day}, а точка закрыта, пока ${ing.name.toLowerCase()} не испортится — заказ уйдёт в списание`;
 }
 
 /** Цена не покрывает себестоимость */
 export function priceWarning(item: MenuItem): string | null {
   if (item.price > item.cost) return null;
-  return `Цена не${NB}выше себестоимости (${formatMoney(item.cost)})${NB}— каждая продажа в${NB}минус`;
+  return tr`Цена не выше себестоимости (${formatMoney(item.cost)}) — каждая продажа в минус`;
 }
 
 /** Ингредиенты позиции, которых нет, не едут и не заказываются автоматически */
@@ -49,12 +49,12 @@ export function menuAddWarning(cafe: Cafe, itemId: string): string | null {
   const miss = missingSupply(cafe, itemId);
   if (!miss.length) return null;
   const names = miss.map((id) => ingredient(id).name.toLowerCase()).join(', ');
-  return `На${NB}складе нет: ${names}, автозаказ выключен. Без закупки гости услышат «нет в${NB}наличии»`;
+  return tr`На складе нет: ${names}, автозаказ выключен. Без закупки гости услышат «нет в наличии»`;
 }
 
 /** Дни подряд одной строкой: «Пн–Пт», «Сб, Вс» */
 export function daysText(days: number[]): string {
-  if (days.length === 7) return 'каждый день';
+  if (days.length === 7) return L('каждый день');
   const parts: string[] = [];
   for (let i = 0; i < days.length; i++) {
     let j = i;
@@ -106,17 +106,17 @@ export function staffWarnings(cafe: Cafe): string[] {
   }
   if (over.length && cafe.ownerAway) {
     out.push(
-      `${cap(daysText(over))} точка открыта без${NB}бариста: ты стоишь в${NB}первой точке, здесь гостей обслужить некому. Найми бариста на${NB}все часы работы`,
+      tr`${cap(daysText(over))} точка открыта без бариста: ты стоишь в первой точке, здесь гостей обслужить некому. Найми бариста на все часы работы`,
     );
   } else if (over.length) {
     const hours = Math.ceil(most / 30) / 2;
     out.push(
-      `${cap(daysText(over))} без бариста точка открыта дольше, чем ты можешь стоять сам (${ECONOMY.ownerHours}${NB}ч): до${NB}${String(hours).replace('.', ',')}${NB}ч в${NB}день гостей некому обслужить`,
+      tr`${cap(daysText(over))} без бариста точка открыта дольше, чем ты можешь стоять сам (${ECONOMY.ownerHours} ч): до ${String(hours).replace('.', ',')} ч в день гостей некому обслужить`,
     );
   }
   const shiftMin = ECONOMY.shiftHours * 60;
   cafe.staff.forEach((b, i) => {
-    const who = cafe.staff.length > 1 ? `Бариста ${i + 1}` : 'Бариста';
+    const who = cafe.staff.length > 1 ? tr`Бариста ${i + 1}` : L('Бариста');
     if (b.contract === 'shift') {
       // Смена — 12 часов с открытия; дольше точка работает без него
       const long: number[] = [];
@@ -129,7 +129,7 @@ export function staffWarnings(cafe: Cafe): string[] {
       }
       if (long.length) {
         out.push(
-          `${who} на${NB}смене работает ${ECONOMY.shiftHours}${NB}ч с${NB}открытия: ${daysText(long)} после ${fmt(tail)} за${NB}стойкой ты один`,
+          tr`${who} на смене работает ${ECONOMY.shiftHours} ч с открытия: ${daysText(long)} после ${fmt(tail)} за стойкой ты один`,
         );
       }
       return;
@@ -143,7 +143,7 @@ export function staffWarnings(cafe: Cafe): string[] {
       const overlap = h && Math.min(w.to, h.closeAt) > Math.max(w.from, h.openAt);
       if (!overlap) idle.push(d);
     }
-    if (idle.length) out.push(`${who} по${NB}графику ${daysText(idle)}, но${NB}точка в${NB}эти часы закрыта${NB}— он не${NB}выйдет`);
+    if (idle.length) out.push(tr`${who} по графику ${daysText(idle)}, но точка в эти часы закрыта — он не выйдет`);
   });
   return out;
 }

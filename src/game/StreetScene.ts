@@ -20,6 +20,7 @@ import type { RejectReason } from '../sim/cafe';
 import type { WantKind } from '../sim/demand';
 import { iconUrl } from './icons';
 
+import { L, tr } from '../sim/i18n';
 export interface SceneHooks {
   /** Точка, которую показывает сцена (её район — карта) */
   sim: Simulation;
@@ -40,18 +41,18 @@ export interface SceneHooks {
 
 const REASON_SHORT: Record<RejectReason, string> = {
   'not-open': '',
-  closed: 'закрыто',
-  expensive: 'дорого',
-  'off-route': 'не по пути',
-  'no-item': 'нет в меню',
-  queue: 'очередь',
-  'no-time': 'не дождался',
-  mood: 'не сегодня',
-  'out-of-stock': 'кончилось',
-  unaware: 'не знает о кафе',
-  rival: 'к конкуренту',
-  taste: 'не его вкус',
-  'no-staff': 'некому обслужить',
+  closed: L('закрыто'),
+  expensive: L('дорого'),
+  'off-route': L('не по пути'),
+  'no-item': L('нет в меню'),
+  queue: L('очередь'),
+  'no-time': L('не дождался'),
+  mood: L('не сегодня'),
+  'out-of-stock': L('кончилось'),
+  unaware: L('не знает о кафе'),
+  rival: L('к конкуренту'),
+  taste: L('не его вкус'),
+  'no-staff': L('некому обслужить'),
 };
 
 const FONT = 'Inter, system-ui, sans-serif';
@@ -759,19 +760,19 @@ export class StreetScene extends Phaser.Scene {
         const r = sim.residents[e.residentId];
         if (!r.visible) continue;
         const want = r.decision?.want ?? 'coffee';
-        const text = e.reason === 'not-open' ? `хочет ${WANT_LABEL[want]}` : REASON_SHORT[e.reason];
+        const text = e.reason === 'not-open' ? tr`хочет ${WANT_LABEL[want]}` : REASON_SHORT[e.reason];
         // Не нашёл в меню — значок того, чего хотел, перечёркнутый; иначе — значок причины, если он есть
         const icon = e.reason === 'no-item' ? WANT_ICON[want] : REASON_ICON[e.reason];
         if (icon && this.textures.exists(`icon-${icon}`)) this.floatIcon(r.pos.x, r.pos.y - 60, `icon-${icon}`, text, e.reason === 'no-item');
         else this.float(r.pos.x, r.pos.y - 52, text, e.reason === 'not-open' ? '#5b6270' : '#c0392b', 18);
       } else if (e.type === 'aware') {
         const r = sim.residents[e.residentId];
-        if (r.visible) this.float(r.pos.x, r.pos.y - 52, e.source === 'walk' ? 'заметил кафе' : 'узнал о кафе', '#2f6fb0', 16);
+        if (r.visible) this.float(r.pos.x, r.pos.y - 52, e.source === 'walk' ? L('заметил кафе') : L('узнал о кафе'), '#2f6fb0', 16);
       } else if (e.type === 'day') {
         this.hooks.onDayEnd();
       } else if (e.type === 'rival' && sim.rival) {
         const c = this.at(sim.rival.placeId).rect;
-        this.float(c.x + c.w / 2, c.y + 40, e.what === 'open' ? 'Открылся конкурент' : 'У конкурента акция', '#c0392b', 22);
+        this.float(c.x + c.w / 2, c.y + 40, e.what === 'open' ? L('Открылся конкурент') : L('У конкурента акция'), '#c0392b', 22);
       } else if (e.type === 'bankrupt') {
         this.hooks.onBankrupt();
       }
@@ -883,8 +884,8 @@ export class StreetScene extends Phaser.Scene {
       // До открытия подписаны оба помещения; после — своё и конкурент
       // Сдаётся только то, что можно снять в этом районе (киоск в квартале займёт сеть)
       const rentable = !cafe.opened && PREMISES[shop.place.id as PremisesId]?.district === this.district;
-      const name = mine ? cafe.title : theirs ? rival!.t.name : rentable ? 'Сдаётся' : '';
-      const status = mine ? (open ? 'открыто' : 'закрыто') : theirs ? `конкурент · ${theirsOpen ? 'открыто' : 'закрыто'}` : rentable ? shop.place.name : '';
+      const name = mine ? cafe.title : theirs ? rival!.t.name : rentable ? L('Сдаётся') : '';
+      const status = mine ? (open ? L('открыто') : L('закрыто')) : theirs ? tr`конкурент · ${theirsOpen ? L('открыто') : L('закрыто')}` : rentable ? shop.place.name : '';
       shop.name.setText(name).setVisible(name !== '');
       shop.status.setText(status).setVisible(status !== '');
       shop.status.setColor(mine && open ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');

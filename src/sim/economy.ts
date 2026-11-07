@@ -1,3 +1,4 @@
+import { getLang, L } from './i18n';
 // Экономика: все суммы — целые рубли с кодом валюты (GDD: валюта у каждой суммы).
 export type Currency = 'RUB';
 
@@ -29,7 +30,7 @@ export function formatMoney(amount: number, currency: Currency = CURRENCY): stri
   const sign = amount < 0 ? '−' : '';
   const abs = Math.abs(Math.round(amount))
     .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    .replace(/\B(?=(\d{3})+(?!\d))/g, getLang() === 'ru' ? ' ' : ',');
   return `${sign}${abs} ${currency === 'RUB' ? '₽' : currency}`;
 }
 
@@ -68,9 +69,9 @@ export const PREMISES: Record<PremisesId, Premises> = {
   cafe: {
     id: 'cafe',
     placeId: 'cafe',
-    name: 'Кафе',
-    mine: 'Твоё кафе',
-    about: '30\u00a0м² с\u00a0залом на\u00a0первой линии. Любое меню, гости сидят и\u00a0дозаказывают',
+    name: L('Кафе'),
+    mine: L('Твоё кафе'),
+    about: L('30\u00a0м² с\u00a0залом на\u00a0первой линии. Любое меню, гости сидят и\u00a0дозаказывают'),
     rentPerDay: ECONOMY.rentPerDay,
     utilitiesPerDay: 200,
     utilitiesPerHour: 30,
@@ -83,9 +84,9 @@ export const PREMISES: Record<PremisesId, Premises> = {
   kiosk: {
     id: 'kiosk',
     placeId: 'kiosk',
-    name: 'Киоск у\u00a0метро',
-    mine: 'Твой киоск',
-    about: '8\u00a0м² прямо у\u00a0выхода из\u00a0метро. Только навынос: кофе, выпечка, чай, без\u00a0кухни и\u00a0бара',
+    name: L('Киоск у\u00a0метро'),
+    mine: L('Твой киоск'),
+    about: L('8\u00a0м² прямо у\u00a0выхода из\u00a0метро. Только навынос: кофе, выпечка, чай, без\u00a0кухни и\u00a0бара'),
     rentPerDay: 1_100,
     utilitiesPerDay: 100,
     utilitiesPerHour: 15,
@@ -98,10 +99,10 @@ export const PREMISES: Record<PremisesId, Premises> = {
   bistro: {
     id: 'bistro',
     placeId: 'bistro',
-    name: 'Бистро',
-    mine: 'Твоё бистро',
+    name: L('Бистро'),
+    mine: L('Твоё бистро'),
     about:
-      '45\u00a0м² в\u00a0деловом квартале: кухня уже стоит, обеды идут с\u00a0раздачи вдвое быстрее. Без\u00a0бара\u00a0— после\u00a019:00 квартал пустеет',
+      L('45\u00a0м² в\u00a0деловом квартале: кухня уже стоит, обеды идут с\u00a0раздачи вдвое быстрее. Без\u00a0бара\u00a0— после\u00a019:00 квартал пустеет'),
     rentPerDay: 3_000,
     utilitiesPerDay: 300,
     utilitiesPerHour: 40,
@@ -131,8 +132,8 @@ export interface Equipment {
 }
 
 export const EQUIPMENT: Record<EquipmentId, Equipment> = {
-  stove: { id: 'stove', name: 'Плита и\u00a0вытяжка', kinds: ['lunch'], cost: 25_000, utilitiesPerHour: 12 },
-  tap: { id: 'tap', name: 'Пивной кран и\u00a0холодильник', kinds: ['bar'], cost: 20_000, utilitiesPerHour: 6 },
+  stove: { id: 'stove', name: L('Плита и\u00a0вытяжка'), kinds: ['lunch'], cost: 25_000, utilitiesPerHour: 12 },
+  tap: { id: 'tap', name: L('Пивной кран и\u00a0холодильник'), kinds: ['bar'], cost: 20_000, utilitiesPerHour: 6 },
 };
 
 /** Какое оборудование нужно для категории (null — входит в открытие) */

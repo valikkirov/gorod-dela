@@ -3,6 +3,7 @@
 // нравятся своим жителям. Можно поставить готовую комплектацию или обставить зал самому.
 import type { ResidentKind } from './residents';
 
+import { L } from './i18n';
 export type FurnitureId =
   | 'table2'
   | 'table4'
@@ -28,18 +29,18 @@ export interface Furniture {
 }
 
 export const FURNITURE: Furniture[] = [
-  { id: 'table2', name: 'Столик на двоих', seats: 2, cozy: 0, cost: 1_500, likes: [] },
-  { id: 'table4', name: 'Стол на четверых', seats: 4, cozy: 0, cost: 2_500, likes: ['office'] },
-  { id: 'sofa', name: 'Мягкий диван', seats: 2, cozy: 2, cost: 4_000, likes: ['pensioner'] },
-  { id: 'bar', name: 'Стойка у окна с розетками', seats: 3, cozy: 0, cost: 3_000, likes: ['remote', 'student'] },
-  { id: 'bookshelf', name: 'Книжный шкаф', seats: 0, cozy: 2, cost: 2_500, likes: ['pensioner', 'student'] },
-  { id: 'games', name: 'Полка с настолками', seats: 0, cozy: 1, cost: 2_000, likes: ['youth'] },
-  { id: 'monstera', name: 'Большая монстера', seats: 0, cozy: 2, cost: 1_200, likes: [] },
-  { id: 'plant', name: 'Цветок в горшке', seats: 0, cozy: 1, cost: 500, likes: [] },
-  { id: 'floorlamp', name: 'Торшер', seats: 0, cozy: 1, cost: 1_000, likes: [] },
-  { id: 'picture', name: 'Картина', seats: 0, cozy: 1, cost: 800, likes: [] },
-  { id: 'clock', name: 'Часы', seats: 0, cozy: 1, cost: 600, likes: [] },
-  { id: 'rug', name: 'Коврик', seats: 0, cozy: 1, cost: 800, likes: [] },
+  { id: 'table2', name: L('Столик на двоих'), seats: 2, cozy: 0, cost: 1_500, likes: [] },
+  { id: 'table4', name: L('Стол на четверых'), seats: 4, cozy: 0, cost: 2_500, likes: ['office'] },
+  { id: 'sofa', name: L('Мягкий диван'), seats: 2, cozy: 2, cost: 4_000, likes: ['pensioner'] },
+  { id: 'bar', name: L('Стойка у окна с розетками'), seats: 3, cozy: 0, cost: 3_000, likes: ['remote', 'student'] },
+  { id: 'bookshelf', name: L('Книжный шкаф'), seats: 0, cozy: 2, cost: 2_500, likes: ['pensioner', 'student'] },
+  { id: 'games', name: L('Полка с настолками'), seats: 0, cozy: 1, cost: 2_000, likes: ['youth'] },
+  { id: 'monstera', name: L('Большая монстера'), seats: 0, cozy: 2, cost: 1_200, likes: [] },
+  { id: 'plant', name: L('Цветок в горшке'), seats: 0, cozy: 1, cost: 500, likes: [] },
+  { id: 'floorlamp', name: L('Торшер'), seats: 0, cozy: 1, cost: 1_000, likes: [] },
+  { id: 'picture', name: L('Картина'), seats: 0, cozy: 1, cost: 800, likes: [] },
+  { id: 'clock', name: L('Часы'), seats: 0, cozy: 1, cost: 600, likes: [] },
+  { id: 'rug', name: L('Коврик'), seats: 0, cozy: 1, cost: 800, likes: [] },
 ];
 
 export const furniture = (id: FurnitureId): Furniture => FURNITURE.find((f) => f.id === id)!;
@@ -74,20 +75,20 @@ export interface Preset {
 export const PRESETS: Preset[] = [
   {
     id: 'standard',
-    name: 'Стандарт',
-    hint: 'Два столика. Входит в открытие',
+    name: L('Стандарт'),
+    hint: L('Два столика. Входит в открытие'),
     layout: { 'table-1': 'table2', 'table-2': 'table2' },
   },
   {
     id: 'cozy',
-    name: 'Уют',
-    hint: 'Диван, картина, цветы и коврик',
+    name: L('Уют'),
+    hint: L('Диван, картина, цветы и коврик'),
     layout: { 'table-1': 'table2', 'table-2': 'table2', corner: 'sofa', 'wall-1': 'picture', nook: 'plant', rug: 'rug' },
   },
   {
     id: 'comfort',
-    name: 'Комфорт',
-    hint: 'Больше мест, стойка с розетками для ноутбуков',
+    name: L('Комфорт'),
+    hint: L('Больше мест, стойка с розетками для ноутбуков'),
     layout: {
       'table-1': 'table2',
       'table-2': 'table4',
@@ -102,8 +103,8 @@ export const PRESETS: Preset[] = [
   },
   {
     id: 'premium',
-    name: 'Премиум',
-    hint: 'Полный зал: книжный шкаф, диван, стойка и все столы',
+    name: L('Премиум'),
+    hint: L('Полный зал: книжный шкаф, диван, стойка и все столы'),
     layout: {
       'table-1': 'table2',
       'table-2': 'table4',

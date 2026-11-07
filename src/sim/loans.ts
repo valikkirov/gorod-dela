@@ -3,6 +3,7 @@
 // частник даёт всегда, но дорого и не больше двух раз за игру. Проценты — расход дня, возврат долга — нет.
 import type { DayReport } from './cafe';
 
+import { L } from './i18n';
 export type LoanSource = 'bank' | 'private';
 
 export interface LoanTerms {
@@ -40,8 +41,8 @@ export const LOAN = {
 };
 
 export const LOAN_LABEL: Record<LoanSource, string> = {
-  bank: 'Банк',
-  private: 'Частный заём',
+  bank: L('Банк'),
+  private: L('Частный заём'),
 };
 
 export interface Loan {

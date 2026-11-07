@@ -1,3 +1,4 @@
+import { L } from './i18n';
 // Игровое время хранится в минутах с начала первого дня.
 export const MINUTES_PER_DAY = 24 * 60;
 
@@ -21,8 +22,8 @@ export function formatClock(time: number): string {
   return `${String(h).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 }
 
-export const WEEKDAY_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
-export const WEEKDAY_FULL = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'] as const;
+export const WEEKDAY_SHORT = [L('Пн'), L('Вт'), L('Ср'), L('Чт'), L('Пт'), L('Сб'), L('Вс')] as const;
+export const WEEKDAY_FULL = [L('понедельник'), L('вторник'), L('среда'), L('четверг'), L('пятница'), L('суббота'), L('воскресенье')] as const;
 
 /** 0 — понедельник. Первый день игры — понедельник. */
 export function weekday(day: number): number {

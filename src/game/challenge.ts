@@ -8,6 +8,7 @@ import type { Simulation } from '../sim/simulation';
 import { FEEDBACK_URL } from './feedback';
 import { goal } from './metrika';
 
+import { L, tr } from '../sim/i18n';
 export interface Challenge {
   id: number;
   seed: number;
@@ -16,9 +17,8 @@ export interface Challenge {
 }
 
 /** Текущее испытание. Новое на следующей неделе — увеличить id и сменить seed */
-export const CHALLENGE: Challenge = { id: 2, seed: 20261015, days: 14, title: 'Испытание недели №2' };
+export const CHALLENGE: Challenge = { id: 2, seed: 20261015, days: 14, title: L('Испытание недели №2') };
 
-const NB = ' ';
 /** Превью веток лежат в папке preview/ того же сайта: их игры хранятся отдельно и не трогают настоящую */
 export const SAVE_NS = typeof location !== 'undefined' && location.pathname.includes('/preview/') ? 'gorod-dela:preview' : 'gorod-dela';
 const RESULT_KEY = `${SAVE_NS}:challenge-${CHALLENGE.id}-result`;
@@ -53,15 +53,15 @@ export function resultIfFinished(sim: Simulation): ChallengeResult | null {
   return {
     cash: Math.round(at?.cashAfter ?? sim.cash),
     guests: sim.reports.slice(0, CHALLENGE.days).reduce((s, r) => s + r.guests, 0),
-    premises: sim.cafe.opened ? PREMISES[sim.cafe.premisesId].name : 'не открылся',
+    premises: sim.cafe.opened ? PREMISES[sim.cafe.premisesId].name : L('не открылся'),
     milestones: Object.values(sim.milestones).filter((d) => d !== undefined && d <= CHALLENGE.days).length,
     bankrupt: sim.bankrupt && sim.reports.length <= CHALLENGE.days,
   };
 }
 
 export function shareText(r: ChallengeResult): string {
-  const how = r.bankrupt ? 'обанкротился, но не сдаюсь' : `касса ${formatMoney(r.cash)}`;
-  return `${CHALLENGE.title} · Город дела\n${r.premises}: ${how}, гостей ${r.guests}, вех ${r.milestones} из ${MILESTONES.length}.\nСыграй в тот же город: ${location.origin}${challengeUrl()}`;
+  const how = r.bankrupt ? L('обанкротился, но не сдаюсь') : tr`касса ${formatMoney(r.cash)}`;
+  return tr`${CHALLENGE.title} · Город дела\n${r.premises}: ${how}, гостей ${r.guests}, вех ${r.milestones} из ${MILESTONES.length}.\nСыграй в тот же город: ${location.origin}${challengeUrl()}`;
 }
 
 interface SpeedControl {
@@ -84,12 +84,12 @@ export function showChallengeResult(r: ChallengeResult, hud: SpeedControl): void
   hud.setSpeed(0);
   const root = document.createElement('div');
   root.className = 'overlay';
-  root.innerHTML = `
+  root.innerHTML = tr`
     <div class="sheet challenge-result" role="dialog" aria-label="Итог испытания">
-      <small>${CHALLENGE.title} · ${CHALLENGE.days}${NB}дней</small>
-      <b>${r.bankrupt ? 'Банкротство' : formatMoney(r.cash)}</b>
-      <p>${r.premises} · гостей за${NB}${CHALLENGE.days}${NB}дней: ${r.guests} · вех: ${r.milestones}${NB}из${NB}${MILESTONES.length}</p>
-      <p>Это твой результат в${NB}испытании. Поделись им в${NB}группе — посмотрим, кто вырастил кафе лучше. Играть дальше можно, итог уже не${NB}изменится.</p>
+      <small>${CHALLENGE.title} · ${CHALLENGE.days} дней</small>
+      <b>${r.bankrupt ? L('Банкротство') : formatMoney(r.cash)}</b>
+      <p>${r.premises} · гостей за ${CHALLENGE.days} дней: ${r.guests} · вех: ${r.milestones} из ${MILESTONES.length}</p>
+      <p>Это твой результат в испытании. Поделись им в группе — посмотрим, кто вырастил кафе лучше. Играть дальше можно, итог уже не изменится.</p>
       <small class="done" hidden></small>
       <div class="actions">
         <button class="link" data-c="close">Играть дальше</button>
@@ -108,7 +108,7 @@ export function showChallengeResult(r: ChallengeResult, hud: SpeedControl): void
       const text = shareText(r);
       try {
         await navigator.clipboard.writeText(text);
-        done.textContent = `Результат скопирован${NB}— вставь его в${NB}группе`;
+        done.textContent = tr`Результат скопирован — вставь его в группе`;
       } catch {
         done.textContent = text;
       }

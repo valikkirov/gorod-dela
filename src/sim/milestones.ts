@@ -4,6 +4,7 @@
 import type { DayReport } from './cafe';
 import type { PremisesId } from './economy';
 
+import { getLang, L, tr } from './i18n';
 export type MilestoneId = 'hundred' | 'week-plus' | 'no-queue' | 'no-waste' | 'regulars' | 'cushion' | 'known';
 
 export interface MilestoneCtx {
@@ -39,7 +40,7 @@ const wasteShare = (w: DayReport[]): number => {
 };
 /** Доля списаний для вехи «Бережливость» */
 export const WASTE_SHARE = 0.1;
-const rub = (n: number): string => `${n < 0 ? '−' : '+'}${Math.abs(Math.round(n)).toLocaleString('ru-RU').replace(/\s/g, '\u00a0')}\u00a0₽`;
+const rub = (n: number): string => `${n < 0 ? '−' : '+'}${Math.abs(Math.round(n)).toLocaleString(getLang() === 'ru' ? 'ru-RU' : 'en-US').replace(/\s/g, '\u00a0')}\u00a0₽`;
 
 /** Будний день с нормальным потоком, когда никто не ушёл из‑за очереди */
 export const calmDay = (r: DayReport): boolean =>
@@ -52,58 +53,58 @@ export const calmDay = (r: DayReport): boolean =>
 export const MILESTONES: Milestone[] = [
   {
     id: 'hundred',
-    title: 'Первая сотня гостей',
-    hint: 'Обслужить 100 гостей',
+    title: L('Первая сотня гостей'),
+    hint: L('Обслужить 100 гостей'),
     progress: (c) => [c.reports.reduce((s, r) => s + r.guests, 0), 100],
   },
   {
     id: 'week-plus',
-    title: 'Неделя в\u00a0плюсе',
-    hint: 'Прибыль за\u00a0последние 7 дней больше нуля',
+    title: L('Неделя в\u00a0плюсе'),
+    hint: L('Прибыль за\u00a0последние 7 дней больше нуля'),
     progress: (c) => {
       const w = lastWeek(c.reports);
       return [w && weekProfit(w) > 0 ? 1 : 0, 1];
     },
     now: (c) => {
       const w = lastWeek(c.reports);
-      return w ? `сейчас ${rub(weekProfit(w))}` : null;
+      return w ? tr`сейчас ${rub(weekProfit(w))}` : null;
     },
   },
   {
     id: 'no-queue',
-    title: 'Без очереди',
-    hint: 'Будний день от\u00a030 гостей, и\u00a0никто не\u00a0ушёл из‑за очереди',
+    title: L('Без очереди'),
+    hint: L('Будний день от\u00a030 гостей, и\u00a0никто не\u00a0ушёл из‑за очереди'),
     progress: (c) => [c.reports.some(calmDay) ? 1 : 0, 1],
   },
   {
     id: 'no-waste',
-    title: 'Бережливость',
-    hint: 'За\u00a0неделю списали меньше 10\u00a0% закупленного',
+    title: L('Бережливость'),
+    hint: L('За\u00a0неделю списали меньше 10\u00a0% закупленного'),
     progress: (c) => {
       const w = lastWeek(c.reports);
       return [w && wasteShare(w) < WASTE_SHARE ? 1 : 0, 1];
     },
     now: (c) => {
       const w = lastWeek(c.reports);
-      return w ? `сейчас ${Math.round(wasteShare(w) * 100)}\u00a0%` : null;
+      return w ? tr`сейчас ${Math.round(wasteShare(w) * 100)}\u00a0%` : null;
     },
   },
   {
     id: 'regulars',
-    title: 'Свои люди',
-    hint: '40 постоянных гостей: привыкли к\u00a0кафе и\u00a0заходили на\u00a0этой неделе',
+    title: L('Свои люди'),
+    hint: L('40 постоянных гостей: привыкли к\u00a0кафе и\u00a0заходили на\u00a0этой неделе'),
     progress: (c) => [c.loyal, 40],
   },
   {
     id: 'cushion',
-    title: 'Вложения вернулись',
-    hint: 'В\u00a0кассе больше, чем было до\u00a0открытия',
+    title: L('Вложения вернулись'),
+    hint: L('В\u00a0кассе больше, чем было до\u00a0открытия'),
     progress: (c) => [Math.max(0, Math.round(c.cash)), c.startCash],
   },
   {
     id: 'known',
-    title: 'Узнаваемое место',
-    hint: 'О\u00a0кафе знают 80\u00a0% жителей',
+    title: L('Узнаваемое место'),
+    hint: L('О\u00a0кафе знают 80\u00a0% жителей'),
     progress: (c) => [c.aware, Math.ceil(c.population * 0.8)],
   },
 ];
@@ -130,54 +131,54 @@ export interface Upgrade {
 export const UPGRADES: Upgrade[] = [
   {
     id: 'machine',
-    name: 'Вторая кофемашина',
+    name: L('Вторая кофемашина'),
     cost: 60_000,
-    effect: 'Заказ готовится быстрее: 3\u00a0мин вместо 4, с\u00a0бариста\u00a0— 1,5 вместо 2',
+    effect: L('Заказ готовится быстрее: 3\u00a0мин вместо 4, с\u00a0бариста\u00a0— 1,5 вместо 2'),
     unlock: 'hundred',
     premises: ['cafe', 'kiosk'],
   },
   {
     id: 'showcase',
-    name: 'Холодильная витрина',
+    name: L('Холодильная витрина'),
     cost: 40_000,
-    effect: 'Скоропорт хранится на\u00a0день дольше',
+    effect: L('Скоропорт хранится на\u00a0день дольше'),
     unlock: 'week-plus',
     premises: ['cafe', 'kiosk'],
   },
   // Стойка киоска
   {
     id: 'terminal',
-    name: 'Терминал для карт',
+    name: L('Терминал для карт'),
     cost: 5_000,
-    effect: 'Оплата быстрее: на\u00a0гостя −15\u00a0% времени, очередь короче',
+    effect: L('Оплата быстрее: на\u00a0гостя −15\u00a0% времени, очередь короче'),
     premises: ['kiosk'],
   },
   {
     id: 'board',
-    name: 'Меню-доска с\u00a0подсветкой',
+    name: L('Меню-доска с\u00a0подсветкой'),
     cost: 5_000,
-    effect: 'Прохожие замечают киоск в\u00a01,5 раза чаще, вечером\u00a0— вдвое. Меню видно издалека: заходят охотнее',
+    effect: L('Прохожие замечают киоск в\u00a01,5 раза чаще, вечером\u00a0— вдвое. Меню видно издалека: заходят охотнее'),
     premises: ['kiosk'],
   },
   {
     id: 'pastry',
-    name: 'Витринка с\u00a0выпечкой на\u00a0стойке',
+    name: L('Витринка с\u00a0выпечкой на\u00a0стойке'),
     cost: 6_000,
-    effect: 'Выпечка на\u00a0виду: примерно 1\u00a0из\u00a07 гостей докупает её к\u00a0кофе или чаю',
+    effect: L('Выпечка на\u00a0виду: примерно 1\u00a0из\u00a07 гостей докупает её к\u00a0кофе или чаю'),
     premises: ['kiosk'],
   },
   {
     id: 'shelves',
-    name: 'Полки с\u00a0зерном и\u00a0цветок',
+    name: L('Полки с\u00a0зерном и\u00a0цветок'),
     cost: 4_000,
-    effect: 'Киоск выглядит обжитым: заходят чуть охотнее, постоянными становятся быстрее',
+    effect: L('Киоск выглядит обжитым: заходят чуть охотнее, постоянными становятся быстрее'),
     premises: ['kiosk'],
   },
   {
     id: 'awning',
-    name: 'Навес над\u00a0окном',
+    name: L('Навес над\u00a0окном'),
     cost: 6_000,
-    effect: 'Снаружи. Без навеса в\u00a0дождь у\u00a0окна не\u00a0стоят в\u00a0очереди больше трёх человек',
+    effect: L('Снаружи. Без навеса в\u00a0дождь у\u00a0окна не\u00a0стоят в\u00a0очереди больше трёх человек'),
     premises: ['kiosk'],
   },
 ];

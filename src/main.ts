@@ -1,3 +1,5 @@
+// Язык — первым: от него зависят тексты-константы в остальных модулях
+import './game/lang';
 import Phaser from 'phaser';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/600.css';
@@ -17,14 +19,14 @@ import { CHALLENGE, isChallenge, saveKeyFor } from './game/challenge';
 import { Drawer, isWide } from './game/drawer';
 import { sound } from './game/sound';
 import { initSoundPanel } from './game/soundPanel';
-import { gameReady, initPlatform, IS_YANDEX, onPlatformPause, setPlaying } from './game/platform';
+import { gameReady, initPlatform, IS_PORTAL, onPlatformPause, PLATFORM, setPlaying } from './game/platform';
 
 // В Яндекс Играх своя статистика и нет Telegram: внешние скрипты не грузим
-if (!IS_YANDEX) {
+if (!IS_PORTAL) {
   initMetrika();
   void initTelegram();
 }
-// Яндекс Игры: SDK и облачное сохранение — до загрузки игры (на сайте — сразу)
+// Площадка (Яндекс, ВКонтакте, CrazyGames): SDK и облачное сохранение — до загрузки игры (на сайте — сразу)
 await initPlatform();
 
 const params = new URLSearchParams(location.search);
@@ -114,7 +116,9 @@ hud.onSwitch = switchTo;
 
 // ——— Площадка: «игра загружена», геймплей идёт или стоит, пауза по просьбе площадки ———
 let platformPaused = false;
-const syncPlaying = () => setPlaying(hud.speed > 0 && !document.hidden && !platformPaused);
+// CrazyGames просит не останавливать геймплей, когда игрок просто ушёл с вкладки
+const syncPlaying = () =>
+  setPlaying(hud.speed > 0 && (PLATFORM === 'crazygames' || !document.hidden) && !platformPaused);
 hud.onSpeedChange = syncPlaying;
 document.addEventListener('visibilitychange', syncPlaying);
 let resumeSpeed = 1;
@@ -131,7 +135,7 @@ onPlatformPause(
     sound.hold('platform', false);
   },
 );
-if (IS_YANDEX) {
+if (IS_PORTAL) {
   // Окно игры без фокуса (нажали на интерфейс площадки) — звук молчит
   window.addEventListener('blur', () => sound.hold('focus', true));
   window.addEventListener('focus', () => sound.hold('focus', false));

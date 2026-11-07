@@ -4,6 +4,7 @@ import { CATALOG, type MenuItem } from './cafe';
 import { hm, MINUTES_PER_DAY } from './clock';
 import type { PremisesId } from './economy';
 
+import { L } from './i18n';
 export interface RivalTemplate {
   name: string;
   /** Чем берёт — одной строкой для карточки */
@@ -29,8 +30,8 @@ export const RIVAL = {
 /** Ключ — помещение игрока; конкурент занимает другое */
 export const RIVALS: Record<PremisesId, RivalTemplate> = {
   cafe: {
-    name: '«Кофе на бегу»',
-    pitch: 'Сетевой киоск у метро: дешёвый кофе с собой, только утро и день',
+    name: L('«Кофе на бегу»'),
+    pitch: L('Сетевой киоск у метро: дешёвый кофе с собой, только утро и день'),
     premises: 'kiosk',
     placeId: 'kiosk',
     prices: { americano: 120, cappuccino: 170, latte: 180, croissant: 120 },
@@ -39,8 +40,8 @@ export const RIVALS: Record<PremisesId, RivalTemplate> = {
     seats: false,
   },
   kiosk: {
-    name: 'Столовая «Ложка»',
-    pitch: 'Недорогие обеды и кофе, работает днём, с залом',
+    name: L('Столовая «Ложка»'),
+    pitch: L('Недорогие обеды и кофе, работает днём, с залом'),
     premises: 'cafe',
     placeId: 'cafe',
     prices: { americano: 130, soup: 200, lunch: 330, sandwich: 220, tea: 150 },
@@ -49,8 +50,8 @@ export const RIVALS: Record<PremisesId, RivalTemplate> = {
     seats: true,
   },
   bistro: {
-    name: '«Кофе на\u00a0бегу»',
-    pitch: 'Сетевой киоск у\u00a0метро «Деловая»: дешёвый кофе и\u00a0сэндвичи с\u00a0собой, утро и\u00a0день',
+    name: L('«Кофе на\u00a0бегу»'),
+    pitch: L('Сетевой киоск у\u00a0метро «Деловая»: дешёвый кофе и\u00a0сэндвичи с\u00a0собой, утро и\u00a0день'),
     premises: 'kiosk',
     placeId: 'kiosk',
     prices: { americano: 120, cappuccino: 170, latte: 180, croissant: 120, sandwich: 210 },
