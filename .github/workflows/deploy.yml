@@ -45,6 +45,8 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
       - run: npm run build
+      # Сборка для ВКонтакте (VK Bridge, без внешних ссылок) — в папку /vk/: её адрес стоит в настройках приложения ВК
+      - run: npx vite build --mode vk --outDir dist/vk
 
       # Яндекс. Файлы в assets/ с хешем в имени — кешируем надолго; index.html и прочее — без кеша.
       # --delete убирает старые сборки (папку превью не трогаем).
