@@ -11,3 +11,7 @@ gorod-dela-yandex.zip
 dist-vk/
 dist-crazygames/
 gorod-dela-*.zip
+# Режимы сборки для площадок — без секретов, нужны CI
+!.env.yandex
+!.env.vk
+!.env.crazygames
