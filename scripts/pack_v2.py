@@ -110,3 +110,6 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+    # Последний шаг: PNG → WebP (src/game/atlas.ts подключает .webp)
+    import webp
+    webp.main()

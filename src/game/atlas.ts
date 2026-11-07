@@ -2,24 +2,24 @@
 // из art-src/v2 (кадры — в atlasFrames.ts); жители и extra — в старой раскладке кадров.
 // Координаты кадров — в единицах 1×, PNG — в 2×. Как обновить арт: см. scripts/README.md.
 import { BUILDING_FRAMES, LIGHT_FRAMES, PROP_FRAMES, TEXTURE_FRAMES } from './atlasFrames';
-import buildingsUrl from './art/buildings.png';
-import extraUrl from './art/extra.png';
-import groundUrl from './art/ground.png';
-import lightsUrl from './art/lights.png';
-import peopleUrl from './art/people.png';
-import animalsUrl from './art/animals.png';
+import buildingsUrl from './art/buildings.webp';
+import extraUrl from './art/extra.webp';
+import groundUrl from './art/ground.webp';
+import lightsUrl from './art/lights.webp';
+import peopleUrl from './art/people.webp';
+import animalsUrl from './art/animals.webp';
 import { ANIMAL_FRAMES } from './animalFrames';
-import vehiclesUrl from './art/vehicles.png';
+import vehiclesUrl from './art/vehicles.webp';
 import { VEHICLE_FRAMES } from './vehicleFrames';
-import sadovayaUrl from './art/sadovaya.png';
-import texAsphaltUrl from './art/tex-asphalt.png';
-import texGrassUrl from './art/tex-grass.png';
-import texSidewalkUrl from './art/tex-sidewalk.png';
-import texRailUrl from './art/tex-rail.png';
-import texRiverUrl from './art/tex-river.png';
+import sadovayaUrl from './art/sadovaya.webp';
+import texAsphaltUrl from './art/tex-asphalt.webp';
+import texGrassUrl from './art/tex-grass.webp';
+import texSidewalkUrl from './art/tex-sidewalk.webp';
+import texRailUrl from './art/tex-rail.webp';
+import texRiverUrl from './art/tex-river.webp';
 import texCloudsUrl from './art/tex-clouds.jpg';
-import texForestUrl from './art/tex-forest.png';
-import texBridgeUrl from './art/tex-bridge.png';
+import texForestUrl from './art/tex-forest.webp';
+import texBridgeUrl from './art/tex-bridge.webp';
 import type { ResidentKind } from '../sim/residents';
 
 /** Во сколько раз PNG крупнее единиц мира */

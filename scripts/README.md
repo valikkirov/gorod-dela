@@ -28,7 +28,9 @@ python3 scripts/pack_v2.py
 ```
 
 Скрипт собирает `buildings.png`, `lights.png`, `ground.png`, копирует текстуры и пишет координаты
-в `src/game/atlasFrames.ts`. Здание ставится по центру своего места, низом на основание (+4).
+в `src/game/atlasFrames.ts`. Последним шагом все PNG в `src/game/art/` переводятся в WebP (`scripts/webp.py`,
+в 5 раз легче) — игра подключает `.webp`. После `pack_vehicles.py` и `pack_animals.py` тоже запусти
+`python3 scripts/webp.py`. Здание ставится по центру своего места, низом на основание (+4).
 Жители (`people.png`) и `extra.png` (транспорт, аксессуары, мелочи у кафе) — в прежней раскладке кадров,
 их PNG заменяются целиком.
 
