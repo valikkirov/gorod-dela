@@ -3244,3 +3244,50 @@ button.small.danger {
   height: 56px;
   width: auto;
 }
+
+/* Переключатель языка в шапке: заметный, но спокойнее кнопок скорости */
+#lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  font: 600 14px var(--font-head);
+  cursor: pointer;
+}
+#lang-switch[hidden] {
+  display: none;
+}
+#lang-switch:hover {
+  border-color: var(--wood-dark);
+}
+/* На телефоне в шапке нет места: переключатель — над кнопкой звука */
+#zoom #lang-map {
+  margin-bottom: 6px;
+  font: 600 13px var(--font-head);
+}
+#zoom #lang-map span {
+  display: none;
+}
+#zoom #lang-map[hidden] {
+  display: none;
+}
+@media (max-width: 899px) {
+  #lang-switch {
+    display: none;
+  }
+}
+@media (min-width: 900px) {
+  #zoom #lang-map {
+    display: none;
+  }
+}
+
+/* Язык на первом экране обучения */
+.overlay .sheet .lang-row {
+  margin: -4px 0 4px;
+}

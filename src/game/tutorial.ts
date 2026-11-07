@@ -1,6 +1,8 @@
 import { goal } from './metrika';
 
-import { L, tr } from '../sim/i18n';
+import { getLang, L, tr } from '../sim/i18n';
+import { switchLang } from './lang';
+import { PLATFORM } from './platform';
 // Обучение на 30 секунд: пять карточек при первом запуске. Повторить — «Как играть» внизу панели.
 const KEY = 'gorod-dela:tutorial-done-2';
 
@@ -48,6 +50,13 @@ function markDone(): void {
   }
 }
 
+/** Сменить язык прямо с первого шага: обучение начнётся заново уже на нём (во ВКонтакте — только русский) */
+function langRow(): string {
+  if (PLATFORM === 'vk') return '';
+  const other = getLang() === 'ru' ? 'English' : /* i18n-skip */ 'Русский';
+  return `<div class="lang-row"><button class="link" data-t="lang">🌐 ${other}</button></div>`;
+}
+
 export function showTutorial(hud: SpeedControl): void {
   document.querySelector('.overlay')?.remove();
   const resume = hud.speed || 1;
@@ -76,9 +85,11 @@ export function showTutorial(hud: SpeedControl): void {
           <button class="primary" data-t="next">${last ? L('Играть') : L('Дальше')}</button>
         </div>
       </div>`;
+    if (step === 0) root.querySelector('.dots')?.insertAdjacentHTML('beforebegin', langRow());
   };
   root.addEventListener('click', (ev) => {
     const t = (ev.target as HTMLElement).closest<HTMLElement>('[data-t]')?.dataset.t;
+    if (t === 'lang') return switchLang();
     if (t === 'skip') {
       goal('tutorial_skip', { step: step + 1 });
       close();

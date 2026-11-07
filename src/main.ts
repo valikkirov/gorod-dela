@@ -22,6 +22,7 @@ import { initSoundPanel } from './game/soundPanel';
 import logoRu from './game/art/logo-ru.webp';
 import logoEn from './game/art/logo-en.webp';
 import { getLang } from './sim/i18n';
+import { switchLang } from './game/lang';
 import { gameReady, initPlatform, IS_PORTAL, onPlatformPause, PLATFORM, setPlaying } from './game/platform';
 
 // В Яндекс Играх своя статистика и нет Telegram: внешние скрипты не грузим
@@ -34,6 +35,18 @@ if (!IS_PORTAL) {
   const brand = document.querySelector('#brand');
   const en = getLang() === 'en';
   if (brand) brand.innerHTML = `<img src="${en ? logoEn : logoRu}" alt="${en ? 'Business Town' : 'Город дела'}" height="56" />`;
+}
+// Переключатель языка: в шапке на компьютере, над кнопками карты на телефоне. Подпись — язык, на который
+// переключаем (во ВКонтакте игра только на русском)
+if (PLATFORM !== 'vk') {
+  const en = getLang() === 'en';
+  for (const btn of document.querySelectorAll<HTMLButtonElement>('.lang-switch')) {
+    btn.innerHTML = `<span aria-hidden="true">🌐</span>${en ? 'RU' : 'EN'}`;
+    btn.title = en ? 'Русский' : 'English';
+    btn.setAttribute('aria-label', btn.title);
+    btn.hidden = false;
+    btn.addEventListener('click', switchLang);
+  }
 }
 // Площадка (Яндекс, ВКонтакте, CrazyGames): SDK и облачное сохранение — до загрузки игры (на сайте — сразу)
 await initPlatform();
