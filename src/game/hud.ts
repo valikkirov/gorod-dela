@@ -283,6 +283,10 @@ export class Hud {
   private readonly panel = $('#panel');
   private readonly note = $('#street-note');
   private readonly district = $<HTMLButtonElement>('#district');
+  /** Окно поверх игры: каталог меню и конструктор блюда — чтобы не открывались внизу длинной панели */
+  private readonly modal = document.createElement('div');
+  private modalHtml = '';
+  private lastModal = '';
   private catalogOpen = false;
   /** Отчёт: за какой период и какой именно (null — последний) */
   private reportPeriod: 'day' | PeriodKind = 'day';
@@ -366,6 +370,21 @@ export class Hud {
       if (n >= 1 && n <= 3) this.setSpeed(SPEEDS[n]);
     });
     this.panel.addEventListener('click', (ev) => this.onClick(ev));
+    this.modal.className = 'modal-backdrop';
+    this.modal.hidden = true;
+    document.body.append(this.modal);
+    this.modal.addEventListener('click', (ev) => {
+      // Нажали мимо окна — закрыть
+      if (ev.target === this.modal) {
+        this.catalogOpen = false;
+        this.dish = null;
+        this.render(true);
+        return;
+      }
+      this.onClick(ev);
+    });
+    this.modal.addEventListener('change', (ev) => this.onChange(ev));
+    this.modal.addEventListener('focusout', () => setTimeout(() => this.render(), 0));
     this.panel.addEventListener('change', (ev) => this.onChange(ev));
     // Ушли со списка, ничего не выбрав, — догоняем отложенную пересборку
     this.panel.addEventListener('focusout', () => setTimeout(() => this.render(), 0));
@@ -957,6 +976,7 @@ export class Hud {
 
   private render(force = false): void {
     OWN = this.sim.cafe.own;
+    this.modalHtml = '';
     this.live = {};
     this.liveWidth = {};
     this.liveClass = {};
@@ -974,7 +994,16 @@ export class Hud {
     // Пока открыт выпадающий список или идёт ввод — не трогаем DOM: на телефоне пересборка
     // закрывает системное окно выбора времени. Пересоберём сразу после выбора (change) или ухода фокуса.
     const active = document.activeElement;
-    const editing = !force && active instanceof HTMLElement && this.panel.contains(active) && (active.tagName === 'SELECT' || active.tagName === 'INPUT');
+    const editing =
+      !force &&
+      active instanceof HTMLElement &&
+      (this.panel.contains(active) || this.modal.contains(active)) &&
+      (active.tagName === 'SELECT' || active.tagName === 'INPUT');
+    if (!editing && (force || this.modalHtml !== this.lastModal)) {
+      this.lastModal = this.modalHtml;
+      this.modal.innerHTML = this.modalHtml;
+      this.modal.hidden = !this.modalHtml;
+    }
     if (!editing && (force || html !== this.lastHtml)) {
       this.lastHtml = html;
       this.panel.innerHTML = html;
@@ -1297,12 +1326,12 @@ export class Hud {
     } else if (this.tab === 'menu') {
       body = tr`
       <div class="menu-head"><h4>Меню и цены</h4>
-        <button class="small" data-action="toggle-catalog">${this.catalogOpen ? L('Скрыть каталог') : L('+ Добавить')}</button></div>
+        <button class="small" data-action="toggle-catalog">${L('+ Добавить')}</button></div>
       <p class="hint-line">${cafe.menu.length} из ${MAX_MENU} позиций${full ? tr` — мест нет, сначала убери позицию` : ''} · нажми позицию, чтобы поменять цену</p>
       <p class="hint-line">${this.focusLine()}</p>
       <ul class="menu items">${items}</ul>
-      <div class="catalog-wrap">${catalog}</div>
       ${this.ownDishesBlock()}`;
+      if (this.catalogOpen) this.modalHtml = this.modalSheet(L('Каталог'), `<div class="catalog-wrap">${catalog}</div>`, 'toggle-catalog');
     } else if (this.tab === 'stock') {
       body = this.stockTab();
     } else if (this.tab === 'guests') {
@@ -1472,7 +1501,15 @@ export class Hud {
       const can = cafe.own.length < MAX_OWN;
       return `${head}${list}<button class="secondary" data-action="dish-open" ${can ? '' : 'disabled'}>${can ? L('Придумать блюдо') : tr`Своих блюд уже ${MAX_OWN} — забудь одно, чтобы придумать новое`}</button>`;
     }
-    return `${head}${list}${this.dishBuilder()}`;
+    this.modalHtml = this.modalSheet(L('Придумать блюдо'), this.dishBuilder(), 'dish-close');
+    return `${head}${list}`;
+  }
+
+  /** Окно поверх игры с заголовком и крестиком */
+  private modalSheet(title: string, body: string, close: string): string {
+    return `<div class="modal-sheet" role="dialog" aria-label="${title}">
+      <div class="modal-head"><b>${title}</b><button data-action="${close}" aria-label="${L('Закрыть')}">✕</button></div>
+      <div class="modal-body">${body}</div></div>`;
   }
 
   private dishBuilder(): string {
@@ -1544,14 +1581,14 @@ export class Hud {
 
   /** Игрок сам менял название в поле — тогда его не перезаписываем */
   private dishNamed(): boolean {
-    const input = this.panel.querySelector<HTMLInputElement>('input[data-action="dish-name"]');
+    const input = this.modal.querySelector<HTMLInputElement>('input[data-action="dish-name"]');
     if (!input || !this.dish?.base) return this.dish?.name != null;
     return input.value !== defaultDishName(dishId(this.dish.base, this.dish.addIns));
   }
 
   /** Запомнить, что набрано в поле названия, перед пересборкой панели */
   private keepDishName(): void {
-    const input = this.panel.querySelector<HTMLInputElement>('input[data-action="dish-name"]');
+    const input = this.modal.querySelector<HTMLInputElement>('input[data-action="dish-name"]');
     if (input && this.dish && this.dishNamed()) this.dish.name = input.value;
   }
 

@@ -222,8 +222,6 @@ const PROPS: [string, number, number][] = [
   ['prop-tree-tall', 760, 250],
   ['prop-tree-round', 990, 250],
   ['prop-tree-round', 1290, 250],
-  ['prop-tree-tall', 800, 400],
-  ['prop-tree-tall', 1150, 575],
   ['prop-tree-round', 810, 570],
   ['prop-tree-tall', 1290, 580],
   ['prop-tree-tall', 1400, 580],
@@ -235,7 +233,7 @@ const PROPS: [string, number, number][] = [
   ['prop-tree-round', 1200, 800],
   ['prop-tree-tall', 1320, 800],
   ['prop-playground', 1110, 240],
-  ['prop-carousel', 880, 470],
+  ['prop-carousel', 835, 445],
   ['prop-kidtrain', 1260, 480],
   ['prop-icecream', 1110, 700],
   ['prop-bench', 1030, 565],
@@ -263,7 +261,7 @@ const PROPS: [string, number, number][] = [
   ['prop-tree-round', 980, 1540],
   ['prop-tree-tall', 1180, 1545],
   // Пруд в большом сквере
-  ['prop-pond', 1030, 525],
+  ['prop-pond', 1033, 548],
   ...parkFence(),
 ];
 

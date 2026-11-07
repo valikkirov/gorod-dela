@@ -19,12 +19,21 @@ import { CHALLENGE, isChallenge, saveKeyFor } from './game/challenge';
 import { Drawer, isWide } from './game/drawer';
 import { sound } from './game/sound';
 import { initSoundPanel } from './game/soundPanel';
+import logoRu from './game/art/logo-ru.webp';
+import logoEn from './game/art/logo-en.webp';
+import { getLang } from './sim/i18n';
 import { gameReady, initPlatform, IS_PORTAL, onPlatformPause, PLATFORM, setPlaying } from './game/platform';
 
 // В Яндекс Играх своя статистика и нет Telegram: внешние скрипты не грузим
 if (!IS_PORTAL) {
   initMetrika();
   void initTelegram();
+}
+// Логотип в шапке (на компьютере): знак и надпись на языке игры
+{
+  const brand = document.querySelector('#brand');
+  const en = getLang() === 'en';
+  if (brand) brand.innerHTML = `<img src="${en ? logoEn : logoRu}" alt="${en ? 'Business Town' : 'Город дела'}" height="56" />`;
 }
 // Площадка (Яндекс, ВКонтакте, CrazyGames): SDK и облачное сохранение — до загрузки игры (на сайте — сразу)
 await initPlatform();
