@@ -4,8 +4,8 @@
 import Phaser from 'phaser';
 import type { WeatherKind, WindLevel } from '../sim/weather';
 
-/** Что рисуем: вид погоды из sim (снег — пока только для просмотра) */
-export type FxKind = WeatherKind | 'snow';
+/** Что рисуем: вид погоды из sim */
+export type FxKind = WeatherKind;
 
 interface Drop {
   x: number;
@@ -48,7 +48,10 @@ const TINT: Partial<Record<FxKind, [number, number]>> = {
   cloudy: [0x6f7c8c, 0.12],
   hot: [0xffa040, 0.08],
   snow: [0xdfe8f3, 0.22],
+  frost: [0xcfe0f5, 0.16],
 };
+
+const WINTER_TINT: [number, number] = [0xe8eff8, 0.2];
 
 /** Сколько капель на весь экран: ближний и дальний слой */
 const RAIN_DROPS = 260;
@@ -88,10 +91,11 @@ export class WeatherFx {
    * view — видимая часть мира, px — сколько пикселей мира в одном css-пикселе экрана.
    * dt — реальные секунды с прошлого кадра (0 на паузе).
    */
-  update(dt: number, time: number, kind: FxKind, wind: WindLevel, view: Phaser.Geom.Rectangle, px: number, area: Phaser.Geom.Rectangle): void {
+  update(dt: number, time: number, kind: FxKind, wind: WindLevel, view: Phaser.Geom.Rectangle, px: number, area: Phaser.Geom.Rectangle, winter = false): void {
     const g = this.g;
     g.clear();
-    const t = TINT[kind];
+    // Зимой без снегопада — холодный светлый оттенок, пока нет зимнего арта карты
+    const t = (winter && kind !== 'snow' ? WINTER_TINT : undefined) ?? TINT[kind];
     if (t) {
       g.fillStyle(t[0], t[1]);
       g.fillRect(area.x, area.y, area.width, area.height);
@@ -101,7 +105,7 @@ export class WeatherFx {
     else this.splashes.length = 0;
     if (kind === 'snow') this.snow(dt, time, view, px, slant);
     // Листья — когда дует и не идёт снег; в дождь их прибивает, поэтому меньше
-    const leaves = kind === 'snow' ? 0 : wind === 2 ? (kind === 'rain' ? 6 : 14) : wind === 1 && kind !== 'rain' ? 5 : 0;
+    const leaves = kind === 'snow' || winter ? 0 : wind === 2 ? (kind === 'rain' ? 6 : 14) : wind === 1 && kind !== 'rain' ? 5 : 0;
     this.leavesStep(dt, view, px, wind, leaves);
   }
 

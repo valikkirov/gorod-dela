@@ -118,12 +118,14 @@ export function rollWant(
   prev: ScheduleEntry | undefined,
   weather: WeatherKind = 'sunny',
   weekend = false,
+  /** Во сколько раз чаще желания «посидеть» (праздники) */
+  festive = 1,
 ): Want | null {
   for (const rule of RULES) {
     const chance = rule.chance[r.kind];
     if (chance === undefined || !rule.test(r, entry, prev)) continue;
     // В выходные есть время посидеть — «посидеть в кафе» случается чаще
-    const free = weekend && rule.want.mode === 'replace' ? 1.5 : 1;
+    const free = (weekend && rule.want.mode === 'replace' ? 1.5 : 1) * (rule.want.mode === 'replace' ? festive : 1);
     const mult = (WEATHER_WANT[weather][rule.want.kind] ?? 1) * free;
     return rng.chance(Math.min(1, chance * mult)) ? rule.want : null;
   }
@@ -153,6 +155,9 @@ export interface Offer {
   p: number;
 }
 
+/** Прибавка ко вкусу сезонной позиции в её сезон */
+export const FESTIVE_MATCH = 0.35;
+
 /** Насколько житель склонен зайти: цена × крюк × лояльность */
 export function evaluate(
   r: Resident,
@@ -171,13 +176,16 @@ export function evaluate(
   // В жару «чай» превращается в лимонад
   const favorite = weather === 'hot' && want.kind === 'tea' ? 'lemonade' : r.favorites[want.kind];
   const isFav = (m: MenuItem) => m.id === favorite;
-  const matchOf = (m: MenuItem) => (isFav(m) ? Math.max(FAVORITE_MATCH, tasteMatch(c, m.id)) : tasteMatch(c, m.id));
+  // В свой сезон сезонное хочется даже тем, кому обычно не по вкусу
+  const festive = (m: MenuItem) => (m.festive ? FESTIVE_MATCH : 0);
+  const matchOf = (m: MenuItem) =>
+    Math.min(1, (isFav(m) ? Math.max(FAVORITE_MATCH, tasteMatch(c, m.id)) : tasteMatch(c, m.id)) + festive(m));
   // За то, что по вкусу, готов заплатить больше, за то, что не по вкусу, — меньше
   const pFor = (m: MenuItem) => clamp((top - m.price / (budget * (1 + TASTE.budget * matchOf(m)))) / (top - 0.7), 0, 1);
   // Без любимой позиции житель берёт другую, но с меньшей охотой; нелюбопытный — с ещё меньшей.
   // Позиция по вкусу не хуже любимой
   const other = 0.95 - 0.2 * (1 - c.curiosity);
-  const suits = (m: MenuItem) => isFav(m) || tasteMatch(c, m.id) >= FAVORITE_MATCH;
+  const suits = (m: MenuItem) => isFav(m) || !!m.festive || tasteMatch(c, m.id) >= FAVORITE_MATCH;
   const appeal = (m: MenuItem) => pFor(m) * (suits(m) ? 1 : other) * (1 + TASTE.weight * matchOf(m));
   // Выбирает то, ради чего охотнее всего зайдёт: основная категория, цена и вкус; привычка чуть перевешивает
   const habit = 0.12 * (1 - c.curiosity);

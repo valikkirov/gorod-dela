@@ -29,10 +29,14 @@ export function itemIcon(id: string): string | undefined {
   return url(id);
 }
 
+/** Сезонные позиции до своих иконок — значок */
+const EMOJI: Record<string, string> = { cocoa: '☕', mulled: '🫖', gingerbread: '🍪' };
+
 /** <img> иконки или пусто, если её нет */
 export function iconImg(id: string, cls = 'icon'): string {
   const src = itemIcon(id);
-  return src ? `<img class="${cls}" src="${src}" alt="" aria-hidden="true">` : '';
+  if (src) return `<img class="${cls}" src="${src}" alt="" aria-hidden="true">`;
+  return EMOJI[id] ? `<span class="${cls} emoji" aria-hidden="true">${EMOJI[id]}</span>` : '';
 }
 
 export function namedIcon(name: string, cls = 'icon'): string {

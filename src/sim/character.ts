@@ -36,6 +36,9 @@ export const ITEM_PROFILE: Record<string, Profile> = {
   lemonade: P(0.8, 0, 0, 0.6),
   beer: P(0.1, 0.7, 0.3, 0.2),
   cider: P(0.7, 0.4, 0.1, 0.5),
+  cocoa: P(0.9, 0.05, 0.4, 0.4),
+  mulled: P(0.6, 0.3, 0.1, 0.6),
+  gingerbread: P(0.8, 0.1, 0.3, 0.5),
 };
 
 export function profileOf(itemId: string): Profile {

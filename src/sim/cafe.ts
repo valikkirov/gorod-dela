@@ -25,6 +25,10 @@ export interface MenuItem {
   kind: ItemKind;
   price: number;
   cost: number;
+  /** Сезонная позиция: добавить в меню можно только в свой сезон */
+  seasonal?: boolean;
+  /** Сейчас её сезон: жители берут охотнее (ставит Simulation, в сохранение не попадает) */
+  festive?: boolean;
 }
 
 export type RejectReason =
@@ -186,6 +190,10 @@ export const CATALOG: readonly MenuItem[] = [
   { id: 'lemonade', name: L('Лимонад'), kind: 'tea', price: 200, cost: 40 },
   { id: 'beer', name: L('Пиво'), kind: 'bar', price: 300, cost: 110 },
   { id: 'cider', name: L('Сидр'), kind: 'bar', price: 320, cost: 120 },
+  // Новогодний сезон
+  { id: 'cocoa', name: L('Какао с\u00a0маршмеллоу'), kind: 'coffee', price: 220, cost: 35, seasonal: true },
+  { id: 'mulled', name: L('Безалкогольный глинтвейн'), kind: 'tea', price: 210, cost: 30, seasonal: true },
+  { id: 'gingerbread', name: L('Имбирное печенье'), kind: 'snack', price: 150, cost: 32, seasonal: true },
 ];
 
 /** Стартовое меню — то, что можно продавать без доп. оборудования */

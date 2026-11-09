@@ -1263,12 +1263,13 @@ export class Hud {
     const catalog = this.catalogOpen
       ? (Object.keys(KIND_TITLE) as ItemKind[])
           .map((kind) => {
-            const rows = CATALOG.filter((c) => c.kind === kind)
+            // Сезонное видно только в свой сезон (или если уже стоит в меню)
+            const rows = CATALOG.filter((c) => c.kind === kind && (!c.seasonal || this.sim.holiday || cafe.hasItem(c.id)))
               .map((c) => {
                 const inMenu = cafe.hasItem(c.id);
                 const fits = cafe.fits(c.id);
                 const noEquip = fits && !!cafe.missingEquipment(c.id);
-                return tr`<li>${iconImg(c.id)}<div class="grow"><b>${c.name}</b>
+                return tr`<li>${iconImg(c.id)}<div class="grow"><b>${c.name}</b>${c.seasonal ? L(' <span class="badge season">🎄 сезон</span>') : ''}
                   <small>${itemTaste(c.id) ? `${itemTaste(c.id)} · ` : ''}от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
                   ${
                     inMenu

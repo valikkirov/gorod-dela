@@ -167,7 +167,7 @@ const WEATHER_OVERRIDE: { kind?: FxKind; wind?: WindLevel } = (() => {
   const kind = q.get('weather');
   const wind = q.get('wind');
   return {
-    kind: kind && ['sunny', 'hot', 'cloudy', 'rain', 'snow'].includes(kind) ? (kind as FxKind) : undefined,
+    kind: kind && ['sunny', 'hot', 'cloudy', 'rain', 'snow', 'frost'].includes(kind) ? (kind as FxKind) : undefined,
     wind: wind && ['0', '1', '2'].includes(wind) ? (Number(wind) as WindLevel) : undefined,
   };
 })();
@@ -990,7 +990,7 @@ export class StreetScene extends Phaser.Scene {
   private drawSky(time: number, dt: number): void {
     const cam = this.cameras.main;
     const wind = this.fxWind();
-    this.weatherFx.update(dt, time, this.fxKind(), wind, cam.worldView, this.px / cam.zoom, new Phaser.Geom.Rectangle(VIEW.left, VIEW.top, VIEW.right - VIEW.left, VIEW.bottom - VIEW.top));
+    this.weatherFx.update(dt, time, this.fxKind(), wind, cam.worldView, this.px / cam.zoom, new Phaser.Geom.Rectangle(VIEW.left, VIEW.top, VIEW.right - VIEW.left, VIEW.bottom - VIEW.top), this.hooks.sim.holiday);
     const amp = [0.006, 0.016, 0.035][wind];
     for (const t of this.trees) t.img.setRotation(Math.sin(time / (wind === 2 ? 520 : 900) + t.phase) * amp + (wind === 2 ? amp * 0.4 : 0));
   }

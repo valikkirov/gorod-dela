@@ -8,6 +8,7 @@ import {
   Interior,
   FINISH_SLOTS,
   INTERIOR,
+  SEASON_SLOTS,
   PRESETS,
   STYLE_SLOTS,
   STYLES,
@@ -45,6 +46,8 @@ const SLOT_AT: Record<string, { x: number; y: number }> = {
   'table-4': { x: 735, y: 500 },
   feature: { x: 395, y: 150 },
   touch: { x: 560, y: 225 },
+  tree: { x: 900, y: 420 },
+  garland: { x: 110, y: 200 },
 };
 const SEATED: FurnitureId[] = ['table2', 'table4', 'sofa', 'bar'];
 
@@ -76,6 +79,8 @@ const ITEM_MARK: Partial<Record<FurnitureId, { icon: string; x: number; y: numbe
   chandelier: { icon: '🕯️', x: 560, y: 205 },
   samovar: { icon: '🫖', x: 395, y: 170 },
   cat: { icon: '🐈', x: 115, y: 330 },
+  tree: { icon: '🎄', x: 900, y: 420 },
+  garland: { icon: '✨', x: 110, y: 200 },
 };
 const poly = (pts: number[][]): string =>
   `polygon(${pts.map(([x, y]) => `${pct(x, HALL_ROOM.w)} ${pct(y, HALL_ROOM.h)}`).join(',')})`;
@@ -130,6 +135,8 @@ const SLOT_TITLE: Record<string, string> = {
   floor: L('Пол'),
   feature: L('Акцент на\u00a0стене'),
   touch: L('Деталь'),
+  tree: L('Угол у\u00a0двери'),
+  garland: L('Окно'),
 };
 
 const LIKE_LABEL: Record<ResidentKind, string> = {
@@ -212,7 +219,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
     const sel = selected === id;
     if (f) return pieceHtml(id, f, state, rug, sel) || markHtml(id, f, sel, true);
     const p = SLOT_AT[id];
-    if (!p) return '';
+    if (!p || (SEASON_SLOTS.includes(id) && !sim.holiday)) return '';
     return `<button class="hall-slot empty${sel ? ' selected' : ''}" data-action="hall-slot" data-item="${id}" aria-label="${SLOT_TITLE[id]}"
         style="left:${pct(p.x, HALL_ROOM.w)};top:${pct(p.y, HALL_ROOM.h)};z-index:2000">+</button>`;
   }).join('');
@@ -286,6 +293,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
     <h4>Готовые комплектации</h4>
     <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>
     <ul class="menu presets">${presets}</ul>
+    ${sim.holiday ? tr`<h4>Новогодний декор 🎄</h4><p class="hint-line">До 12 января: ёлка и гирлянда — уют, а в праздники в такой зал чаще заходят посидеть. Нажми на место в зале — у двери или на окне.</p>` : ''}
     <h4>Свой дизайн</h4>
     <div class="row wrap">${STYLE_SLOTS.map(
       (slot) => `<button class="small secondary${selected === slot ? ' on' : ''}" data-action="hall-slot" data-item="${slot}">${SLOT_TITLE[slot]}</button>`,

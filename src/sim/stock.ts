@@ -63,6 +63,9 @@ export const RECIPES: Record<string, Partial<Record<IngredientId, number>>> = {
   lemonade: { drinks: 2 },
   beer: { bar: 1 },
   cider: { bar: 1.1 },
+  cocoa: { milk: 1, chocolate: 1 },
+  mulled: { drinks: 1, spices: 1, berries: 0.3 },
+  gingerbread: { honey: 1, spices: 1, chocolate: 1 },
 };
 
 /** Рецепт позиции каталога или своего блюда */

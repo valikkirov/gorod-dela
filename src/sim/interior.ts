@@ -32,7 +32,9 @@ export type FurnitureId =
   | 'mirror'
   | 'chandelier'
   | 'samovar'
-  | 'cat';
+  | 'cat'
+  | 'tree'
+  | 'garland';
 
 /** Стиль зала (этап 2 зала): отделка и фирменные вещи одного стиля нравятся своей аудитории */
 export type StyleId = 'home' | 'loft' | 'scandi' | 'classic';
@@ -95,6 +97,8 @@ export const FURNITURE: Furniture[] = [
   { id: 'mirror', name: L('Зеркало в\u00a0раме'), seats: 0, cozy: 1, cost: 3_000, likes: [], style: 'classic' },
   { id: 'chandelier', name: L('Люстра'), seats: 0, cozy: 1, cost: 3_500, likes: [], style: 'classic' },
   { id: 'samovar', name: L('Полка с\u00a0самоваром'), seats: 0, cozy: 1, cost: 4_000, likes: [], style: 'home' },
+  { id: 'tree', name: L('Ёлка с\u00a0игрушками'), seats: 0, cozy: 2, cost: 4_000, likes: [] },
+  { id: 'garland', name: L('Гирлянда на\u00a0окне'), seats: 0, cozy: 1, cost: 1_500, likes: [] },
   { id: 'cat', name: L('Кот на\u00a0подоконнике'), seats: 0, cozy: 1, cost: 4_000, likes: [], style: 'home' },
 ];
 
@@ -118,12 +122,20 @@ export const HALL_SLOTS: { id: string; accepts: FurnitureId[] }[] = [
   { id: 'floor', accepts: ['floor-home', 'floor-loft', 'floor-scandi', 'floor-classic'] },
   { id: 'feature', accepts: ['neon', 'rack', 'mirror', 'samovar'] },
   { id: 'touch', accepts: ['pendants', 'plaid', 'chandelier', 'cat'] },
+  // Новогодний декор: в сезон зал тянет посидеть, после — просто уют
+  { id: 'tree', accepts: ['tree'] },
+  { id: 'garland', accepts: ['garland'] },
 ];
+
+/** Места сезонного декора: их показываем и продаём только в сезон */
+export const SEASON_SLOTS = ['tree', 'garland'];
 
 /** Стены и пол: есть всегда, продать нельзя — только заменить */
 export const FINISH_SLOTS = ['walls', 'floor'];
 /** Места стиля: отделка и фирменные вещи — их не трогают готовые комплектации */
 export const STYLE_SLOTS = ['walls', 'floor', 'feature', 'touch'];
+/** Места, которые не трогают готовые комплектации */
+const KEEP_SLOTS = [...STYLE_SLOTS, 'tree', 'garland'];
 /** Полный набор стиля: стены, пол и две фирменные вещи */
 export function styleSet(id: StyleId): Layout {
   const set: Layout = {};
@@ -302,7 +314,7 @@ export class Interior {
     const target = preset(id).layout;
     let cost = 0;
     for (const { id: slot } of HALL_SLOTS) {
-      if (STYLE_SLOTS.includes(slot)) continue;
+      if (KEEP_SLOTS.includes(slot)) continue;
       const now = this.layout[slot];
       const next = target[slot];
       if (now === next) continue;
@@ -315,7 +327,7 @@ export class Interior {
   /** Совпадает ли зал с комплектацией */
   matches(id: PresetId): boolean {
     const target = preset(id).layout;
-    return HALL_SLOTS.every(({ id: slot }) => STYLE_SLOTS.includes(slot) || (this.layout[slot] ?? null) === (target[slot] ?? null));
+    return HALL_SLOTS.every(({ id: slot }) => KEEP_SLOTS.includes(slot) || (this.layout[slot] ?? null) === (target[slot] ?? null));
   }
 
   /** Во что обойдётся довести зал до полного стиля: недостающее покупается, заменённое продаётся */
@@ -332,7 +344,7 @@ export class Interior {
   /** Поставить комплектацию: мебель меняется, отделка и фирменные вещи остаются */
   applyPreset(id: PresetId): void {
     const keep: Layout = {};
-    for (const slot of STYLE_SLOTS) if (this.layout[slot]) keep[slot] = this.layout[slot];
+    for (const slot of KEEP_SLOTS) if (this.layout[slot]) keep[slot] = this.layout[slot];
     this.load({ ...preset(id).layout, ...keep });
   }
 

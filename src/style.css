@@ -3475,3 +3475,16 @@ button.small.danger {
   border-color: #e0703f;
   color: #c75a2e;
 }
+
+/* Значок вместо иконки — у сезонных позиций до арта */
+.icon.emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  line-height: 1;
+}
+.badge.season {
+  background: #e8f2ea;
+  color: #2f6b3f;
+}

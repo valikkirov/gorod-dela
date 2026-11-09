@@ -1,4 +1,4 @@
-import { canPlace, FINISH_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, STYLE_SLOTS, styleSet, type StyleId } from './interior';
+import { canPlace, FINISH_SLOTS, SEASON_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, STYLE_SLOTS, styleSet, type StyleId } from './interior';
 import { Cafe, CATALOG, hours24, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
 import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
 import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
@@ -16,7 +16,8 @@ import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type R
 import { FIRST_STEPS, STEP_GUESTS, STEP_REVENUE, type StepId } from './firstSteps';
 import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
 import { card, EVENTS, resultLine, supplierPrice, type EventId, type PendingEvent } from './events';
-import { rollWeather, windFor, type Weather } from './weather';
+import { PARK_SKIP, rollWeather, toSummer, toWinter, windFor, type Weather } from './weather';
+import { HOLIDAY } from './holiday';
 import {
   entrancesOf,
   nearestFront,
@@ -225,6 +226,24 @@ export class Simulation {
   }
   get forecast(): Weather {
     return this.main ? this.main.forecast : this.ownForecast;
+  }
+
+  /** Новогодний сезон: зимняя погода, сезонное меню и праздничное настроение. Ставит игра по календарю */
+  get holiday(): boolean {
+    return this.main ? this.main.holiday : this.ownHoliday;
+  }
+  private ownHoliday = false;
+
+  /**
+   * Включить или выключить сезон. Погода сегодня и завтра сразу становится зимней (или обратно) без броска
+   * кубика — смена сезона не сдвигает остальную случайность.
+   */
+  setHoliday(on: boolean): void {
+    if (this.main || this.ownHoliday === on) return;
+    this.ownHoliday = on;
+    const conv = on ? toWinter : toSummer;
+    this.ownWeather = conv(this.ownWeather);
+    this.ownForecast = conv(this.ownForecast);
   }
   set forecast(w: Weather) {
     this.ownForecast = w;
@@ -513,6 +532,8 @@ export class Simulation {
   }
 
   addMenuItem(id: string): boolean {
+    // Сезонное — только в свой сезон
+    if (CATALOG.find((c) => c.id === id)?.seasonal && !this.holiday) return false;
     const ok = this.cafe.addItem(id);
     if (ok) this.ensureSupply(id);
     if (ok) this.toggle(`menu:${id}`, tr`Меню: ${itemName(id, this.cafe.own)}`, L('добавлен'), L('убран'), true);
@@ -745,7 +766,7 @@ export class Simulation {
     if (r.visit) this.dropVisit(r, 'no-time');
     r.rivalVisit = null;
 
-    const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day));
+    const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day), this.holiday ? HOLIDAY.sitWant : 1);
     if (want && this.decide(r, want, entry)) {
       this.goTo(r, this.shopId);
       return;
@@ -754,8 +775,9 @@ export class Simulation {
       this.goTo(r, this.rival.placeId);
       return;
     }
-    // В дождь в сквер идут немногие — остаются дома
-    if (entry.placeId === 'park' && this.weather.kind === 'rain' && this.rng.chance(0.6) && r.homeId !== 'metro') {
+    // В дождь и мороз в сквер идут немногие — остаются дома
+    const skip = PARK_SKIP[this.weather.kind];
+    if (entry.placeId === 'park' && skip && this.rng.chance(skip) && r.homeId !== 'metro') {
       this.goTo(r, r.homeId);
       return;
     }
@@ -780,7 +802,10 @@ export class Simulation {
     else if (cafe.unstaffed) reason = 'no-staff';
     else {
       // Житель видит цены с учётом счастливых часов
-      const menu = cafe.menu.filter((m) => !this.blocked(m.kind)).map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute) }));
+      const festive = this.holiday;
+      const menu = cafe.menu
+        .filter((m) => !this.blocked(m.kind))
+        .map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute), festive: festive && !!m.seasonal }));
       const offer = evaluate(r, want, menu, r.pos, this.at(this.shopId).front, nearestFront(this.at(entry.placeId), r.pos), this.weather.kind);
       itemId = offer.item?.id;
       price = offer.item?.price;
@@ -832,7 +857,10 @@ export class Simulation {
     const hall = this.cafe.interior;
     const sit = want.mode === 'replace';
     const style = hall.styleFit(r.kind) * (sit ? INTERIOR.styleSit : INTERIOR.styleGo);
-    return 1 + hall.cozyLevel * (sit ? INTERIOR.attractSit : INTERIOR.attractGo) + (sit && hall.likes(r.kind) ? 0.05 : 0) + style;
+    // Ёлка и гирлянда в сезон: посидеть в праздничном зале хочется больше
+    const festive =
+      sit && this.holiday ? (hall.layout.tree ? HOLIDAY.treeSit : 0) + (hall.layout.garland ? HOLIDAY.garlandSit : 0) : 0;
+    return 1 + hall.cozyLevel * (sit ? INTERIOR.attractSit : INTERIOR.attractGo) + (sit && hall.likes(r.kind) ? 0.05 : 0) + style + festive;
   }
 
   /** Насколько житель склонен пойти к конкуренту с этим желанием прямо сейчас (0 — никак) */
@@ -865,7 +893,8 @@ export class Simulation {
     // Торопливый, зашедший по пути, не встанет в длинную очередь
     let limit = v.want.mode === 'stopover' ? MAX_QUEUE - Math.round(2 * r.character.hurry) : MAX_QUEUE;
     // У окна киоска под дождём долго не стоят — если нет навеса
-    if (this.cafe.premisesId === 'kiosk' && this.weather.kind === 'rain' && !this.cafe.has('awning')) limit -= UPGRADE_EFFECT.rainQueue;
+    const wet = this.weather.kind === 'rain' || this.weather.kind === 'snow' || this.weather.kind === 'frost';
+    if (this.cafe.premisesId === 'kiosk' && wet && !this.cafe.has('awning')) limit -= UPGRADE_EFFECT.rainQueue;
     if (this.cafe.busy >= limit || !this.cafe.join(r.id, v.itemId)) {
       r.loyalty = Math.max(0, r.loyalty - 0.1);
       this.recall(r, v.itemId, -0.5, ['queue']);
@@ -1610,6 +1639,8 @@ export class Simulation {
   /** Поставить вещь на место; если там что-то стоит — оно продаётся */
   placeFurniture(slot: string, id: FurnitureId): boolean {
     if (!this.hasHall || !canPlace(slot, id)) return false;
+    // Новогодний декор продаётся только в сезон
+    if (SEASON_SLOTS.includes(slot) && !this.holiday) return false;
     const before = this.cafe.interior.style;
     const old = this.cafe.interior.layout[slot];
     if (old === id) return false;
@@ -1671,7 +1702,7 @@ export class Simulation {
 
   /** Погода на день: вид и температура — из генератора погоды, ветер — из seed и дня */
   private rollForecast(day: number): Weather {
-    const w = rollWeather(this.skyRng, this.weather);
+    const w = rollWeather(this.skyRng, this.weather, this.holiday);
     return { ...w, wind: windFor(this.seed, day, w.kind) };
   }
 
