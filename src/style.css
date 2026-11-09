@@ -3391,9 +3391,15 @@ button.small.danger {
 .hall-finish {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 0;
-  opacity: 0.62;
   pointer-events: none;
+}
+.swatch.icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .hall-mark {
   position: absolute;

@@ -1,6 +1,7 @@
 // Язык — первым: от него зависят тексты-константы в остальных модулях
 import './game/lang';
 import { isHolidayDate } from './sim/holiday';
+import { useWinter } from './game/atlas';
 import Phaser from 'phaser';
 import '@fontsource/rubik/500.css';
 import '@fontsource/rubik/600.css';
@@ -64,6 +65,7 @@ const city =
   const now = new Date();
   const q = params.get('season');
   city.main.setHoliday(q === 'ny' || (q !== 'off' && isHolidayDate(now.getMonth() + 1, now.getDate())));
+  if (city.main.holiday) useWinter();
 }
 // ?delovoy — сразу открыть деловой квартал (для проверки)
 if (params.has('delovoy')) city.openDistrict();

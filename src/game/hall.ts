@@ -21,6 +21,7 @@ import type { ResidentKind } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
 import roomUrl from './art/hall3/room.webp';
 import { HALL_FRAMES, HALL_ROOM } from './hallFrames';
+import { HALL_ITEMS } from './hallItems';
 
 import { L, tr } from '../sim/i18n';
 const money = formatMoney;
@@ -44,72 +45,57 @@ const SLOT_AT: Record<string, { x: number; y: number }> = {
   'table-2': { x: 300, y: 500 },
   'table-3': { x: 520, y: 500 },
   'table-4': { x: 735, y: 500 },
-  feature: { x: 395, y: 150 },
-  touch: { x: 560, y: 225 },
-  tree: { x: 900, y: 420 },
+  feature: { x: 355, y: 125 },
+  touch: { x: 460, y: 60 },
+  tree: { x: 770, y: 450 },
   garland: { x: 110, y: 200 },
 };
 const SEATED: FurnitureId[] = ['table2', 'table4', 'sofa', 'bar'];
 
-// ——— Стиль зала: временная отрисовка, пока нет арта (заменится слоями отделки и вещей из Magnific) ———
+// ——— Стиль зала: стены и пол — слои размером с комнату, вещи — кусочки на своих местах (scripts/pack_hall_style.py,
+// scripts/cut_hall_items.py). Отделку и вещи можно сочетать как угодно: все правки сделаны поверх одной комнаты ———
 
-/** Стены и пол комнаты, в пикселях комнаты: сюда ложится цвет отделки */
-const WALLS_POLY = [
-  [[8, 140], [165, 18], [178, 283], [40, 478], [10, 470]],
-  [[165, 18], [835, 18], [820, 283], [178, 283]],
-  [[835, 18], [990, 130], [975, 470], [945, 480], [820, 283]],
-];
-const FLOOR_POLY = [[178, 288], [820, 288], [972, 488], [972, 540], [905, 578], [95, 578], [25, 540], [30, 490]];
-/** Нынешний зал нарисован в стиле «Как дома» — его отделку не перекрашиваем */
-const FINISH_LOOK: Partial<Record<FurnitureId, string>> = {
-  'walls-loft': 'repeating-linear-gradient(0deg,#e8d8c8 0 2px,transparent 2px 14px),#a4472e',
-  'walls-scandi': '#f6f3ec',
-  'walls-classic': 'repeating-linear-gradient(90deg,#2f5a40 0 3px,transparent 3px 60px),#3f6b4f',
-  'floor-loft': '#8f8e89',
-  'floor-scandi': 'repeating-linear-gradient(90deg,#d8bd8c 0 1px,transparent 1px 40px),#e6cfa2',
-  'floor-classic': 'repeating-conic-gradient(#2b2b2b 0 25%,#efe9dc 0 50%) 0 0/36px 36px',
-};
-/** Фирменные вещи до арта — значок там, где вещь будет стоять */
-const ITEM_MARK: Partial<Record<FurnitureId, { icon: string; x: number; y: number }>> = {
-  neon: { icon: '✨', x: 395, y: 150 },
-  pendants: { icon: '💡', x: 560, y: 225 },
-  rack: { icon: '🗄️', x: 395, y: 170 },
-  plaid: { icon: '🧣', x: 300, y: 255 },
-  mirror: { icon: '🪞', x: 395, y: 150 },
-  chandelier: { icon: '🕯️', x: 560, y: 205 },
-  samovar: { icon: '🫖', x: 395, y: 170 },
-  cat: { icon: '🐈', x: 115, y: 330 },
-  tree: { icon: '🎄', x: 900, y: 420 },
-  garland: { icon: '✨', x: 110, y: 200 },
-};
-const poly = (pts: number[][]): string =>
-  `polygon(${pts.map(([x, y]) => `${pct(x, HALL_ROOM.w)} ${pct(y, HALL_ROOM.h)}`).join(',')})`;
+const isFinish = (f: FurnitureId): boolean => f.startsWith('walls-') || f.startsWith('floor-');
 
 function finishHtml(layout: Partial<Record<string, FurnitureId>>): string {
-  const out: string[] = [];
-  const walls = layout.walls && FINISH_LOOK[layout.walls];
-  if (walls) for (const p of WALLS_POLY) out.push(`<div class="hall-finish" style="background:${walls};clip-path:${poly(p)}"></div>`);
-  const floor = layout.floor && FINISH_LOOK[layout.floor];
-  if (floor) out.push(`<div class="hall-finish" style="background:${floor};clip-path:${poly(FLOOR_POLY)}"></div>`);
-  return out.join('');
+  return ['walls', 'floor']
+    .map((slot) => layout[slot])
+    .filter((f): f is FurnitureId => !!f && !!ART[`./art/hall3/${f}.webp`])
+    .map((f) => `<img class="hall-finish" src="${art(f)}" alt="">`)
+    .join('');
 }
 
-function markHtml(slot: string, f: FurnitureId, sel: boolean, live: boolean): string {
-  const m = ITEM_MARK[f];
-  if (!m) return '';
+/** Висят над залом — поверх стены и вещей на стене; остальное стоит на полу и сортируется по глубине */
+const HANGING: FurnitureId[] = ['neon', 'rack', 'mirror', 'samovar', 'pendants', 'paperlamp', 'chandelier', 'garland'];
+
+function itemHtml(slot: string, f: FurnitureId, sel: boolean, live: boolean): string {
+  const fr = HALL_ITEMS[f];
+  if (!fr) return '';
+  const [x, y, w, h] = fr;
+  const z = HANGING.includes(f) ? 3 : 10 + y + h;
   const act = live ? ` data-action="hall-slot" data-item="${slot}"` : '';
-  return `<button class="hall-mark${sel ? ' selected' : ''}"${act} aria-label="${furniture(f).name}"
-    style="left:${pct(m.x, HALL_ROOM.w)};top:${pct(m.y, HALL_ROOM.h)};z-index:1500"${live ? '' : ' tabindex="-1"'}>${m.icon}</button>`;
+  return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(`item-${f}`)}" alt="${live ? furniture(f).name : ''}"${act}
+    style="left:${pct(x, HALL_ROOM.w)};top:${pct(y, HALL_ROOM.h)};width:${pct(w, HALL_ROOM.w)};z-index:${z}">`;
 }
 
-/** Картинка вещи для списка, а у отделки и фирменных вещей до арта — образец цвета или значок */
+/** Акцент на стене висит там же, где картина и часы: пока он есть, их не видно (уют они дают по-прежнему) */
+const coveredByFeature = (layout: Partial<Record<string, FurnitureId>>, slot: string): boolean =>
+  !!layout.feature && (slot === 'wall-1' || slot === 'wall-2');
+
+/** Где на картинке видно отделку: кусок стены и пола для образца в списке */
+const SWATCH_AT = { walls: { x: 205, y: 200 }, floor: { x: 470, y: 470 } };
+const SWATCH_SPAN = 80;
+
+/** Картинка вещи для списка; у отделки — кусок стены или пола, у вещей стиля — сама вещь */
 function swatch(id: FurnitureId): string {
-  const look = FINISH_LOOK[id];
-  if (look) return `<span class="swatch" style="background:${look}"></span>`;
-  if (id === 'walls-home') return '<span class="swatch" style="background:#ecd2a8"></span>';
-  if (id === 'floor-home') return '<span class="swatch" style="background:#a8703f"></span>';
-  const m = ITEM_MARK[id];
-  return m ? `<span class="swatch icon">${m.icon}</span>` : `<img src="${thumb(id)}" alt="">`;
+  if (isFinish(id)) {
+    const at = SWATCH_AT[id.startsWith('walls-') ? 'walls' : 'floor'];
+    const k = 44 / SWATCH_SPAN;
+    const pos = `${-(at.x - SWATCH_SPAN / 2) * k}px ${-(at.y - SWATCH_SPAN / 2) * k}px`;
+    return `<span class="swatch" style="background:url(${art(id)}) ${pos}/${HALL_ROOM.w * k}px auto no-repeat #efe7da"></span>`;
+  }
+  if (HALL_ITEMS[id]) return `<span class="swatch icon"><img src="${art(`item-${id}`)}" alt=""></span>`;
+  return `<img src="${thumb(id)}" alt="">`;
 }
 
 /** Картинка вещи для списка: первая, где она нарисована пустой */
@@ -203,7 +189,8 @@ function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
   const rug = layout.rug === 'rug';
   const things = HALL_SLOTS.map(({ id }) => {
     const f = layout[id];
-    return f ? pieceHtml(id, f, '', rug, false, false) || markHtml(id, f, false, false) : '';
+    if (coveredByFeature(layout, id)) return '';
+    return f ? pieceHtml(id, f, '', rug, false, false) || itemHtml(id, f, false, false) : '';
   }).join('');
   return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${finishHtml(layout)}${menuBoard(null)}${things}</div>`;
 }
@@ -217,7 +204,8 @@ export function hallTab(sim: Simulation, selected: string | null): string {
   const things = HALL_SLOTS.map(({ id }) => {
     const f = layout[id];
     const sel = selected === id;
-    if (f) return pieceHtml(id, f, state, rug, sel) || markHtml(id, f, sel, true);
+    if (coveredByFeature(layout, id)) return '';
+    if (f) return pieceHtml(id, f, state, rug, sel) || itemHtml(id, f, sel, true);
     const p = SLOT_AT[id];
     if (!p || (SEASON_SLOTS.includes(id) && !sim.holiday)) return '';
     return `<button class="hall-slot empty${sel ? ' selected' : ''}" data-action="hall-slot" data-item="${id}" aria-label="${SLOT_TITLE[id]}"

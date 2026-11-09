@@ -14,7 +14,7 @@ import { COLORS, RESIDENT_COLOR } from './palette';
 import { WeatherFx, type FxKind } from './weatherFx';
 import { Animals } from './animals';
 import type { WindLevel } from '../sim/weather';
-import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, textureOf, type Accessory, type Facing } from './atlas';
+import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, seasonal, textureOf, type Accessory, type Facing } from './atlas';
 import { Traffic } from './traffic';
 import { sound } from './sound';
 import type { RejectReason } from '../sim/cafe';
@@ -425,6 +425,8 @@ export class StreetScene extends Phaser.Scene {
     this.terrace = this.prop('prop-cafe-terrace', c.rect.x + 12 + 90, cBase + 23).setDepth(cBase + 0.2);
     // Накладки «витрина» и «интерьер» были нарисованы под старый фасад; новые — в работе (интерьер кафе)
     this.noCoffee = this.prop('prop-sign-no-coffee', c.rect.x + 204 - 30, cBase + 6).setDepth(cBase + 0.4);
+    // Новогодняя ёлка — в сквере, у фонтана со стороны Садовой
+    if (this.hooks.sim.holiday && this.district === 'klenovaya') this.prop('prop-city-tree', 700, 960);
     // Палатка фестиваля — в сквере у входа с улицы
     this.tent = this.prop('prop-festival-tent', SQUARE.x + 300, SQUARE.y + 150);
     for (const [frame, x, y] of props) {
@@ -1164,7 +1166,8 @@ export class StreetScene extends Phaser.Scene {
       .setVisible(false);
   }
 
-  private prop(frame: string, x: number, y: number): Phaser.GameObjects.Image {
+  private prop(name: string, x: number, y: number): Phaser.GameObjects.Image {
+    const frame = seasonal(name);
     return this.add
       .image(x, y, textureOf(frame), frame)
       .setOrigin(0.5, 1)

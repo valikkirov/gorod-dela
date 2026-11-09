@@ -20,7 +20,18 @@ import texRiverUrl from './art/tex-river.webp';
 import texCloudsUrl from './art/tex-clouds.jpg';
 import texForestUrl from './art/tex-forest.webp';
 import texBridgeUrl from './art/tex-bridge.webp';
+import texGrassWinterUrl from './art/tex-grass-winter.webp';
+import texSidewalkWinterUrl from './art/tex-sidewalk-winter.webp';
+import texForestWinterUrl from './art/tex-forest-winter.webp';
+import cityTreeUrl from './art/city-tree.webp';
+import texRailWinterUrl from './art/tex-rail-winter.webp';
+import treeRoundWinterUrl from './art/prop-tree-round-winter.webp';
+import treeTallWinterUrl from './art/prop-tree-tall-winter.webp';
+import pondWinterUrl from './art/prop-pond-winter.webp';
 import type { ResidentKind } from '../sim/residents';
+
+/** Ёлка в сквере в единицах мира (PNG — 2×) */
+const CITY_TREE = { w: 96, h: 170 };
 
 /** Во сколько раз PNG крупнее единиц мира */
 export const ART_SCALE = 2;
@@ -145,12 +156,33 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
   'tex-clouds': { url: texCloudsUrl, frames: { 'tex-clouds': [0, 0, 384, 384] } },
   'tex-forest': { url: texForestUrl, frames: { 'tex-forest': TEXTURE_FRAMES['tex-forest'] } },
   'tex-bridge': { url: texBridgeUrl, frames: { 'tex-bridge': TEXTURE_FRAMES['tex-bridge'] } },
+  // Новогодняя ёлка в сквере (scripts/pack_winter.py): ставится только в сезон
+  'city-tree': { url: cityTreeUrl, frames: { 'prop-city-tree': [0, 0, CITY_TREE.w, CITY_TREE.h] } },
+  // Зимние деревья и замёрзший пруд: того же размера, что летние кадры (scripts/pack_winter.py)
+  'winter-tree-round': { url: treeRoundWinterUrl, frames: { 'prop-tree-round-winter': [0, 0, 83, 100] } },
+  'winter-tree-tall': { url: treeTallWinterUrl, frames: { 'prop-tree-tall-winter': [0, 0, 57, 100] } },
+  'winter-pond': { url: pondWinterUrl, frames: { 'prop-pond-winter': [0, 0, 290, 125] } },
   people: { url: peopleUrl, frames: peopleFrames() },
   // Животные «Графики 2.0»: листы поз из Magnific, сборка scripts/pack_animals.py
   animals: { url: animalsUrl, frames: ANIMAL_FRAMES },
   // Транспорт «Графики 2.0» в 3/4 (scripts/pack_vehicles.py). Стоит после extra: одноимённые кадры берутся отсюда
   vehicles: { url: vehiclesUrl, frames: VEHICLE_FRAMES },
 };
+
+/** Новогодний сезон: трава, плитка и лес — в снегу. Вызывать до загрузки сцены */
+export function useWinter(): void {
+  ATLASES['tex-grass'].url = texGrassWinterUrl;
+  ATLASES['tex-sidewalk'].url = texSidewalkWinterUrl;
+  ATLASES['tex-forest'].url = texForestWinterUrl;
+  ATLASES['tex-rail'].url = texRailWinterUrl;
+  winter = true;
+}
+
+let winter = false;
+/** Зимний кадр вместо летнего, если он есть и сейчас сезон */
+export function seasonal(frame: string): string {
+  return winter && FRAME_TEXTURE.has(`${frame}-winter`) ? `${frame}-winter` : frame;
+}
 
 /** Кадр жителя 28×44, стопы на линии y = 42 */
 export const RESIDENT_SIZE = { w: 28, h: 44, feet: 42 } as const;

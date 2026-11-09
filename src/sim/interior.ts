@@ -28,7 +28,7 @@ export type FurnitureId =
   | 'neon'
   | 'pendants'
   | 'rack'
-  | 'plaid'
+  | 'paperlamp'
   | 'mirror'
   | 'chandelier'
   | 'samovar'
@@ -93,7 +93,7 @@ export const FURNITURE: Furniture[] = [
   { id: 'neon', name: L('Неоновая надпись'), seats: 0, cozy: 1, cost: 3_000, likes: [], style: 'loft' },
   { id: 'pendants', name: L('Лампы-лампочки над столами'), seats: 0, cozy: 1, cost: 2_500, likes: [], style: 'loft' },
   { id: 'rack', name: L('Белый стеллаж с\u00a0посудой'), seats: 0, cozy: 1, cost: 3_000, likes: [], style: 'scandi' },
-  { id: 'plaid', name: L('Пледы на\u00a0диване и\u00a0стульях'), seats: 0, cozy: 1, cost: 2_000, likes: [], style: 'scandi' },
+  { id: 'paperlamp', name: L('Бумажный абажур'), seats: 0, cozy: 1, cost: 2_000, likes: [], style: 'scandi' },
   { id: 'mirror', name: L('Зеркало в\u00a0раме'), seats: 0, cozy: 1, cost: 3_000, likes: [], style: 'classic' },
   { id: 'chandelier', name: L('Люстра'), seats: 0, cozy: 1, cost: 3_500, likes: [], style: 'classic' },
   { id: 'samovar', name: L('Полка с\u00a0самоваром'), seats: 0, cozy: 1, cost: 4_000, likes: [], style: 'home' },
@@ -121,7 +121,7 @@ export const HALL_SLOTS: { id: string; accepts: FurnitureId[] }[] = [
   { id: 'walls', accepts: ['walls-home', 'walls-loft', 'walls-scandi', 'walls-classic'] },
   { id: 'floor', accepts: ['floor-home', 'floor-loft', 'floor-scandi', 'floor-classic'] },
   { id: 'feature', accepts: ['neon', 'rack', 'mirror', 'samovar'] },
-  { id: 'touch', accepts: ['pendants', 'plaid', 'chandelier', 'cat'] },
+  { id: 'touch', accepts: ['pendants', 'paperlamp', 'chandelier', 'cat'] },
   // Новогодний декор: в сезон зал тянет посидеть, после — просто уют
   { id: 'tree', accepts: ['tree'] },
   { id: 'garland', accepts: ['garland'] },

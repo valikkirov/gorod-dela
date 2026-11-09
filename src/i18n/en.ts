@@ -1121,7 +1121,7 @@ export const EN: Record<string, string> = {
  "Неоновая надпись": "Neon sign",
  "Лампы-лампочки над столами": "Bulb pendants over the tables",
  "Белый стеллаж с посудой": "White shelving with dishes",
- "Пледы на диване и стульях": "Throws on the sofa and chairs",
+ "Бумажный абажур": "Paper globe lamp",
  "Зеркало в раме": "Framed mirror",
  "Люстра": "Chandelier",
  "Полка с самоваром": "Shelf with a samovar",
