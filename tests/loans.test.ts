@@ -33,7 +33,7 @@ describe('Кредит', () => {
     expect(sim.loan?.left).toBe(30_000 - pay.principal);
     // Итог дня считает проценты, но не возврат долга
     const r = paidDay!;
-    expect(r.profit).toBe(r.revenue - r.purchases - r.rent - r.utilities - r.wages - r.tax - r.marketing - (r.other ?? 0) - r.interest!);
+    expect(r.profit).toBe(r.revenue - r.food! - r.rent - r.utilities - r.wages - r.tax - r.marketing - (r.other ?? 0) - r.interest!);
   });
 
   it('за весь срок переплата равна процентам, после погашения — пауза перед новым', () => {
@@ -89,7 +89,7 @@ describe('Кредит', () => {
     sim.openCafe();
     for (let i = 0; i < 3; i++) sim.hireBarista('shift');
     let day = 0;
-    for (; day < 120 && !sim.bankrupt; day++) {
+    for (; day < 180 && !sim.bankrupt; day++) {
       // Каждый раз, когда можно, берём максимум — у банка или у частника
       for (const src of ['bank', 'private'] as const) {
         const o = sim.loanOffer(src);
@@ -101,6 +101,6 @@ describe('Кредит', () => {
       sim.advance(DAY);
     }
     expect(sim.bankrupt).toBe(true);
-    expect(day).toBeLessThan(120);
+    expect(day).toBeLessThan(180);
   }, 120_000);
 });

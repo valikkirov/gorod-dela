@@ -1,6 +1,6 @@
 // Отчёты за период (GDD §13.4, блок 2): неделя и месяц по дням отчётов.
 // Неделя — 7 игровых дней от первого, месяц — 4 недели (28 дней): так периоды стыкуются с днями недели.
-import type { DayReport, RejectReason } from './cafe';
+import { foodLine, type DayReport, type RejectReason } from './cafe';
 import { formatMoney } from './economy';
 
 import { getLang, L, tr } from './i18n';
@@ -31,7 +31,7 @@ export function periodByIndex(kind: PeriodKind, index: number): Period {
 
 /** Статьи расходов в порядке показа */
 export const COST_LINES = [
-  ['purchases', L('Закупка')],
+  ['purchases', L('Расход на продукты')],
   ['rent', L('Аренда')],
   ['utilities', L('Коммуналка')],
   ['wages', L('Зарплата')],
@@ -95,6 +95,7 @@ export function summarize(
   let wanted = 0;
   let writtenOff = 0;
   let invested = 0;
+  let bought = 0;
   for (const r of days) {
     revenue += r.revenue;
     profit += r.profit;
@@ -102,7 +103,8 @@ export function summarize(
     wanted += r.wanted;
     writtenOff += r.writtenOff;
     invested += r.invested ?? 0;
-    for (const [k] of COST_LINES) costs[k] += (r[k] as number | undefined) ?? 0;
+    for (const [k] of COST_LINES) costs[k] += k === 'purchases' ? foodLine(r) : ((r[k] as number | undefined) ?? 0);
+    bought += r.purchases;
     for (const [id, n] of Object.entries(r.sold)) {
       add(sold, id, n);
       const p = priceOf(id);
@@ -126,7 +128,7 @@ export function summarize(
     guests,
     wanted,
     writtenOff,
-    purchases: costs.purchases,
+    purchases: bought,
     invested,
     items,
     missed,

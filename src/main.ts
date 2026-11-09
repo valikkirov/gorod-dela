@@ -114,6 +114,7 @@ const hooksFor = (sim: Simulation): SceneHooks => ({
     hud.onDayEnd();
     drawer.open();
   },
+  onStep: (id) => hud.onStep(id),
   onBankrupt: () => hud.onBankrupt(),
   onCreate: () => {
     // Карта нарисована — площадке можно сказать, что игра загружена (повторный вызов при смене района безвреден)

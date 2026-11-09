@@ -1,3 +1,4 @@
+import { FIRST_STEPS, type StepId } from '../sim/firstSteps';
 import { type Cell, paintGround } from './ground';
 import Phaser from 'phaser';
 import { GAME_MINUTES_PER_SECOND } from '../sim/clock';
@@ -34,6 +35,8 @@ export interface SceneHooks {
   wide: () => boolean;
   onFrame: () => void;
   onDayEnd: () => void;
+  /** Выполнен шаг из «Первых шагов» */
+  onStep?: (id: StepId) => void;
   onBankrupt: () => void;
   /** Сцена создана и нарисована */
   onCreate?: () => void;
@@ -766,6 +769,10 @@ export class StreetScene extends Phaser.Scene {
       } else if (e.type === 'aware') {
         const r = sim.residents[e.residentId];
         if (r.visible) this.float(r.pos.x, r.pos.y - 52, e.source === 'walk' ? L('заметил кафе') : L('узнал о кафе'), '#2f6fb0', 16);
+      } else if (e.type === 'step') {
+        const c = this.at(sim.shopId).rect;
+        this.float(c.x + c.w / 2, c.y - 10, `✓ ${FIRST_STEPS.find((s) => s.id === e.id)?.title ?? ''}`, '#2e8b57', 20);
+        this.hooks.onStep?.(e.id);
       } else if (e.type === 'day') {
         this.hooks.onDayEnd();
       } else if (e.type === 'rival' && sim.rival) {
@@ -883,7 +890,7 @@ export class StreetScene extends Phaser.Scene {
       // Сдаётся только то, что можно снять в этом районе (киоск в квартале займёт сеть)
       const rentable = !cafe.opened && PREMISES[shop.place.id as PremisesId]?.district === this.district;
       const name = mine ? cafe.title : theirs ? rival!.t.name : rentable ? L('Сдаётся') : '';
-      const status = mine ? (open ? L('открыто') : L('закрыто')) : theirs ? tr`конкурент · ${theirsOpen ? L('открыто') : L('закрыто')}` : rentable ? shop.place.name : '';
+      const status = mine ? (open ? (sim.grandOpening ? L('🎀 открытие!') : L('открыто')) : L('закрыто')) : theirs ? tr`конкурент · ${theirsOpen ? L('открыто') : L('закрыто')}` : rentable ? shop.place.name : '';
       shop.name.setText(name).setVisible(name !== '');
       shop.status.setText(status).setVisible(status !== '');
       shop.status.setColor(mine && open ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');

@@ -13,6 +13,7 @@ import { Rng } from './rng';
 import { INGREDIENTS, ingredient, recipeCost, recipeOf, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
 import { Rival, RIVAL, type RivalSave } from './rival';
 import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type Regular } from './regulars';
+import { FIRST_STEPS, STEP_GUESTS, STEP_REVENUE, type StepId } from './firstSteps';
 import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
 import { card, EVENTS, resultLine, supplierPrice, type EventId, type PendingEvent } from './events';
 import { rollWeather, windFor, type Weather } from './weather';
@@ -76,6 +77,8 @@ export interface SaveData {
   /** Прогулки по большому скверу — свой генератор, чтобы не сдвигать остальную жизнь */
   parkRng?: number;
   milestones?: Partial<Record<MilestoneId, number>>;
+  /** «Первые шаги» — день, когда выполнен шаг */
+  steps?: Partial<Record<StepId, number>>;
   loan?: Loan | null;
   loanHistory?: LoanHistory;
   residents: {
@@ -119,6 +122,7 @@ export type SimEvent =
   | { type: 'bankrupt' }
   | { type: 'rival'; what: 'open' | 'promo' }
   | { type: 'milestone'; id: MilestoneId }
+  | { type: 'step'; id: StepId }
   | { type: 'event'; id: EventId };
 
 /** Последствия событий, которые длятся какое-то время */
@@ -156,6 +160,8 @@ export class Simulation {
   private readonly regularById = new Map<number, Regular>();
   /** Достигнутые вехи: id → день */
   readonly milestones: Partial<Record<MilestoneId, number>> = {};
+  /** «Первые шаги» новичка: какой шаг в какой день выполнен */
+  readonly steps: Partial<Record<StepId, number>> = {};
   /** Касса, кредит и банкротство — общие для всех точек игрока (см. link) */
   private wallet: Wallet = { cash: ECONOMY.startCash, daysInRed: 0, bankrupt: false, loan: null, loanHistory: emptyHistory() };
   /** Главная точка, если эта — вторая: погода, кредит и банкротство считаются там */
@@ -279,6 +285,7 @@ export class Simulation {
       rival: this.rival?.toJSON() ?? null,
       regulars: this.regulars.map((g) => ({ residentId: g.residentId, history: g.history, status: g.status, lostReason: g.lostReason })),
       milestones: { ...this.milestones },
+      steps: { ...this.steps },
       pendingEvent: this.pendingEvent,
       effects: this.effects,
       lastEvent: { ...this.lastEvent },
@@ -337,6 +344,9 @@ export class Simulation {
       if (g) Object.assign(g, { history: s.history, status: s.status, lostReason: s.lostReason });
     }
     Object.assign(sim.milestones, d.milestones ?? {});
+    Object.assign(sim.steps, d.steps ?? {});
+    // Сохранение старше «Первых шагов»: игрок давно освоился — карточку не показываем
+    if (!d.steps && sim.reports.length > 3) for (const st of FIRST_STEPS) sim.steps[st.id] = 0;
     sim.pendingEvent = d.pendingEvent ?? null;
     sim.effects = d.effects ?? [];
     sim.lastEvent = { ...(d.lastEvent ?? {}) };
@@ -412,14 +422,16 @@ export class Simulation {
           : premisesId === 'bistro'
             ? r.workId === 'bc-alfa' || r.workId === 'cowork'
             : r.homeId === 'metro' && r.kind !== 'visitor';
-      const p = r.kind === 'shopkeeper' ? 1 : neighbour ? (premisesId === 'kiosk' ? 0.35 : 0.7) : 0.1;
+      const p = r.kind === 'shopkeeper' ? 1 : neighbour ? (premisesId === 'kiosk' ? 0.35 : 0.7) : MARKETING.openingHeard;
       if (this.rng.chance(p)) this.learn(r, 'start');
     }
-    // Стартовая закупка входит в стоимость открытия; автозаказ включён на тех же уровнях
+    // Стартовая закупка входит в стоимость открытия; автозаказ включён на тех же уровнях —
+    // только для того, что нужно стартовому меню: иначе кухонные продукты портятся каждые два дня
+    const used = new Set(this.cafe.menu.flatMap((m) => Object.keys(recipeOf(m.id))));
     for (const ing of INGREDIENTS) {
-      const qty = STARTER_KEEP[ing.id];
+      const qty = used.has(ing.id) ? STARTER_KEEP[ing.id] : 0;
       this.cafe.stock.keep[ing.id] = qty;
-      this.cafe.stock.keepWeekend[ing.id] = STARTER_KEEP_WEEKEND[ing.id];
+      this.cafe.stock.keepWeekend[ing.id] = used.has(ing.id) ? STARTER_KEEP_WEEKEND[ing.id] : 0;
       if (qty > 0) this.cafe.stock.addNow(ing.id, qty, this.day, ing.unitCost);
     }
     return true;
@@ -429,6 +441,7 @@ export class Simulation {
     const it = this.cafe.item(itemId);
     const from = it.price;
     it.price = Math.max(ECONOMY.priceStep, Math.round(price / ECONOMY.priceStep) * ECONOMY.priceStep);
+    if (it.price !== from) this.markStep('price');
     this.note(`price:${itemId}`, it.name, formatMoney(from), formatMoney(it.price));
   }
 
@@ -501,22 +514,27 @@ export class Simulation {
 
   addMenuItem(id: string): boolean {
     const ok = this.cafe.addItem(id);
+    if (ok) this.ensureSupply(id);
     if (ok) this.toggle(`menu:${id}`, tr`Меню: ${itemName(id, this.cafe.own)}`, L('добавлен'), L('убран'), true);
     return ok;
+  }
+
+  /** Для новой позиции нужных продуктов нет и автозаказ на них выключен: ставим его и заказываем сразу — привезут утром */
+  private ensureSupply(itemId: string): void {
+    const stock = this.cafe.stock;
+    for (const id of Object.keys(recipeOf(itemId)) as IngredientId[]) {
+      if (stock.keep[id] > 0 || stock.qty(id) > 0 || (stock.pending[id] ?? 0) > 0) continue;
+      stock.keep[id] = DISH_STARTER;
+      stock.keepWeekend[id] = DISH_STARTER;
+      stock.order(id, DISH_STARTER);
+    }
   }
 
   /** Придумать своё блюдо: основа + добавки, своё название и цена. Сразу встаёт в меню */
   createDish(baseId: BaseId, addIns: AddInId[], name: string, price: number): boolean {
     const it = this.cafe.createDish(baseId, addIns, name, price);
     if (!it) return false;
-    // Новых добавок на складе нет: ставим автозаказ и заказываем сразу — привезут утром
-    const stock = this.cafe.stock;
-    for (const id of Object.keys(recipeOf(it.id)) as IngredientId[]) {
-      if (stock.keep[id] > 0 || stock.qty(id) > 0) continue;
-      stock.keep[id] = DISH_STARTER;
-      stock.keepWeekend[id] = DISH_STARTER;
-      stock.order(id, DISH_STARTER - (stock.pending[id] ?? 0));
-    }
+    this.ensureSupply(it.id);
     this.toggle(`menu:${it.id}`, tr`Своё блюдо: ${it.name}`, L('убрано'), L('в меню'), true);
     return true;
   }
@@ -652,6 +670,7 @@ export class Simulation {
   }
 
   private step(dt: number): void {
+    if (this.steps.guests === undefined && this.cafe.opened && this.guestsServed >= STEP_GUESTS) this.markStep('guests');
     const wasOpen = this.cafe.isOpenAt(this.minute);
     const before = this.minute;
     this.time += dt;
@@ -1098,10 +1117,23 @@ export class Simulation {
     this.marketing.loyaltyCard = on;
   }
 
+  /** Отметить шаг «Первых шагов» (итоги дня отмечает интерфейс: смотреть их — дело игрока) */
+  markStep(id: StepId): void {
+    if (this.steps[id] !== undefined) return;
+    this.steps[id] = this.day;
+    this.events.push({ type: 'step', id });
+  }
+
+  /** Сколько гостей обслужено за всё время — для первого шага */
+  get guestsServed(): number {
+    return this.reports.reduce((n, r) => n + r.guests, 0) + this.cafe.today.guests;
+  }
+
   // ——— Склад: команды игрока ———
 
   orderIngredient(id: IngredientId, qty: number): void {
     this.cafe.stock.order(id, qty);
+    this.markStep('stock');
     const total = this.cafe.stock.pending[id] ?? qty;
     this.note(`order:${id}`, tr`Заказ: ${ingredient(id).name.toLowerCase()}`, undefined, tr`${total}\u00a0порц.`, L('привезут в\u00a06:00'));
   }
@@ -1117,6 +1149,7 @@ export class Simulation {
     const levels = weekend ? this.cafe.stock.keepWeekend : this.cafe.stock.keep;
     const from = levels[id];
     levels[id] = Math.max(0, Math.round(qty));
+    if (levels[id] !== from) this.markStep('stock');
     this.note(
       `keep:${id}:${weekend ? 'we' : 'wd'}`,
       tr`Держать ${ingredient(id).name.toLowerCase()} (${weekend ? L('выходные') : L('будни')})`,
@@ -1180,6 +1213,7 @@ export class Simulation {
     if (!this.main) this.payLoan(report);
     report.cashAfter = this.cash;
     this.reports.push(report);
+    if (report.opened && report.revenue >= STEP_REVENUE) this.markStep('revenue');
     const reached = this.checkMilestones(report.day);
     if (reached.length) report.milestones = reached;
     this.day = nextDay;
@@ -1297,6 +1331,11 @@ export class Simulation {
     return e && e.type === 'boost' ? e.factor : 1;
   }
 
+  /** Идут первые дни после открытия: ленточка на вывеске, прохожие замечают новое место охотнее */
+  get grandOpening(): boolean {
+    return this.cafe.opened && this.day - this.openedDay < MARKETING.openingDays;
+  }
+
   /** День открытия — от него считаем, когда начинаются события */
   private get openedDay(): number {
     return this.rival ? this.rival.opensDay - RIVAL.delayDays : this.day;
@@ -1401,6 +1440,7 @@ export class Simulation {
         // Продукты под заказ покупаются отдельно и в склад не попадают
         this.cash -= e.ingredientCost!;
         t.purchases += e.ingredientCost!;
+        t.orderCost = (t.orderCost ?? 0) + e.ingredientCost!;
         this.effects.push({ type: 'order', day: e.day + 1, minute: EVENTS.order.minute, itemId: e.itemId!, qty: EVENTS.order.qty, pay: e.pay! });
         break;
       case 'blogger:treat':
@@ -1676,7 +1716,8 @@ export class Simulation {
         const look = 1 + 0.8 * (r.character.curiosity - 0.5) - 0.3 * (r.character.hurry - 0.5);
         // Доска с подсветкой у киоска: замечают чаще, особенно вечером
         const board = this.cafe.has('board') ? (this.minute >= hm(17) ? UPGRADE_EFFECT.boardNoticeEvening : UPGRADE_EFFECT.boardNotice) : 1;
-        const p = (this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase) * look * board;
+        const base = this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase;
+        const p = (this.grandOpening ? Math.max(base, MARKETING.noticeOpening) : base) * look * board;
         if (this.rng.chance(Math.min(1, p))) this.learn(r, 'walk');
       }
     }

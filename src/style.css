@@ -3291,3 +3291,98 @@ button.small.danger {
 .overlay .sheet .lang-row {
   margin: -4px 0 4px;
 }
+
+/* «Первые шаги» — короткие задачи новичка в обзоре */
+.first-steps {
+  margin: 10px 0 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+#panel .first-steps h4 {
+  margin: 0 0 6px;
+}
+.first-steps ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.first-steps li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 5px 0;
+}
+.first-steps li + li {
+  border-top: 1px dashed var(--line);
+}
+.first-steps .mark {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+.first-steps li.ok .mark {
+  background: var(--good);
+  border-color: var(--good);
+}
+.first-steps li b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+.first-steps li.ok b {
+  color: var(--muted);
+  font-weight: 500;
+}
+.first-steps li small {
+  display: block;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.first-steps.done {
+  background: var(--good-subtle, #e2efdf);
+  border-color: var(--good);
+}
+
+/* Ночью всё закрыто — кнопка «Промотать» сверху по центру карты */
+#night-skip {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--wood-dark, #4e321d);
+  color: #fffcf5;
+  font: 500 14px var(--font-head, inherit);
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(43, 30, 20, 0.3);
+  cursor: pointer;
+}
+#night-skip[hidden] {
+  display: none;
+}
+#night-skip b {
+  font-weight: 700;
+  color: #ffd98a;
+}
+@media (max-width: 899px) {
+  /* На телефоне сверху справа плашка района — кнопку ставим ниже неё */
+  #night-skip {
+    top: 62px;
+    font-size: 13px;
+    padding: 7px 12px;
+  }
+}

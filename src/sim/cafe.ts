@@ -58,6 +58,14 @@ export const REJECT_LABEL: Record<RejectReason, string> = {
   'no-staff': L('Некому обслужить'),
 };
 
+/** Расход на продукты за день: продано по себестоимости + испортилось + продукты под заказ */
+export function foodCost(r: Pick<DayReport, 'cogs' | 'writtenOff' | 'orderCost'>): number {
+  return Math.round(r.cogs + r.writtenOff + (r.orderCost ?? 0));
+}
+
+/** Строка «Продукты» в отчёте: в старых отчётах (до food) итог считался по закупке — показываем её, чтобы сходилось */
+export const foodLine = (r: Pick<DayReport, 'food' | 'purchases'>): number => r.food ?? r.purchases;
+
 export interface DayReport {
   day: number;
   opened: boolean;
@@ -67,8 +75,12 @@ export interface DayReport {
   revenue: number;
   /** Себестоимость проданного — для справки */
   cogs: number;
-  /** Сколько заплатили поставщику за привезённое сегодня */
+  /** Сколько заплатили поставщику за привезённое сегодня (движение денег, в итог дня не входит) */
   purchases: number;
+  /** Продукты под заказ офиса — мимо склада, сразу в расход */
+  orderCost?: number;
+  /** Расход на продукты за день: себестоимость проданного + списания + продукты под заказ (в старых отчётах нет) */
+  food?: number;
   /** Испортилось и выброшено, ₽ (уже оплачено при закупке) */
   writtenOff: number;
   writtenOffItems: Partial<Record<IngredientId, number>>;
@@ -913,7 +925,10 @@ export class Cafe {
       r.wages = Math.round(this.wagesToday);
       r.tax = Math.round(r.revenue * ECONOMY.taxRate);
     }
-    r.profit = r.revenue - r.purchases - r.rent - r.utilities - r.wages - r.tax - r.marketing - (r.other ?? 0);
+    // Итог дня считается по себестоимости проданного, а не по закупке: заказ на склад — вложение,
+    // а не потеря, иначе день привоза продуктов выглядит провалом
+    r.food = foodCost(r);
+    r.profit = r.revenue - r.food - r.rent - r.utilities - r.wages - r.tax - r.marketing - (r.other ?? 0);
     this.today = Cafe.emptyDay(nextDay);
     this.wagesToday = 0;
     this.prepUntil = -1;

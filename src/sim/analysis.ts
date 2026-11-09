@@ -1,6 +1,6 @@
 // Разбор дня для отчёта: с чем сравнить, что главное, где потеряли гостей.
 // Отчёт даёт доказательства, а не готовые инструкции — решение за игроком.
-import type { DayReport, RejectReason } from './cafe';
+import { foodLine, type DayReport, type RejectReason } from './cafe';
 import { isWeekend, WEEKDAY_FULL } from './clock';
 import { formatMoney } from './economy';
 import type { ResidentKind } from './residents';
@@ -196,7 +196,7 @@ function factor(r: DayReport, c: Comparison | null): string {
   if (!c) {
     const costs: [string, number][] = [
       [tr`аренду и коммуналку`, r.rent + r.utilities],
-      [L('закупку'), r.purchases],
+      [L('продукты'), foodLine(r)],
       [L('зарплату'), r.wages],
       [L('маркетинг'), r.marketing],
     ];
@@ -212,7 +212,7 @@ function factor(r: DayReport, c: Comparison | null): string {
   // Вклад каждой статьи в разницу итога
   const parts: [string, number][] = [
     ['revenue', r.revenue - p.revenue],
-    ['purchases', -(r.purchases - p.purchases)],
+    ['purchases', -(foodLine(r) - foodLine(p))],
     ['wages', -(r.wages - p.wages)],
     ['marketing', -(r.marketing - p.marketing)],
   ];
@@ -228,7 +228,7 @@ function factor(r: DayReport, c: Comparison | null): string {
       const guests = r.guests === p.guests ? tr`при том же числе гостей (${r.guests}), значит, дело в среднем чеке` : tr`гостей ${r.guests} против ${p.guests}`;
       return tr`выручка ${up ? L('выше') : L('ниже')} на ${amount}, ${guests}`;
     }
-    if (key === 'purchases') return tr`закупка ${up ? L('меньше') : L('больше')} на ${amount}`;
+    if (key === 'purchases') return tr`на продукты ушло ${up ? L('меньше') : L('больше')} на ${amount}`;
     if (key === 'wages') return tr`зарплата ${up ? L('меньше') : L('больше')} на ${amount}`;
     return up ? tr`на маркетинг ушло меньше на ${amount}` : tr`маркетинг ${money(r.marketing)}`;
   };

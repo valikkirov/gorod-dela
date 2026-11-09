@@ -13,6 +13,8 @@ import {
   type MenuItem,
   type RejectReason,
   DISH_NAME_MAX,
+  foodCost,
+  foodLine,
   windowOn,
 } from '../sim/cafe';
 import {
@@ -63,6 +65,7 @@ import cardKiosk from './art/cards/card-kiosk.webp';
 import cardCafe from './art/cards/card-cafe.webp';
 
 import { getLang, translit, L, tr } from '../sim/i18n';
+import { FIRST_STEPS, type StepId } from '../sim/firstSteps';
 const PREMISES_PIC: Record<PremisesId, string> = { kiosk: cardKiosk, cafe: cardCafe, bistro: cardCafe };
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
@@ -282,6 +285,7 @@ export class Hud {
   private readonly cash = $('#cash');
   private readonly panel = $('#panel');
   private readonly note = $('#street-note');
+  private readonly nightSkip = $('#night-skip') as HTMLButtonElement;
   private readonly district = $<HTMLButtonElement>('#district');
   /** Окно поверх игры: каталог меню и конструктор блюда — чтобы не открывались внизу длинной панели */
   private readonly modal = document.createElement('div');
@@ -348,6 +352,14 @@ export class Hud {
     });
     pill.append(pause, cycle);
     speeds.append(pill);
+    // Ночью, когда всё закрыто, — заметная кнопка над картой: новичок не ищет ⏭ в шапке
+    this.nightSkip.innerHTML = tr`🌙 Всё закрыто до утра · <b>Промотать ⏭</b>`;
+    this.nightSkip.addEventListener('click', () => {
+      if (this.sim.bankrupt) return;
+      goal('night_skip');
+      this.city.skipToMorning();
+      this.render(true);
+    });
     // Промотать до 6:00 утра: ночь и пустые часы не нужно ждать
     const skip = document.createElement('button');
     skip.textContent = '⏭';
@@ -496,6 +508,7 @@ export class Hud {
 
   select(r: Resident | null): void {
     this.selected = r;
+    if (r && this.sim.cafe.opened) this.sim.markStep('resident');
     if (r) this.selectedPlace = null;
     this.view = r ? 'resident' : 'cafe';
     this.render(true);
@@ -509,7 +522,44 @@ export class Hud {
     this.render(true);
   }
 
+  /** Ночь и все точки закрыты до утра: ждать нечего — предлагаем промотать */
+  private isQuietNight(): boolean {
+    const m = this.sim.minute;
+    if (this.sim.bankrupt || this.speed === 0 || !(m >= 20 * 60 || m < 5 * 60)) return false;
+    const points = this.city.points.filter((s) => s.cafe.opened);
+    return points.length > 0 && points.every((s) => !s.cafe.isOpenAt(m));
+  }
+
+  /** Выполнен шаг «Первых шагов»: звук, цель Метрики и обновлённая карточка */
+  onStep(id: StepId): void {
+    goal('first_step', { id });
+    sound.play('ui-milestone', 0.6);
+    if (FIRST_STEPS.every((s) => this.sim.steps[s.id] !== undefined)) goal('first_steps_done');
+    this.stepsJustDone = FIRST_STEPS.every((s) => this.sim.steps[s.id] !== undefined);
+    this.render(true);
+  }
+
+  /** Все шаги только что пройдены: один раз показываем поздравление вместо карточки */
+  private stepsJustDone = false;
+
+  /** Карточка «Первые шаги» в обзоре: пока новичок их не прошёл */
+  private firstStepsCard(): string {
+    const sim = this.sim;
+    if (sim.isBranch || !sim.cafe.opened) return '';
+    const done = FIRST_STEPS.filter((s) => sim.steps[s.id] !== undefined).length;
+    if (done === FIRST_STEPS.length) {
+      if (!this.stepsJustDone) return '';
+      return `<div class="first-steps done"><b>${L('Первые шаги пройдены!')}</b> ${L('Дальше — вехи во вкладке «Развитие».')}</div>`;
+    }
+    const items = FIRST_STEPS.map((s) => {
+      const ok = sim.steps[s.id] !== undefined;
+      return `<li class="${ok ? 'ok' : ''}"><span class="mark">${ok ? '✓' : ''}</span><div><b>${s.title}</b>${ok ? '' : `<small>${s.hint}</small>`}</div></li>`;
+    }).join('');
+    return `<div class="first-steps"><h4>${tr`Первые шаги · ${done} из ${FIRST_STEPS.length}`}</h4><ul>${items}</ul></div>`;
+  }
+
   onDayEnd(): void {
+    this.stepsJustDone = false;
     this.checkChallenge();
     // Сколько дней прожило заведение — главный показатель удержания
     const opened = this.sim.reports.filter((r) => r.opened).length;
@@ -553,6 +603,8 @@ export class Hud {
     if (this.cash.innerHTML !== cash) this.cash.innerHTML = cash;
     const note = streetNote(this.sim.minute, isWeekend(day));
     if (this.note.innerHTML !== note) this.note.innerHTML = note;
+    const night = this.isQuietNight();
+    if (this.nightSkip.hidden === night) this.nightSkip.hidden = !night;
     this.cash.classList.toggle('neg', this.sim.cash < 0);
     const e = this.sim.pendingEvent;
     const key = e ? `${e.id}:${e.day}` : '';
@@ -1307,7 +1359,7 @@ export class Hud {
     let body = '';
     if (this.tab === 'overview') {
       this.live['stock-warn'] = this.stockWarning();
-      body = tr`
+      body = this.firstStepsCard() + tr`
       ${this.cashWarning()}
       ${this.eventBanner()}
       ${this.insightBlock()}
@@ -1378,7 +1430,7 @@ export class Hud {
     const t = cafe.today;
     // Итог «на сейчас»: аренда и коммуналка за весь день уже вычтены, чтобы утренний плюс не обманывал
     const running = Math.round(
-      t.revenue - t.purchases - cafe.wagesSoFar - t.revenue * ECONOMY.taxRate - t.marketing - (t.other ?? 0) - cafe.premises.rentPerDay - cafe.utilitiesPerDay,
+      t.revenue - foodCost(t) - cafe.wagesSoFar - t.revenue * ECONOMY.taxRate - t.marketing - (t.other ?? 0) - cafe.premises.rentPerDay - cafe.utilitiesPerDay,
     );
     this.live['biz-result'] = `${running > 0 ? '+' : ''}${money(running)}`;
     this.live['biz-guests'] = `${t.guests}${NB}${plural(t.guests, 'гость', 'гостя', 'гостей')}`;
@@ -1394,7 +1446,7 @@ export class Hud {
       <small class="eyebrow">Твоё заведение</small>
       ${name}
       <div class="biz-line"><span class="biz-status ${open ? 'on' : ''}" data-live="status"></span></div>
-      <div class="biz-line" title="Выручка минус закупки, зарплаты, налог, аренда и коммуналка за день">Сегодня пока <b data-live="biz-result"></b> · <span data-live="biz-guests"></span></div>
+      <div class="biz-line" title="Выручка минус проданные продукты по себестоимости, зарплаты, налог, аренда и коммуналка за день">Сегодня пока <b data-live="biz-result"></b> · <span data-live="biz-guests"></span></div>
       <button class="link only-peek" data-action="expand">Открыть управление</button>
     </header>`;
   }
@@ -2380,7 +2432,7 @@ export class Hud {
         r.opened
           ? tr`<h4>Деньги</h4><table class="pnl">
         ${row(L('Выручка'), r.revenue)}
-        ${row(L('Закупка продуктов'), -r.purchases)}
+        ${row(L('Расход на продукты'), -foodLine(r))}
         ${row(L('Аренда'), -r.rent)}
         ${row(L('Коммуналка'), -r.utilities)}
         ${r.wages ? row(L('Зарплата'), -r.wages) : ''}
@@ -2389,6 +2441,7 @@ export class Hud {
         ${r.other ? row(L('События'), -r.other) : ''}
         ${r.interest ? row(L('Проценты по${NB}кредиту'), -r.interest) : ''}
         ${row(L('Итог дня'), r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
+        ${r.food !== undefined && r.purchases ? row(L('Закуплено на склад'), -r.purchases) : ''}
         ${r.invested ? row(L('Вложено в улучшения'), -r.invested) : ''}
         ${r.loanTaken ? row(L('Взят кредит'), r.loanTaken) : ''}
         ${r.loanPaid ? row(L('Возврат долга'), -r.loanPaid) : ''}

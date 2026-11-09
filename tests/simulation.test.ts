@@ -11,7 +11,7 @@ function withLunch(sim: Simulation): void {
   if (sim.cafe.premisesId !== 'cafe') return;
   sim.cafe.equipment.push('stove');
   sim.cafe.removeItem('latte');
-  sim.cafe.addItem('lunch');
+  sim.addMenuItem('lunch');
 }
 
 function openKnown(sim: Simulation): void {
