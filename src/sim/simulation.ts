@@ -1,4 +1,4 @@
-import { canPlace, furniture, type FurnitureId, Interior, INTERIOR, preset, type PresetId } from './interior';
+import { canPlace, FINISH_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, STYLE_SLOTS, styleSet, type StyleId } from './interior';
 import { Cafe, CATALOG, hours24, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
 import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
 import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
@@ -831,7 +831,8 @@ export class Simulation {
     if (!this.cafe.premises.seats) return 1;
     const hall = this.cafe.interior;
     const sit = want.mode === 'replace';
-    return 1 + hall.cozyLevel * (sit ? INTERIOR.attractSit : INTERIOR.attractGo) + (sit && hall.likes(r.kind) ? 0.05 : 0);
+    const style = hall.styleFit(r.kind) * (sit ? INTERIOR.styleSit : INTERIOR.styleGo);
+    return 1 + hall.cozyLevel * (sit ? INTERIOR.attractSit : INTERIOR.attractGo) + (sit && hall.likes(r.kind) ? 0.05 : 0) + style;
   }
 
   /** Насколько житель склонен пойти к конкуренту с этим желанием прямо сейчас (0 — никак) */
@@ -880,7 +881,7 @@ export class Simulation {
     const card = this.marketing.loyaltyCard;
     const hall = this.cafe.premises.seats ? this.cafe.interior : null;
     const cozy = hall
-      ? hall.cozyLevel * INTERIOR.loyalty + (hall.likes(r.kind) ? INTERIOR.liked : 0)
+      ? hall.cozyLevel * INTERIOR.loyalty + (hall.likes(r.kind) ? INTERIOR.liked : 0) + hall.styleFit(r.kind) * INTERIOR.styleLoyalty
       : this.cafe.has('shelves')
         ? UPGRADE_EFFECT.shelvesLoyalty
         : 0;
@@ -908,7 +909,7 @@ export class Simulation {
       }
     }
     // Постоянный гость рассказывает соседу, коллеге или другу
-    const cozyWord = hall ? 1 + INTERIOR.wordBoost * hall.cozyLevel : 1;
+    const cozyWord = hall ? (1 + INTERIOR.wordBoost * hall.cozyLevel) * (1 + INTERIOR.styleWord * hall.styleFit(r.kind)) : 1;
     if (r.loyalty >= 0.3 && this.rng.chance(MARKETING.wordChance * cozyWord)) {
       const friends = this.residents.filter(
         (o) => !o.aware && (o.homeId === r.homeId || (r.workId !== null && o.workId === r.workId) || o.kind === r.kind),
@@ -926,6 +927,8 @@ export class Simulation {
     }
     r.visit.stage = 'dining';
     r.visit.until = this.time + r.visit.want.dwell;
+    // Сел в зале своего стиля — считаем, что пришёл и ради зала
+    if (r.visit.want.mode === 'replace' && hall && hall.styleFit(r.kind) > 0) this.cafe.today.styleGuests = (this.cafe.today.styleGuests ?? 0) + 1;
     this.bringCompany(r, itemId);
     this.extraOrder(r, itemId);
     this.pastryImpulse(r, itemId);
@@ -1607,6 +1610,7 @@ export class Simulation {
   /** Поставить вещь на место; если там что-то стоит — оно продаётся */
   placeFurniture(slot: string, id: FurnitureId): boolean {
     if (!this.hasHall || !canPlace(slot, id)) return false;
+    const before = this.cafe.interior.style;
     const old = this.cafe.interior.layout[slot];
     if (old === id) return false;
     const cost = furniture(id).cost - (old ? Interior.refund(old) : 0);
@@ -1615,6 +1619,8 @@ export class Simulation {
     this.cafe.interior.layout[slot] = id;
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
     this.note(`hall:${slot}`, L('Зал'), old ? furniture(old).name : undefined, furniture(id).name);
+    const after = this.cafe.interior.style;
+    if (after !== before) this.note('hall-style', L('Стиль зала'), before ? hallStyle(before).name : L('без стиля'), after ? hallStyle(after).name : L('без стиля'));
     return true;
   }
 
@@ -1622,7 +1628,7 @@ export class Simulation {
   sellFurniture(slot: string): boolean {
     if (!this.hasHall) return false;
     const old = this.cafe.interior.layout[slot];
-    if (!old) return false;
+    if (!old || FINISH_SLOTS.includes(slot)) return false;
     const refund = Interior.refund(old);
     this.cash += refund;
     delete this.cafe.interior.layout[slot];
@@ -1637,10 +1643,30 @@ export class Simulation {
     const cost = this.cafe.interior.presetCost(id);
     if (this.cash < cost) return false;
     this.cash -= cost;
-    this.cafe.interior.load(preset(id).layout);
+    this.cafe.interior.applyPreset(id);
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
     this.note('hall', L('Зал'), undefined, tr`комплектация «${preset(id).name}»`);
     return true;
+  }
+
+  /** Собрать стиль целиком: стены, пол и обе фирменные вещи */
+  applyStyle(id: StyleId): boolean {
+    const hall = this.cafe.interior;
+    if (!this.hasHall || hall.styleCount(id) === STYLE_SLOTS.length) return false;
+    const cost = hall.styleCost(id);
+    if (this.cash < cost) return false;
+    const before = hall.style;
+    this.cash -= cost;
+    Object.assign(hall.layout, styleSet(id));
+    this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
+    this.note('hall-style', L('Стиль зала'), before ? hallStyle(before).name : L('без стиля'), hallStyle(id).name);
+    return true;
+  }
+
+  /** Сколько жителей и гостей улицы — аудитория стиля */
+  styleAudience(id: StyleId): number {
+    const s = hallStyle(id);
+    return s.audience === 'all' ? this.residents.length : this.residents.filter((r) => (s.audience as string[]).includes(r.kind)).length;
   }
 
   /** Погода на день: вид и температура — из генератора погоды, ветер — из seed и дня */
@@ -1717,7 +1743,9 @@ export class Simulation {
         // Доска с подсветкой у киоска: замечают чаще, особенно вечером
         const board = this.cafe.has('board') ? (this.minute >= hm(17) ? UPGRADE_EFFECT.boardNoticeEvening : UPGRADE_EFFECT.boardNotice) : 1;
         const base = this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase;
-        const p = (this.grandOpening ? Math.max(base, MARKETING.noticeOpening) : base) * look * board;
+        // Зал своего стиля виден в окне — своя аудитория замечает его чаще
+        const style = this.hasHall ? 1 + INTERIOR.styleNotice * this.cafe.interior.styleFit(r.kind) : 1;
+        const p = (this.grandOpening ? Math.max(base, MARKETING.noticeOpening) : base) * look * board * style;
         if (this.rng.chance(Math.min(1, p))) this.learn(r, 'walk');
       }
     }

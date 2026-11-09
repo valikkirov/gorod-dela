@@ -120,3 +120,102 @@ describe('Зал кафе', () => {
     expect(run(true)).toBeGreaterThan(run(false));
   }, 120_000);
 });
+
+describe('Стиль зала', () => {
+  it('новый зал — стены и пол «Как дома», но стиля ещё нет: 2 из 4', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    const hall = sim.cafe.interior;
+    expect(hall.layout.walls).toBe('walls-home');
+    expect(hall.layout.floor).toBe('floor-home');
+    expect(hall.styleCount('home')).toBe(2);
+    expect(hall.style).toBe(null);
+  });
+
+  it('3 элемента из 4 дают стиль, своей аудитории он по душе', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.cash += 100_000;
+    expect(sim.placeFurniture('walls', 'walls-loft')).toBe(true);
+    expect(sim.placeFurniture('floor', 'floor-loft')).toBe(true);
+    expect(sim.cafe.interior.style).toBe(null);
+    expect(sim.placeFurniture('feature', 'neon')).toBe(true);
+    const hall = sim.cafe.interior;
+    expect(hall.style).toBe('loft');
+    expect(hall.styleFit('youth')).toBe(1);
+    expect(hall.styleFit('pensioner')).toBe(0);
+  });
+
+  it('«Как дома» нравится всем, но вдвое слабее', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.placeFurniture('touch', 'cat');
+    expect(sim.cafe.interior.style).toBe('home');
+    expect(sim.cafe.interior.styleFit('office')).toBe(INTERIOR.homeShare);
+  });
+
+  it('стены и пол не продаются, только меняются; фирменные вещи — продаются', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    expect(sim.sellFurniture('walls')).toBe(false);
+    expect(sim.placeFurniture('walls', 'neon')).toBe(false);
+    sim.placeFurniture('feature', 'mirror');
+    expect(sim.sellFurniture('feature')).toBe(true);
+  });
+
+  it('комплектация меняет мебель, но не отделку и не фирменные вещи', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.cash += 100_000;
+    sim.placeFurniture('walls', 'walls-classic');
+    sim.placeFurniture('touch', 'chandelier');
+    expect(sim.applyPreset('comfort')).toBe(true);
+    expect(sim.cafe.interior.matches('comfort')).toBe(true);
+    expect(sim.cafe.interior.layout.walls).toBe('walls-classic');
+    expect(sim.cafe.interior.layout.touch).toBe('chandelier');
+  });
+
+  it('старое сохранение без отделки получает стены и пол «Как дома», стиль сохраняется', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    const save = JSON.parse(JSON.stringify(sim.serialize()));
+    delete save.cafe.interior.walls;
+    delete save.cafe.interior.floor;
+    expect(Simulation.restore(save)!.cafe.interior.layout.walls).toBe('walls-home');
+    sim.placeFurniture('walls', 'walls-scandi');
+    expect(Simulation.restore(JSON.parse(JSON.stringify(sim.serialize())))!.cafe.interior.layout.walls).toBe('walls-scandi');
+  });
+
+  it('свой стиль тянет свою аудиторию: в зал «Лофт» садится больше молодёжи и фрилансеров', () => {
+    const run = (loft: boolean) => {
+      let fans = 0;
+      for (const seed of [1, 2, 3]) {
+        const sim = new Simulation(seed);
+        openKnown(sim);
+        sim.cash += 100_000;
+        if (loft) for (const [slot, id] of [['walls', 'walls-loft'], ['floor', 'floor-loft'], ['feature', 'neon'], ['touch', 'pendants']] as const) sim.placeFurniture(slot, id);
+        sim.advance(7 * MINUTES_PER_DAY);
+        fans += sim.reports.reduce((s, d) => s + (d.styleGuests ?? 0), 0);
+      }
+      return fans;
+    };
+    expect(run(false)).toBe(0);
+    expect(run(true)).toBeGreaterThan(0);
+  }, 60_000);
+});
+
+describe('Собрать стиль целиком', () => {
+  it('ставит стены, пол и обе вещи за styleCost, мебель не трогает', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.cash += 50_000;
+    const cash = sim.cash;
+    const cost = sim.cafe.interior.styleCost('scandi');
+    expect(sim.applyStyle('scandi')).toBe(true);
+    expect(sim.cash).toBe(cash - cost);
+    expect(sim.cafe.interior.styleCount('scandi')).toBe(4);
+    expect(sim.cafe.interior.seats).toBe(4);
+    expect(sim.applyStyle('scandi')).toBe(false);
+    expect(sim.cafe.interior.styleCost('scandi')).toBe(0);
+  });
+});

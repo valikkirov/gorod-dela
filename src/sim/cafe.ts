@@ -103,6 +103,8 @@ export interface DayReport {
   missed: Partial<Record<RejectReason, number>>;
   /** Сели бы, но мест не было — взяли с собой */
   noSeat?: number;
+  /** Сели в зале своего стиля */
+  styleGuests?: number;
   /** Чего не нашли в меню: категория → сколько раз */
   missingKinds: Partial<Record<ItemKind, number>>;
   sold: Record<string, number>;

@@ -56,7 +56,7 @@ import { switchLang } from './lang';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
 import { hallTab } from './hall';
-import type { FurnitureId, PresetId } from '../sim/interior';
+import { hallStyle, type FurnitureId, type PresetId, type StyleId } from '../sim/interior';
 import { goal } from './metrika';
 import { sound } from './sound';
 import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
@@ -739,6 +739,9 @@ export class Hud {
       }
       case 'hall-sell':
         if (sim.sellFurniture(item!)) sound.play('ui-upgrade');
+        break;
+      case 'hall-style':
+        if (sim.applyStyle(item as StyleId)) sound.play('ui-upgrade');
         break;
       case 'hall-preset':
         if (sim.applyPreset(item as PresetId)) sound.play('ui-upgrade');
@@ -2448,7 +2451,7 @@ export class Hud {
         ${r.loanFine ? row(L('Штраф за${NB}просрочку (к${NB}долгу)'), -r.loanFine) : ''}
         ${row(L('В кассе'), r.cashAfter, 'cash')}
       </table>
-      <small>Себестоимость проданного: ${money(r.cogs)}${r.extras ? tr` · дозаказов: ${r.extras}` : ''}${r.company ? tr` · пришли с постоянными: ${r.company}` : ''}${
+      <small>Себестоимость проданного: ${money(r.cogs)}${r.extras ? tr` · дозаказов: ${r.extras}` : ''}${r.company ? tr` · пришли с постоянными: ${r.company}` : ''}${r.styleGuests ? tr` · сели ради стиля зала: ${r.styleGuests}` : ''}${
         r.writtenOff ? tr` · списано (испортилось): ${money(r.writtenOff)} — ${spoiled}` : ''
       }</small>`
           : ''
@@ -2524,9 +2527,19 @@ export class Hud {
       <div class="status">${status}</div>
       ${reg ? this.faceCard(reg, r) : ''}
       ${decision}
-      <div class="facts"><div>${home}</div>${work}<div>${r.aware ? tr`Знает о твоём кафе` : tr`<b class="oos">Не знает о твоём кафе</b>`}</div><div>${f ? L('Готова') : L('Готов')} платить: ${budget}</div></div>
+      <div class="facts"><div>${home}</div>${work}<div>${r.aware ? tr`Знает о твоём кафе` : tr`<b class="oos">Не знает о твоём кафе</b>`}</div>${this.hallTaste(r)}<div>${f ? L('Готова') : L('Готов')} платить: ${budget}</div></div>
       ${character}
       <ul class="schedule">${rows}</ul>`;
+  }
+
+  /** Нравится ли жителю стиль зала — видно в карточке */
+  private hallTaste(r: Resident): string {
+    if (!this.sim.hasHall) return '';
+    const hall = this.sim.cafe.interior;
+    const id = hall.style;
+    if (!id) return '';
+    const name = hallStyle(id).name;
+    return hall.styleFit(r.kind) > 0 ? tr`<div>Зал по душе: ${name}</div>` : tr`<div>Зал «${name}» — не по вкусу</div>`;
   }
 
   /** Характер, вкус и память визитов: по ним игрок подбирает меню под своих гостей */

@@ -3386,3 +3386,92 @@ button.small.danger {
     padding: 7px 12px;
   }
 }
+
+/* Стиль зала: отделка поверх нарисованной комнаты (временно, до арта отделки) и значки фирменных вещей */
+.hall-finish {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.62;
+  pointer-events: none;
+}
+.hall-mark {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  padding: 0;
+  border: 2px solid rgba(255, 248, 235, 0.9);
+  border-radius: 50%;
+  background: rgba(255, 248, 235, 0.8);
+  font-size: 20px;
+  line-height: 30px;
+  cursor: pointer;
+}
+.hall-mark.selected {
+  border-color: #e0703f;
+}
+.hall.mini .hall-mark {
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-width: 1px;
+  font-size: 8px;
+  line-height: 12px;
+}
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 1px solid rgba(74, 46, 30, 0.15);
+  text-align: center;
+  font-size: 26px;
+  line-height: 42px;
+}
+.swatch.icon {
+  background: #f5ece0;
+}
+.menu.styles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.menu.styles .style-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  text-align: left;
+}
+.menu.styles .style-card .row {
+  justify-content: space-between;
+}
+.menu.styles .style-card.on {
+  border-color: #b9d7c2;
+  background: #f1f8f3;
+}
+.menu.styles .swatches {
+  display: flex;
+  gap: 4px;
+}
+.menu.styles .swatches .swatch {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 26px;
+  border-radius: 6px;
+}
+.menu.styles .style-card button {
+  margin-top: auto;
+}
+.row.wrap {
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.row.wrap button.on {
+  border-color: #e0703f;
+  color: #c75a2e;
+}
