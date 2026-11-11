@@ -288,6 +288,30 @@ export class Stock {
     }
   }
 
+  /** Испортилось всё, что лежит (встал холодильник): в списание */
+  spoil(ids: IngredientId[]): WriteOff {
+    const out: WriteOff = { value: 0, items: {} };
+    for (const id of ids) {
+      const list = this.batches.get(id) ?? [];
+      const qty = list.reduce((s, b) => s + b.qty, 0);
+      if (qty <= 1e-9) continue;
+      out.items[id] = Math.round(qty * 10) / 10;
+      out.value += list.reduce((s, b) => s + b.qty * b.unitPaid, 0);
+      this.batches.set(id, []);
+    }
+    out.value = Math.round(out.value);
+    return out;
+  }
+
+  /** Последняя привезённая партия пришла испорченной: убрать её целиком */
+  spoilLatest(id: IngredientId): WriteOff {
+    const list = this.batches.get(id) ?? [];
+    const b = list.pop();
+    if (!b) return { value: 0, items: {} };
+    this.batches.set(id, list);
+    return { value: Math.round(b.qty * b.unitPaid), items: { [id]: Math.round(b.qty * 10) / 10 } };
+  }
+
   /** Положить на склад сразу (стартовый запас при открытии) */
   addNow(id: IngredientId, qty: number, day: number, unitPaid: number): void {
     const ing = ingredient(id);

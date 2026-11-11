@@ -3,6 +3,7 @@
 // вариант «по умолчанию» (обычно «ничего не делать»).
 // Здесь только данные и тексты; что именно меняется в мире — в Simulation.chooseEvent.
 import { ECONOMY, formatMoney } from './economy';
+import { isFemale } from './residents';
 import { ingredient, type IngredientId } from './stock';
 
 import { L, tr } from './i18n';
@@ -16,7 +17,11 @@ export type EventId =
   | 'corporate'
   | 'fair'
   | 'contract'
-  | 'contract-renew';
+  | 'contract-renew'
+  | 'complaint'
+  | 'fridge'
+  | 'inspection'
+  | 'farm';
 
 export const EVENTS = {
   /** С какого дня работы начинаются события */
@@ -42,6 +47,25 @@ export const EVENTS = {
    * Обязательство — в 11:00 открыто; сорвал strikes заказов — договор расторгнут, офис не обращается banDays.
    * Без срывов офис предлагает продлить и берёт на grow порций больше (до maxQty).
    */
+  /** Свой срок между повторами для событий с долгим хвостом (вместо cooldownDays) */
+  cooldown: { fridge: 30, inspection: 35, farm: 35, complaint: 10 } as Partial<Record<EventId, number>>,
+  /**
+   * Жалоба гостя. Извиниться и угостить — гость теплеет и через несколько дней рассказывает соседям;
+   * промолчать — через несколько дней пишет в чат дома, и соседи, которые вас знают, холоднее.
+   */
+  complaint: { below: 0, cost: 300, warm: 0.25, goodAfter: 3, badAfter: 4, tell: 4, chill: 6, chillBy: 0.15 },
+  /**
+   * Холодильник. Подлатать дёшево, но с шансом relapse через relapseFrom–relapseTo дней он потечёт снова:
+   * скоропорт пропадёт и всё равно придётся менять компрессор.
+   */
+  fridge: { patchCost: 400, fixCost: 2_500, relapse: 0.7, relapseFrom: 3, relapseTo: 7 },
+  /**
+   * Санитарная проверка: предупреждают заранее, приходят через from–to дней с 10 до 15.
+   * Подготовились — проверка за 30 минут. Нет — с шансом fail штраф и два часа на устранение, иначе час.
+   */
+  inspection: { prepCost: 1_500, from: 2, to: 6, fail: 0.6, fine: 5_000, readyMinutes: 30, passMinutes: 60, failMinutes: 120, fromDay: 10 },
+  /** Ферма: продукт на 25 % дешевле четыре недели, но раз в неделю с шансом bad партия приезжает испорченной */
+  farm: { discount: 0.25, days: 28, bad: 0.35, fromDay: 7 },
   contract: { qty: 12, discount: 0.1, minute: 11 * 60, weekdays: 10, strikes: 2, banDays: 28, grow: 4, maxQty: 20, afterOrders: 1 },
 } as const;
 
@@ -63,6 +87,26 @@ export interface PendingEvent {
   baristaId?: number;
   /** Есть ли вторая кофемашина: тогда поломка не останавливает кофе, а замедляет */
   spareMachine?: boolean;
+  /** Жалоба: кто жалуется и на что */
+  residentId?: number;
+  residentName?: string;
+  topic?: ComplaintTopic;
+}
+
+/** На что жалуется гость: из того, как ему запомнился вчерашний визит */
+export type ComplaintTopic = 'long-wait' | 'pricey' | 'not-my-taste' | 'cold';
+
+function complaintText(topic: ComplaintTopic, item: string): string {
+  switch (topic) {
+    case 'long-wait':
+      return L('вчера заказ пришлось ждать слишком долго');
+    case 'pricey':
+      return tr`вчера за\u00a0«${item}» взяли слишком много`;
+    case 'not-my-taste':
+      return tr`вчера «${item}» приготовили совсем не\u00a0так`;
+    case 'cold':
+      return L('вчера кофе принесли едва тёплым');
+  }
 }
 
 export interface EventOption {
@@ -222,6 +266,68 @@ export function card(e: PendingEvent): EventCard {
           { id: 'stop', label: L('Закончить'), hint: L('Договор завершится, офис останется доволен') },
         ],
         fallback: 'stop',
+      };
+    }
+    case 'complaint': {
+      const c = EVENTS.complaint;
+      const name = e.residentName ?? '';
+      const first = name.split(' ')[0];
+      const f = isFemale(name);
+      return {
+        icon: '😤',
+        title: f ? tr`${first} недовольна` : tr`${first} недоволен`,
+        text: f
+          ? tr`${name} подошла к\u00a0стойке: ${complaintText(e.topic ?? 'cold', e.itemName ?? '')}. Говорит негромко, но\u00a0её слышат за\u00a0соседними столиками.`
+          : tr`${name} подошёл к\u00a0стойке: ${complaintText(e.topic ?? 'cold', e.itemName ?? '')}. Говорит негромко, но\u00a0его слышат за\u00a0соседними столиками.`,
+        stake: tr`Живёт рядом и\u00a0знает полдома. Как обойдутся с\u00a0гостем, через несколько дней узнают соседи`,
+        options: [
+          { id: 'apologize', label: L('Извиниться и\u00a0угостить'), hint: tr`${money(c.cost)}: гость оттает и\u00a0расскажет соседям, как с\u00a0ним обошлись` },
+          { id: 'ignore', label: L('Промолчать'), hint: tr`Бесплатно. Через несколько дней гость напишет в\u00a0чат дома` },
+        ],
+        fallback: 'ignore',
+      };
+    }
+    case 'fridge': {
+      const f = EVENTS.fridge;
+      return {
+        icon: '🧊',
+        title: L('Течёт холодильник'),
+        text: tr`Под холодильником лужа, компрессор гудит громче обычного. Продукты пока холодные. Мастер говорит: можно подлатать, а\u00a0можно поменять компрессор.`,
+        stake: tr`Заплатка может не\u00a0продержаться: если холодильник встанет, скоропорт пропадёт за\u00a0ночь`,
+        options: [
+          { id: 'fix', label: L('Поменять компрессор'), hint: tr`${money(f.fixCost)}, и\u00a0надолго забыть` },
+          { id: 'patch', label: L('Подлатать'), hint: tr`${money(f.patchCost)}. Скорее всего, через несколько дней потечёт снова` },
+        ],
+        fallback: 'patch',
+      };
+    }
+    case 'inspection': {
+      const i = EVENTS.inspection;
+      return {
+        icon: '🧾',
+        title: L('Санитарная проверка'),
+        text: tr`Соседи по\u00a0улице предупредили: в\u00a0районе ходит санитарная проверка, на\u00a0этой неделе придут и\u00a0к\u00a0вам. Когда именно\u00a0— не\u00a0говорят.`,
+        stake: tr`Без подготовки могут найти нарушения: штраф и\u00a0пара часов, когда стойка стоит`,
+        options: [
+          { id: 'prepare', label: L('Подготовиться'), hint: tr`${money(i.prepCost)} на\u00a0уборку и\u00a0журналы. Проверка пройдёт за\u00a0полчаса` },
+          { id: 'risk', label: L('Работать как обычно'), hint: tr`Бесплатно. Нашли нарушения\u00a0— штраф ${money(i.fine)} и\u00a0два часа без гостей` },
+        ],
+        fallback: 'risk',
+      };
+    }
+    case 'farm': {
+      const f = EVENTS.farm;
+      const ing = ingredient(e.ingredientId!);
+      return {
+        icon: '🚜',
+        title: L('Ферма предлагает договор'),
+        text: tr`Фермер из\u00a0области готов возить ${ing.name.toLowerCase()} на\u00a0${Math.round(f.discount * 100)}\u00a0% дешевле четыре недели. Но\u00a0у\u00a0фермы бывают сбои: иногда партия приезжает испорченной, и\u00a0в\u00a0этот день продукта нет.`,
+        stake: tr`Экономия на\u00a0каждой поставке против риска остаться без продукта в\u00a0случайный день`,
+        options: [
+          { id: 'sign', label: L('Подписать на\u00a0месяц'), hint: tr`−${Math.round(f.discount * 100)}\u00a0% на\u00a0поставки, но\u00a0иногда партия пропадёт` },
+          { id: 'decline', label: L('Остаться со\u00a0своим поставщиком'), hint: L('Ничего не\u00a0меняется') },
+        ],
+        fallback: 'decline',
       };
     }
     case 'blogger': {

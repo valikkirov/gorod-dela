@@ -10,7 +10,7 @@ import { rateVisit, remember, type Memory } from './character';
 import { currentEntry, generateResidents, isFemale, SADOVAYA_HOMES, type Resident, type ResidentKind, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
-import { INGREDIENTS, ingredient, recipeCost, recipeOf, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
+import { INGREDIENTS, ingredient, orderPrice, recipeCost, recipeOf, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId, type WriteOff } from './stock';
 import { Rival, RIVAL, type RivalSave } from './rival';
 import { formGroups, GROUP, votesNeeded, type Group, type GroupDay } from './groups';
 import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type Regular } from './regulars';
@@ -77,6 +77,8 @@ export interface SaveData {
   lastEvent?: Partial<Record<EventId, number>>;
   /** Договор с офисом и счётчики для него (нет в старых сохранениях — значит, договора не было) */
   contract?: OfficeContract | null;
+  /** Договор с фермой (нет — не подписывали) */
+  farm?: FarmDeal | null;
   /** Компании коллег: итог сегодняшнего дня и ходили ли к вам в прошлый раз (для новостей) */
   groupDay?: Record<number, GroupDay>;
   groupWas?: Record<number, boolean>;
@@ -159,7 +161,28 @@ export type Effect =
   /** Заказ офиса: в этот день и минуту забирают qty порций itemId */
   | { type: 'order'; day: number; minute: number; itemId: string; qty: number; pay: number; corporate?: boolean; contract?: boolean }
   /** Блогер: на этот день выйдет обзор (или не выйдет) */
-  | { type: 'blogger'; day: number; success: boolean };
+  | { type: 'blogger'; day: number; success: boolean }
+  /** Жалоба: в этот день гость расскажет соседям, как с ним обошлись */
+  | { type: 'word'; day: number; residentId: number; good: boolean }
+  /** Подлатанный холодильник встанет в ночь перед этим днём */
+  | { type: 'relapse'; day: number }
+  /** Санитарная проверка придёт в этот день и минуту; fail — найдут нарушения (если не готовились) */
+  | { type: 'inspection'; day: number; minute: number; ready: boolean; fail: boolean };
+
+/** Договор с фермой: продукт дешевле до until, в дни bad партия приезжает испорченной */
+export interface FarmDeal {
+  ingredientId: IngredientId;
+  /** Цена порции по договору */
+  price: number;
+  until: number;
+  bad: number[];
+  /** Сколько сэкономили против обычного поставщика и сколько потеряли на испорченных партиях */
+  saved: number;
+  lost: number;
+}
+
+/** Что пропадает, когда встаёт холодильник */
+const CHILLED: IngredientId[] = ['milk', 'kitchen', 'berries', 'cheese', 'ham'];
 
 /** Общее для всех точек игрока */
 interface Wallet {
@@ -231,6 +254,8 @@ export class Simulation {
   private groupWas: Record<number, boolean> = {};
   /** Договор с офисом «Север»: обеды каждый будний день */
   contract: OfficeContract | null = null;
+  /** Договор с фермой: продукт дешевле, но иногда партия испорчена */
+  farm: FarmDeal | null = null;
   /** Сколько разовых заказов офиса выполнено — после первого офис предлагает договор */
   private officeOrders = 0;
   /** До какого дня офис не предлагает договор после расторжения */
@@ -396,6 +421,7 @@ export class Simulation {
       effects: this.effects,
       lastEvent: { ...this.lastEvent },
       contract: this.contract,
+      farm: this.farm,
       groupDay: this.groupDay,
       groupWas: this.groupWas,
       officeOrders: this.officeOrders,
@@ -462,6 +488,7 @@ export class Simulation {
     sim.effects = d.effects ?? [];
     sim.lastEvent = { ...(d.lastEvent ?? {}) };
     sim.contract = d.contract ?? null;
+    sim.farm = d.farm ?? null;
     sim.groupDay = { ...(d.groupDay ?? {}) };
     sim.groupWas = { ...(d.groupWas ?? {}) };
     sim.officeOrders = d.officeOrders ?? 0;
@@ -871,6 +898,7 @@ export class Simulation {
     const peak = this.cafe.specialty && minute >= SPECIALTY.peakFrom && minute < SPECIALTY.peakTo ? SPECIALTY.speed : 1;
     this.cafe.serviceFactor = broken * peak;
     this.fulfilOrders(minute);
+    this.inspect(minute);
     const { sales, failed } = this.cafe.tick(dt, minute);
     for (const sale of sales) this.onSale(sale.residentId, sale.price, sale.itemId);
     for (const id of failed) this.runOut(this.residents[id]);
@@ -1344,7 +1372,10 @@ export class Simulation {
     const baker = this.ownBakery();
     if (baker) this.cafe.stock.unitPrice.bakery = BAKERY.supplyPrice;
     else delete this.cafe.stock.unitPrice.bakery;
+    const farm = this.farm && this.day <= this.farm.until ? this.farm : null;
+    if (farm) this.cafe.stock.unitPrice[farm.ingredientId] = farm.price;
     const d = this.cafe.stock.deliver(this.day);
+    if (farm) this.farmDelivery(farm, d.items[farm.ingredientId] ?? 0);
     const shipped = d.items.bakery ?? 0;
     if (baker && shipped > 0) baker.supplyOut(shipped);
     if (this.cafe.premisesId === 'bakery') this.sellWholesale();
@@ -1364,6 +1395,7 @@ export class Simulation {
       this.events.push({ type: 'delivery', cost: d.cost });
     }
     this.resolveBlogger();
+    this.resolveLater();
     this.runContract();
     this.rollEvent();
   }
@@ -1539,9 +1571,7 @@ export class Simulation {
     // Если кафе работает через полночь, гости остаются — день меняется только в отчёте
     if (!this.cafe.isOpenAt(0)) for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
     // Конец дня: скоропорт — в списание, автозаказ — на утро
-    const spoiled = this.cafe.stock.expire(this.day);
-    this.cafe.today.writtenOff = spoiled.value;
-    this.cafe.today.writtenOffItems = spoiled.items;
+    this.writeOff(this.cafe.stock.expire(this.day));
     // В выходной поставка не нужна: заказ на рабочий день уйдёт вечером выходного
     if (this.cafe.opened && this.cafe.hoursOn(weekday(nextDay))) this.cafe.stock.autoOrder(isWeekend(nextDay));
     // Листовки оплачиваются за каждый день, когда их раздавали
@@ -1711,7 +1741,7 @@ export class Simulation {
   private rollEvent(): void {
     if (this.host || !this.cafe.opened || this.pendingEvent || this.day < this.openedDay + EVENTS.fromDay) return;
     if (!this.eventRng.chance(EVENTS.chance)) return;
-    const options = this.eligibleEvents().filter((e) => (this.lastEvent[e.id] ?? -99) <= this.day - EVENTS.cooldownDays);
+    const options = this.eligibleEvents().filter((e) => (this.lastEvent[e.id] ?? -99) <= this.day - (EVENTS.cooldown[e.id] ?? EVENTS.cooldownDays));
     if (options.length === 0) return;
     // Взвешенный выбор: поломка реже остальных
     const weights = options.map((e) => EVENTS.weight[e.id] ?? 1);
@@ -1781,6 +1811,19 @@ export class Simulation {
       }
     }
     if (this.awareCount < this.residents.length * 0.9) out.push({ id: 'blogger', day });
+    // Жалоба: самый недовольный вчерашний гость приходит сказать об этом
+    const complaint = this.complaintToday();
+    if (complaint) out.push(complaint);
+    // Холодильник: в меню есть то, что хранится в холоде
+    const chilled = cafe.menu.some((m) => Object.keys(recipeOf(m.id)).some((id) => CHILLED.includes(id as IngredientId)));
+    if (chilled) out.push({ id: 'fridge', day });
+    // Проверка: когда точка уже освоилась и проверку ещё не ждут
+    const settled = (n: number) => day >= this.openedDay + n;
+    if (settled(EVENTS.inspection.fromDay) && !this.effects.some((x) => x.type === 'inspection')) out.push({ id: 'inspection', day });
+    // Ферма: молоко, а без молочного в меню — продукты для кухни
+    const uses = (id: IngredientId) => cafe.menu.some((m) => (recipeOf(m.id)[id] ?? 0) > 0);
+    const farmIng = uses('milk') ? 'milk' : uses('kitchen') ? 'kitchen' : null;
+    if (farmIng && !this.farm && settled(EVENTS.farm.fromDay)) out.push({ id: 'farm', day, ingredientId: farmIng });
     const shift = cafe.staff.find((b) => b.contract === 'shift' && b.schedule.days[wd]);
     if (shift) out.push({ id: 'day-off', day, baristaId: shift.id });
     return out;
@@ -1857,6 +1900,48 @@ export class Simulation {
         this.spend(EVENTS.blogger.cost);
         this.effects.push({ type: 'blogger', day: e.day + 1, success: this.eventRng.chance(EVENTS.blogger.success) });
         break;
+      case 'complaint:apologize': {
+        const c = EVENTS.complaint;
+        this.spend(c.cost);
+        const r = this.residents[e.residentId!];
+        if (r) r.loyalty = Math.max(r.loyalty, Math.min(0.4, r.loyalty + c.warm));
+        this.effects.push({ type: 'word', day: e.day + c.goodAfter, residentId: e.residentId!, good: true });
+        break;
+      }
+      case 'complaint:ignore': {
+        const r = this.residents[e.residentId!];
+        if (r) r.loyalty = Math.max(0, r.loyalty - EVENTS.complaint.chillBy);
+        this.effects.push({ type: 'word', day: e.day + EVENTS.complaint.badAfter, residentId: e.residentId!, good: false });
+        break;
+      }
+      case 'fridge:fix':
+        this.spend(EVENTS.fridge.fixCost);
+        break;
+      case 'fridge:patch': {
+        const f = EVENTS.fridge;
+        this.spend(f.patchCost);
+        if (this.eventRng.chance(f.relapse)) this.effects.push({ type: 'relapse', day: e.day + this.eventRng.int(f.relapseFrom, f.relapseTo) });
+        break;
+      }
+      case 'inspection:prepare':
+      case 'inspection:risk': {
+        const i = EVENTS.inspection;
+        const ready = optionId === 'prepare';
+        if (ready) this.spend(i.prepCost);
+        const day = e.day + this.eventRng.int(i.from, i.to);
+        const minute = hm(10) + this.eventRng.int(0, 5 * 60);
+        this.effects.push({ type: 'inspection', day, minute, ready, fail: !ready && this.eventRng.chance(i.fail) });
+        break;
+      }
+      case 'farm:sign': {
+        const f = EVENTS.farm;
+        const id = e.ingredientId!;
+        // Сбой — не чаще раза в неделю, день внутри недели случайный
+        const bad: number[] = [];
+        for (let w = 0; w * 7 < f.days; w++) if (this.eventRng.chance(f.bad)) bad.push(e.day + 1 + w * 7 + this.eventRng.int(0, 6));
+        this.farm = { ingredientId: id, price: Math.round(ingredient(id).unitCost * (1 - f.discount) * 100) / 100, until: e.day + f.days, bad, saved: 0, lost: 0 };
+        break;
+      }
       case 'day-off:let':
         break;
       case 'day-off:ask': {
@@ -1946,6 +2031,137 @@ export class Simulation {
       this.contractBan = this.day + ct.banDays;
       (t.events ??= []).push(tr`🤝 «Север» расторг договор: в\u00a011:00 кафе было закрыто уже ${c.strikes}\u00a0раза`);
     } else (t.events ??= []).push(tr`🤝 Заказ «Севера» сорван: в\u00a011:00 кафе закрыто, продукты пропали. Ещё срыв\u00a0— и\u00a0договор расторгнут`);
+  }
+
+  /** Жалоба: вчерашний гость этой точки, которому визит запомнился хуже всех (оценка ниже порога) */
+  private complaintToday(): PendingEvent | null {
+    const day = this.day;
+    let worst: { r: Resident; m: Memory } | null = null;
+    for (const r of this.residents) {
+      if (!r.aware || r.commute) continue;
+      const m = r.memory.find((x) => x.day === day - 1 && this.cafe.hasItem(x.itemId));
+      if (!m || m.score >= EVENTS.complaint.below) continue;
+      if (!worst || m.score < worst.m.score) worst = { r, m };
+    }
+    if (!worst) return null;
+    const { r, m } = worst;
+    const topic = m.notes.includes('long-wait')
+      ? 'long-wait'
+      : m.notes.includes('not-my-taste')
+      ? 'not-my-taste'
+      : m.notes.includes('pricey')
+      ? 'pricey'
+      : this.cafe.item(m.itemId).kind === 'coffee'
+      ? 'cold'
+      : 'long-wait';
+    return { id: 'complaint', day, residentId: r.id, residentName: r.name, topic, itemId: m.itemId, itemName: itemName(m.itemId, this.cafe.own) };
+  }
+
+  /** Списание сверх обычной порчи (холодильник, испорченная партия) — в отчёт дня */
+  private writeOff(w: WriteOff): void {
+    const t = this.cafe.today;
+    t.writtenOff += w.value;
+    for (const [id, q] of Object.entries(w.items) as [IngredientId, number][]) t.writtenOffItems[id] = Math.round(((t.writtenOffItems[id] ?? 0) + q) * 10) / 10;
+  }
+
+  /** Утром: то, что решили несколько дней назад, — аукается */
+  private resolveLater(): void {
+    const t = this.cafe.today;
+    for (const e of [...this.effects]) {
+      if ((e.type !== 'word' && e.type !== 'relapse') || e.day > this.day) continue;
+      this.effects.splice(this.effects.indexOf(e), 1);
+      if (e.type === 'relapse') {
+        const w = this.cafe.stock.spoil(CHILLED);
+        this.writeOff(w);
+        this.spend(EVENTS.fridge.fixCost);
+        (t.events ??= []).push(
+          w.value > 0
+            ? tr`🧊 Подлатанный холодильник встал ночью: продуктов испортилось на\u00a0${formatMoney(w.value)}, компрессор всё равно пришлось менять за\u00a0${formatMoney(EVENTS.fridge.fixCost)}`
+            : tr`🧊 Подлатанный холодильник встал ночью. Повезло, что он был пуст, но\u00a0компрессор всё равно пришлось менять за\u00a0${formatMoney(EVENTS.fridge.fixCost)}`,
+        );
+        continue;
+      }
+      const r = this.residents[e.residentId];
+      if (!r) continue;
+      (t.events ??= []).push(this.spreadWord(r, e.good));
+    }
+  }
+
+  /** Гость рассказывает соседям по дому (а потом и остальным), как с ним обошлись */
+  private spreadWord(r: Resident, good: boolean): string {
+    const c = EVENTS.complaint;
+    const first = r.name.split(' ')[0];
+    const f = isFemale(r.name);
+    // Сначала соседи по дому, потом остальные — по порядку
+    const others = this.residents.filter((x) => x.id !== r.id && !x.commute);
+    const near = [...others.filter((x) => x.homeId === r.homeId), ...others.filter((x) => x.homeId !== r.homeId)];
+    if (good) {
+      let n = 0;
+      for (const x of near) {
+        if (n >= c.tell) break;
+        if (x.aware) continue;
+        this.learn(x, 'word');
+        n += 1;
+      }
+      return n > 0
+        ? tr`💬 ${first} ${f ? L('рассказала') : L('рассказал')} соседям, как вы извинились за\u00a0вчерашнее: о\u00a0вас узнали ещё ${n}\u00a0чел.`
+        : tr`💬 ${first} ${f ? L('рассказала') : L('рассказал')} соседям, как вы извинились за\u00a0вчерашнее`;
+    }
+    let n = 0;
+    for (const x of near) {
+      if (n >= c.chill) break;
+      if (!x.aware || x.loyalty <= 0) continue;
+      x.loyalty = Math.max(0, x.loyalty - c.chillBy);
+      n += 1;
+    }
+    return n > 0
+      ? tr`💬 ${first} ${f ? L('написала') : L('написал')} в\u00a0чат дома, как ${f ? L('её') : L('его')} не\u00a0выслушали. ${n}\u00a0чел. из\u00a0ваших гостей стали относиться к\u00a0вам холоднее`
+      : tr`💬 ${first} ${f ? L('написала') : L('написал')} в\u00a0чат дома, как ${f ? L('её') : L('его')} не\u00a0выслушали. Обошлось: ваших гостей там почти нет`;
+  }
+
+  /** Санитарная проверка: стойка стоит, пока идёт проверка; без подготовки — могут найти нарушения */
+  private inspect(minute: number): void {
+    for (const e of [...this.effects]) {
+      if (e.type !== 'inspection' || e.day > this.day || (e.day === this.day && minute < e.minute)) continue;
+      this.effects.splice(this.effects.indexOf(e), 1);
+      // Закрыто — проверяющие придут завтра в то же время
+      if (!this.cafe.isOpenAt(minute)) {
+        this.effects.push({ ...e, day: this.day + 1 });
+        continue;
+      }
+      const i = EVENTS.inspection;
+      const mins = e.ready ? i.readyMinutes : e.fail ? i.failMinutes : i.passMinutes;
+      this.cafe.prepUntil = Math.max(this.cafe.prepUntil, Math.floor(minute) + mins);
+      if (e.fail) this.spend(i.fine);
+      (this.cafe.today.events ??= []).push(
+        e.ready
+          ? tr`🧾 Пришла санитарная проверка. Всё было готово: ${mins}\u00a0минут, нарушений нет`
+          : e.fail
+          ? tr`🧾 Пришла санитарная проверка и\u00a0нашла нарушения: штраф ${formatMoney(i.fine)}, ${mins / 60}\u00a0часа стойка не\u00a0обслуживала гостей`
+          : tr`🧾 Пришла санитарная проверка. Без подготовки, но\u00a0обошлось: нарушений не\u00a0нашли, час стойка стояла`,
+      );
+    }
+  }
+
+  /** Поставка по договору с фермой: экономия, испорченная партия, конец договора */
+  private farmDelivery(farm: FarmDeal, qty: number): void {
+    const id = farm.ingredientId;
+    delete this.cafe.stock.unitPrice[id];
+    const t = this.cafe.today;
+    const name = ingredient(id).name;
+    if (qty > 0) {
+      farm.saved += Math.max(0, orderPrice(id, qty) - Math.round(farm.price * qty));
+      if (farm.bad.includes(this.day)) {
+        const w = this.cafe.stock.spoilLatest(id);
+        this.writeOff(w);
+        farm.lost += w.value;
+        (t.events ??= []).push(tr`🚜 Ферма привезла испорченную партию: ${name.toLowerCase()}, ${Math.round(qty)}\u00a0порц. в\u00a0списание. Сегодня только то, что осталось со\u00a0вчера`);
+      }
+    }
+    if (this.day >= farm.until) {
+      this.farm = null;
+      (t.events ??= []).push(tr`🚜 Договор с\u00a0фермой закончился: сэкономили ${formatMoney(farm.saved)}, на\u00a0испорченных партиях потеряли ${formatMoney(farm.lost)}`);
+    }
   }
 
   /** Утром выходит (или не выходит) обзор блогера */

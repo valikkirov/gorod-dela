@@ -1495,6 +1495,7 @@ export class Hud {
       <p class="hint-line" data-live="stock-warn"></p>
       ${this.rivalCard()}
       ${this.contractLine()}
+      ${this.laterLine()}
       ${this.bakeryBlock()}
       ${this.otherPoints()}
       ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
@@ -1981,6 +1982,21 @@ export class Hud {
     const name = this.sim.cafe.menu.find((m) => m.id === c.itemId)?.name ?? itemName(c.itemId);
     const strikes = c.strikes ? tr` · срывов ${c.strikes} из${NB}${EVENTS.contract.strikes}` : '';
     return tr`<p class="hint-line">🤝 Договор с «Севером»: ${c.qty} × ${name} в будни к 11:00, осталось заказов: ${c.left}${strikes}. В 11:00 кафе должно быть открыто.</p>`;
+  }
+
+  /** Что решили раньше и что ещё впереди: проверка, договор с фермой */
+  private laterLine(): string {
+    const sim = this.sim;
+    const out: string[] = [];
+    const insp = sim.effects.find((e) => e.type === 'inspection');
+    if (insp && insp.type === 'inspection')
+      out.push(insp.ready ? tr`🧾 На этой неделе придёт санитарная проверка. К ней всё готово.` : tr`🧾 На этой неделе придёт санитарная проверка. Вы решили не\u00a0готовиться.`);
+    const f = sim.farm;
+    if (f) {
+      const left = Math.max(0, f.until - sim.today);
+      out.push(tr`🚜 Договор с\u00a0фермой: ${ingredient(f.ingredientId).name.toLowerCase()} дешевле ещё ${left}\u00a0дн. Сэкономили ${money(f.saved)}${f.lost ? tr`, потеряли на\u00a0испорченном ${money(f.lost)}` : ''}.`);
+    }
+    return out.map((l) => `<p class="hint-line">${l}</p>`).join('');
   }
 
   /** Хроника района за неделю: из отчётов, ничего не хранится */
