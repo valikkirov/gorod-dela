@@ -29,6 +29,8 @@ export interface MenuItem {
   seasonal?: boolean;
   /** Сейчас её сезон: жители берут охотнее (ставит Simulation, в сохранение не попадает) */
   festive?: boolean;
+  /** Своя выпечка: продаётся только в пекарне */
+  bakery?: boolean;
 }
 
 export type RejectReason =
@@ -149,6 +151,10 @@ export interface DayReport {
   invested?: number;
   /** Пришли за компанию с постоянными гостями */
   company?: number;
+  /** Пекарня: сколько выпечки отвезла в свои точки за день */
+  supplied?: number;
+  /** Пекарня: хлеб в «Продукты» — сколько отвезли и сколько магазин продал (остальное вернули) */
+  wholesale?: { qty: number; sold: number };
   /** Свои люди другой вашей точки, которые узнали эту (sim/commute.ts) */
   chain?: number;
   /** Расходы на события: мастер, столик на празднике, угощение блогеру, доплата бариста */
@@ -195,6 +201,10 @@ export const CATALOG: readonly MenuItem[] = [
   { id: 'lemonade', name: L('Лимонад'), kind: 'tea', price: 200, cost: 40 },
   { id: 'beer', name: L('Пиво'), kind: 'bar', price: 300, cost: 110 },
   { id: 'cider', name: L('Сидр'), kind: 'bar', price: 320, cost: 120 },
+  // Пекарня: из утренней партии своей выпечки
+  { id: 'bread', name: L('Хлеб с\u00a0печи'), kind: 'snack', price: 110, cost: 25, bakery: true },
+  { id: 'bun', name: L('Булочка с\u00a0корицей'), kind: 'snack', price: 150, cost: 25, bakery: true },
+  { id: 'pie', name: L('Пирожок с\u00a0капустой'), kind: 'snack', price: 100, cost: 25, bakery: true },
   // Новогодний сезон
   { id: 'cocoa', name: L('Какао с\u00a0маршмеллоу'), kind: 'coffee', price: 220, cost: 35, seasonal: true },
   { id: 'mulled', name: L('Безалкогольный глинтвейн'), kind: 'tea', price: 210, cost: 30, seasonal: true },
@@ -368,8 +378,23 @@ export interface TickResult {
   failed: number[];
 }
 
+/** Вечерняя уценка своей выпечки: с from (минута дня) дешевле на off */
+export interface Markdown {
+  from: number;
+  off: number;
+}
+
+/** Уценка по умолчанию при открытии пекарни */
+export const MARKDOWN_DEFAULT: Markdown = { from: 19 * 60, off: 0.3 };
+
 export interface CafeSave {
   opened: boolean;
+  /** Вечерняя уценка своей выпечки (пекарня) */
+  markdown?: Markdown | null;
+  /** Пекарня возит выпечку в свои точки */
+  supply?: boolean;
+  /** Пекарня: сколько хлеба каждое утро везёт в «Продукты» */
+  wholesale?: number;
   premisesId?: PremisesId;
   menu: MenuItem[];
   openAt: number;
@@ -423,6 +448,12 @@ export class Cafe {
   readonly interior = new Interior();
   /** Своё название; null — «Твоё кафе» / «Твой киоск» по помещению */
   customName: string | null = null;
+  /** Пекарня: с какой минуты и на сколько дешевле своя выпечка вечером; null — не уценивать */
+  markdown: Markdown | null = null;
+  /** Пекарня: возить выпечку в свои кафе, киоск и бистро вместо поставщика */
+  supply = true;
+  /** Пекарня: сколько хлеба каждое утро везти в магазин «Продукты» (0 — не возить) */
+  wholesale = 0;
   /** Временное замедление (сломалась одна из двух кофемашин) — выставляет симуляция */
   serviceFactor = 1;
   /** Сколько минут владелец простоял за стойкой с открытия: дольше ECONOMY.ownerHours не может */
@@ -479,6 +510,9 @@ export class Cafe {
       prepUntil: this.prepUntil,
       name: this.customName,
       own: this.own,
+      markdown: this.markdown,
+      supply: this.supply,
+      wholesale: this.wholesale,
       ownerMinutes: this.ownerMinutes,
       ownerShift: this.ownerShift,
     };
@@ -524,6 +558,9 @@ export class Cafe {
     this.prepUntil = d.prepUntil ?? -1;
     this.customName = d.name ?? null;
     // Блюдо в меню и в списке своих — один объект: цена меняется в обоих местах
+    this.markdown = d.markdown ?? null;
+    this.supply = d.supply ?? true;
+    this.wholesale = d.wholesale ?? 0;
     this.own = (d.own ?? []).map((o) => this.menu.find((m) => m.id === o.id) ?? this.retired.get(o.id) ?? o);
     this.stock.shelfBonus = this.has('showcase') ? UPGRADE_EFFECT.showcaseShelfDays : 0;
   }
@@ -652,12 +689,20 @@ export class Cafe {
     (t.cogsBy ??= {})[id] = (t.cogsBy[id] ?? 0) + cost;
   }
 
+  /** Цена позиции сейчас: счастливые часы (pricing), а своя выпечка вечером — с уценкой */
+  priceAt(it: MenuItem, minute: number): number {
+    const base = this.pricing(it.price, minute);
+    const md = this.markdown;
+    if (!md || !CATALOG.find((c) => c.id === it.id)?.bakery || minute % MINUTES_PER_DAY < md.from) return base;
+    return Math.max(10, Math.round((base * (1 - md.off)) / 10) * 10);
+  }
+
   /** Дозаказ гостя, который уже сидит: вторая кружка, выпечка к кофе. Гостем второй раз не считается. */
   sellExtra(itemId: string, minute: number): number {
     if (!this.hasItem(itemId) || !this.stock.canMake(itemId)) return 0;
     const it = this.item(itemId);
     this.stock.use(it.id);
-    const price = this.pricing(it.price, minute);
+    const price = this.priceAt(it, minute);
     this.today.revenue += price;
     this.today.cogs += it.cost;
     this.today.sold[it.id] = (this.today.sold[it.id] ?? 0) + 1;
@@ -685,6 +730,8 @@ export class Cafe {
 
   /** Помещается ли позиция в это помещение (в киоске нет кухни и бара) */
   fits(id: string): boolean {
+    // Своя выпечка — только там, где печь
+    if (CATALOG.find((c) => c.id === id)?.bakery && this.premisesId !== 'bakery') return false;
     return this.premises.kinds.includes(kindOf(id));
   }
 
@@ -913,7 +960,7 @@ export class Cafe {
       }
       this.stock.use(it.id);
       this.today.guests += 1;
-      const price = this.pricing(it.price, minute);
+      const price = this.priceAt(it, minute);
       this.today.revenue += price;
       this.today.cogs += it.cost;
       this.today.sold[it.id] = (this.today.sold[it.id] ?? 0) + 1;

@@ -48,7 +48,7 @@ import { ECONOMY, EQUIPMENT, equipmentFor, formatMoney, PREMISES, type Equipment
 import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
 import { statusText, type Regular } from '../sim/regulars';
 import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
-import type { Simulation } from '../sim/simulation';
+import { BAKERY, type Simulation } from '../sim/simulation';
 import type { DistrictId, Place } from '../sim/world';
 import { UNLOCK, type City } from '../sim/city';
 import { clearSave, exportSave, importSave } from './save';
@@ -65,10 +65,11 @@ import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, sho
 import { card, EVENTS } from '../sim/events';
 import cardKiosk from './art/cards/card-kiosk.webp';
 import cardCafe from './art/cards/card-cafe.webp';
+import cardBakery from './art/cards/card-bakery.webp';
 
 import { getLang, translit, L, tr } from '../sim/i18n';
 import { FIRST_STEPS, type StepId } from '../sim/firstSteps';
-const PREMISES_PIC: Record<PremisesId, string> = { kiosk: cardKiosk, cafe: cardCafe, bistro: cardCafe };
+const PREMISES_PIC: Record<PremisesId, string> = { kiosk: cardKiosk, cafe: cardCafe, bistro: cardCafe, bakery: cardBakery };
 
 // Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
 // и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.
@@ -249,6 +250,7 @@ const INGREDIENT_ACC: Record<IngredientId, string> = {
   beans: L('зерно'),
   milk: L('молоко'),
   bakery: L('выпечку'),
+  oven: L('свою выпечку'),
   kitchen: L('продукты для кухни'),
   drinks: L('чай и лимонад'),
   bar: L('пиво и сидр'),
@@ -261,7 +263,7 @@ const INGREDIENT_ACC: Record<IngredientId, string> = {
   ham: L('ветчину'),
 };
 const BASE_INGREDIENTS: IngredientId[] = ['beans', 'milk', 'bakery', 'kitchen', 'drinks', 'bar'];
-const ingredientIcon = (id: IngredientId): string => (BASE_INGREDIENTS.includes(id) ? `ing-${id}` : `add-${id}`);
+const ingredientIcon = (id: IngredientId): string => (id === 'oven' ? 'ing-bakery' : BASE_INGREDIENTS.includes(id) ? `ing-${id}` : `add-${id}`);
 /** 1,5 дня → «1,5 дня»; 4 → «4 дня»; 12 → «12 дней» */
 const daysText = (d: number): string => {
   const v = d >= 10 ? Math.round(d) : Math.floor(d * 2) / 2;
@@ -521,6 +523,13 @@ export class Hud {
 
   /** Нажали на здание: название, кто там живёт или работает, кто сейчас внутри */
   selectPlace(p: Place | null): void {
+    // Нажал на свою другую точку в этом районе — панель переключается на неё
+    const owner = p ? this.city.points.find((s) => s.district === this.sim.district && s.cafe.opened && s.shopId === p.id) : null;
+    // Своя пекарня (помещение без отдельной карточки) — сразу её управление
+    if (owner && (owner !== this.sim || p!.kind === 'vacant')) {
+      this.show(owner);
+      return;
+    }
     this.selectedPlace = p;
     if (p) this.selected = null;
     this.view = p ? 'place' : 'cafe';
@@ -648,6 +657,40 @@ export class Hud {
       case 'go-district':
         this.onSwitch(item as DistrictId);
         return;
+      case 'open-bakery': {
+        const b = this.city.openBakery();
+        if (b) {
+          goal('open', { premises: 'bakery' });
+          this.show(b);
+        }
+        return;
+      }
+      case 'point': {
+        const target = this.city.points.find((s) => s.district === sim.district && s.cafe.premisesId === item);
+        if (target) this.show(target);
+        return;
+      }
+      case 'bake': {
+        const now = sim.cafe.stock.keep.oven;
+        const next = Math.max(0, now + Number(item));
+        sim.setKeep('oven', next);
+        sim.setKeep('oven', next, true);
+        break;
+      }
+      case 'wholesale':
+        sim.setWholesale(sim.cafe.wholesale + Number(item));
+        break;
+      case 'supply':
+        sim.setSupply(!sim.cafe.supply);
+        break;
+      case 'markdown': {
+        if (item === 'off') sim.setMarkdown(null);
+        else {
+          const [h, off] = item!.split(':').map(Number);
+          sim.setMarkdown({ from: h * 60, off: off / 100 });
+        }
+        break;
+      }
       case 'open-cafe':
         if (sim.openCafe((item as PremisesId) ?? 'cafe')) goal('open', { premises: item });
         this.tab = 'overview';
@@ -1123,7 +1166,7 @@ export class Hud {
       <img class="premises-pic" src="${PREMISES_PIC[id]}" alt="" width="300" height="100" />
       <div class="row"><b class="grow">${pr.name}</b><span class="badge">аренда ${money(pr.rentPerDay * 30)}/мес</span></div>
       <small>${pr.about}. Коммуналка — за часы работы, налог 6 % с выручки.</small>
-      <button class="primary" data-action="open-cafe" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>
+      <button class="primary" data-action="${id === 'bakery' ? 'open-bakery' : 'open-cafe'}" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>
     </li>`;
   }
 
@@ -1210,6 +1253,9 @@ export class Hud {
       return tr`${head(p.name, tr`школа на Садовой`)}
         <div class="facts"><div>Учатся: ${study.length} · сейчас на уроках: ${inside.length}</div>${awareLine(study, L('учеников'))}</div>
         ${people(inside, tr`Сейчас в школе`)}`;
+    }
+    if (p.kind === 'vacant' && p.id === PREMISES.bakery.placeId && this.city.unlocked && sim.district === PREMISES.bakery.district) {
+      return `${head(p.name, L('сдаётся'))}<ul class="menu premises-list">${this.premisesCard('bakery')}</ul>`;
     }
     if (p.kind === 'vacant') {
       return tr`${head(p.name, L('сдаётся'))}
@@ -1426,6 +1472,8 @@ export class Hud {
       <p class="hint-line" data-live="stock-warn"></p>
       ${this.rivalCard()}
       ${this.contractLine()}
+      ${this.bakeryBlock()}
+      ${this.otherPoints()}
       ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
       ${last ? tr`<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}
       ${this.restartBlock()}`;
@@ -1839,6 +1887,59 @@ export class Hud {
     const first = this.sim.reports.find((x) => x.opened);
     if (!first || !r.opened || r.profit >= 0 || r.day - first.day >= 7) return '';
     return tr`<p class="first-week">Первая неделя почти всегда в минусе: вывеска, реклама и стартовые закупки — это вложения в известность. Смотри не на итог, а растёт ли число гостей и тех, кто о тебе знает.</p>`;
+  }
+
+  /** Другие твои точки в этом районе: короткая строка и переход */
+  private otherPoints(): string {
+    const others = this.city.points.filter((s) => s !== this.sim && s.district === this.sim.district && s.cafe.opened);
+    return others
+      .map((o) => {
+        const icon = o.cafe.premisesId === 'bakery' ? '🥖' : '☕';
+        return tr`<div class="other-point"><span>${icon} ${o.cafe.title}: сегодня ${o.cafe.today.guests} ${plural(o.cafe.today.guests, 'гость', 'гостя', 'гостей')}, выручка ${money(o.cafe.today.revenue)}</span><button class="small secondary" data-action="point" data-item="${o.cafe.premisesId}">Перейти</button></div>`;
+      })
+      .join('');
+  }
+
+  /** Пекарня: печь, уценка вечером, хлеб в «Продукты», выпечка в свои точки */
+  private bakeryBlock(): string {
+    const sim = this.sim;
+    const cafe = sim.cafe;
+    if (cafe.premisesId !== 'bakery') return '';
+    const y = sim.reports.at(-1);
+    const keep = cafe.stock.keep.oven;
+    const soldOven = y ? Object.entries(y.sold).filter(([id]) => CATALOG.find((c) => c.id === id)?.bakery).reduce((a, [, n]) => a + n, 0) : 0;
+    const wasted = y?.writtenOffItems.oven ?? 0;
+    const yBake = y ? tr`<small>Вчера продали ${soldOven}, к ночи списали ${Math.round(wasted)}. Печь лучше чуть больше, чем продаёшь: пустая полка вечером — ушедшие гости.</small>` : '';
+    const md = cafe.markdown;
+    const mdOpts = [
+      ['off', L('Нет')],
+      ['18:30', tr`18:00 −30 %`],
+      ['19:30', tr`19:00 −30 %`],
+      ['19:50', tr`19:00 −50 %`],
+      ['20:50', tr`20:00 −50 %`],
+    ]
+      .map(([id, label]) => {
+        const on = id === 'off' ? !md : !!md && `${md.from / 60}:${Math.round(md.off * 100)}` === id;
+        return `<button class="chip${on ? ' on' : ''}" data-action="markdown" data-item="${id}">${label}</button>`;
+      })
+      .join('');
+    const w = y?.wholesale;
+    const wLine = w ? tr`<small>Вчера взяли ${w.qty}, продали ${w.sold} — платят за проданное по ${money(BAKERY.wholesalePrice)}, остальное вернули.</small>` : tr`<small>Магазин платит по ${money(BAKERY.wholesalePrice)} за проданный хлеб, непроданное возвращает. Печь обходится в ${money(BAKERY.supplyCost)}.</small>`;
+    const supplied = y?.supplied ? tr` Вчера отвезли ${y.supplied} шт.` : '';
+    return tr`<div class="bakery-block">
+      <h4>Печь</h4>
+      <div class="row"><span class="grow">Печь каждое утро</span><button class="icon" data-action="bake" data-item="-5" aria-label="Меньше">−</button><b class="qty">${keep}</b><button class="icon" data-action="bake" data-item="5" aria-label="Больше">+</button></div>
+      ${yBake}
+      <h5>Уценка своей выпечки вечером</h5>
+      <div class="chips">${mdOpts}</div>
+      <small>Лучше продать дешевле, чем списать: к ночи непроданное идёт в мусор.</small>
+      <h5>Хлеб в «Продукты»</h5>
+      <div class="row"><span class="grow">Возить каждое утро</span><button class="icon" data-action="wholesale" data-item="-5" aria-label="Меньше">−</button><b class="qty">${cafe.wholesale}</b><button class="icon" data-action="wholesale" data-item="5" aria-label="Больше">+</button></div>
+      ${wLine}
+      <h5>Выпечка в свои точки</h5>
+      <small>Кафе, киоск и бистро берут выпечку у тебя по ${money(BAKERY.supplyPrice)} вместо ${money(60)} у поставщика.${supplied}</small>
+      <button class="small${cafe.supply ? ' secondary' : ''}" data-action="supply">${cafe.supply ? L('Возим в свои точки') : L('Не возим')}</button>
+    </div>`;
   }
 
   /** Договор с офисом: что, когда и сколько осталось — чтобы не забыть открыться к 11:00 */

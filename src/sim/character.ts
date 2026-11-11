@@ -39,6 +39,9 @@ export const ITEM_PROFILE: Record<string, Profile> = {
   cocoa: P(0.9, 0.05, 0.4, 0.4),
   mulled: P(0.6, 0.3, 0.1, 0.6),
   gingerbread: P(0.8, 0.1, 0.3, 0.5),
+  bread: P(0.1, 0, 0.7, 0.1),
+  bun: P(0.9, 0, 0.5, 0.3),
+  pie: P(0.25, 0, 0.8, 0.15),
 };
 
 export function profileOf(itemId: string): Profile {

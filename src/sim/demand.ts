@@ -3,7 +3,7 @@
 import type { ItemKind, MenuItem, RejectReason } from './cafe';
 import { FAVORITE_MATCH, TASTE, tasteMatch } from './character';
 import { hm } from './clock';
-import type { Resident, ResidentKind, ScheduleEntry } from './residents';
+import { SADOVAYA_HOMES, type Resident, type ResidentKind, type ScheduleEntry } from './residents';
 import type { Rng } from './rng';
 import { WEATHER_WANT, type WeatherKind } from './weather';
 import type { Point } from './world';
@@ -25,6 +25,8 @@ export interface Want {
   mode: 'stopover' | 'replace';
   /** Сколько минут сидит после покупки */
   dwell: number;
+  /** Хлеб домой: подойдёт только своя выпечка пекарни (правило работает, только когда пекарня открыта) */
+  bakery?: boolean;
 }
 
 /** Готовность платить (₽) за желание — у каждого типа жителя своя */
@@ -58,8 +60,23 @@ interface WantRule {
 const MORNING_END = hm(11);
 const EVENING_START = hm(16);
 const NIGHT_SHIFT = hm(20);
+const BREAD_FROM = hm(14);
 
 const RULES: WantRule[] = [
+  {
+    // Хлеб домой: жители Садовой по дороге домой заходят в пекарню у дома. Только если пекарня игрока открыта —
+    // иначе правило пропускается и работает обычный «перекус по дороге домой»
+    test: (r, e, prev) => e.activity === 'home' && e.start >= BREAD_FROM && prev?.activity !== 'home' && SADOVAYA_HOMES.includes(r.homeId),
+    chance: { pensioner: 0.7, remote: 0.55, office: 0.5, student: 0.35, youth: 0.3, nightworker: 0.3 },
+    want: { kind: 'snack', mode: 'stopover', dwell: 0, bakery: true },
+  },
+  {
+    // Свежий хлеб с утра: кто с Садовой выходит днём по своим делам, заглядывает в пекарню
+    test: (r, e, prev) =>
+      prev?.activity === 'home' && e.start < MORNING_END && (e.activity === 'walk' || e.activity === 'groceries') && SADOVAYA_HOMES.includes(r.homeId),
+    chance: { pensioner: 0.6, remote: 0.45, youth: 0.3 },
+    want: { kind: 'snack', mode: 'stopover', dwell: 0, bakery: true },
+  },
   {
     // Кофе по дороге на работу или учёбу
     test: (_r, e) => (e.activity === 'work' || e.activity === 'study') && e.start < MORNING_END,
@@ -122,8 +139,11 @@ export function rollWant(
   festive = 1,
   /** Во сколько раз чаще любые желания (31 декабря вечером все покупают к празднику, 1 января утром — никто) */
   rush = 1,
+  /** Открыта ли пекарня игрока в районе: без неё правило «хлеб домой» пропускается, не тратя бросок */
+  bakery = false,
 ): Want | null {
   for (const rule of RULES) {
+    if (rule.want.bakery && !bakery) continue;
     const chance = rule.chance[r.kind];
     if (chance === undefined || !rule.test(r, entry, prev)) continue;
     // В выходные есть время посидеть — «посидеть в кафе» случается чаще

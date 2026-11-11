@@ -3579,3 +3579,47 @@ button.small.danger {
   margin: 0 0 8px;
   font-weight: 600;
 }
+
+/* Пекарня: печь, уценка, хлеб в магазин, поставки в свои точки */
+.bakery-block .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.bakery-block .qty {
+  min-width: 2.5em;
+  text-align: center;
+}
+.bakery-block small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.bakery-block .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.other-point {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 14px;
+}
+.bakery-block .chip {
+  height: auto;
+  min-height: 34px;
+  white-space: nowrap;
+  padding: 6px 10px;
+}
+.bakery-block > button {
+  margin-top: 6px;
+}

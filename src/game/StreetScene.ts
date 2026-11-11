@@ -292,6 +292,14 @@ const PREMISES_ART: Record<string, { rent: string; open: string; lights: string;
   cafe: { rent: 'building-cafe-rent', open: 'building-cafe-open', lights: 'building-cafe-lights', rival: 'building-cafe-rival', windows: [] },
   bistro: { rent: 'building-bistro-rent', open: 'building-bistro-open', lights: 'building-bistro-open-lights', rival: 'building-bistro-open', windows: [] },
   kiosk: { rent: 'building-kiosk-rent', open: 'building-kiosk-open', lights: 'building-kiosk-lights', rival: 'building-kiosk-rival', windows: [{ x: 18, y: 40, w: 56, h: 24 }] },
+  // Помещение на Садовой: пекарня игрока (гостевая точка района)
+  'premises-2': {
+    rent: 'building-premises2-rent',
+    open: 'building-bakery-open',
+    lights: 'building-bakery-open-lights',
+    rival: 'building-premises2-rent',
+    windows: [],
+  },
 };
 
 interface Shop {
@@ -670,7 +678,16 @@ export class StreetScene extends Phaser.Scene {
     // Другие точки живут без картинки: их события не копятся, банкротство общее
     for (const other of this.hooks.city.points) {
       if (other === this.hooks.sim) continue;
-      for (const e of other.drainEvents()) if (e.type === 'bankrupt') this.hooks.onBankrupt();
+      // Своя другая точка на этой же карте (пекарня): продажи видны над её крыльцом
+      const here = other.district === this.district;
+      for (const e of other.drainEvents()) {
+        if (e.type === 'bankrupt') this.hooks.onBankrupt();
+        else if (here && e.type === 'sale') {
+          sound.sale();
+          const c = this.at(other.shopId).rect;
+          this.float(c.x + c.w / 2, c.y + Math.min(c.h - 70, 30), `+${formatMoney(e.price)}`, '#2e8b57', 24);
+        }
+      }
     }
     this.drawCafe();
     this.drawNight();
@@ -881,7 +898,11 @@ export class StreetScene extends Phaser.Scene {
     const rival = sim.rival && sim.cafe.opened && sim.today >= sim.rival.opensDay ? sim.rival : null;
     for (const shop of this.shops) {
       const art = PREMISES_ART[shop.place.id];
-      const mine = shop.place.id === mineId;
+      // Чья это точка: главная карты или другая своя в этом районе (пекарня)
+      const owner = this.hooks.city.points.find((s) => s.district === this.district && s.cafe.opened && s.shopId === shop.place.id) ?? null;
+      const mine = shop.place.id === mineId || owner !== null;
+      const ownCafe = owner?.cafe ?? cafe;
+      const ownOpen = owner ? owner.cafe.isOpenAt(owner.minute) : open;
       const theirs = rival?.placeId === shop.place.id;
       const theirsOpen = theirs && rival!.isOpen(sim.today, sim.minute);
       const frame = theirs ? art.rival : mine ? art.open : art.rent;
@@ -891,12 +912,14 @@ export class StreetScene extends Phaser.Scene {
       if (lights && lights.frame.name !== lightFrame) lights.setTexture(textureOf(lightFrame), lightFrame);
       // До открытия подписаны оба помещения; после — своё и конкурент
       // Сдаётся только то, что можно снять в этом районе (киоск в квартале займёт сеть)
-      const rentable = !cafe.opened && PREMISES[shop.place.id as PremisesId]?.district === this.district;
-      const name = mine ? cafe.title : theirs ? rival!.t.name : rentable ? L('Сдаётся') : '';
-      const status = mine ? (open ? (sim.grandOpening ? L('🎀 открытие!') : L('открыто')) : L('закрыто')) : theirs ? tr`конкурент · ${theirsOpen ? L('открыто') : L('закрыто')}` : rentable ? shop.place.name : '';
+      const bakeryFree = shop.place.id === PREMISES.bakery.placeId && this.hooks.city.unlocked && !owner && this.district === PREMISES.bakery.district;
+      const rentable = (!cafe.opened && PREMISES[shop.place.id as PremisesId]?.district === this.district) || bakeryFree;
+      const name = mine ? ownCafe.title : theirs ? rival!.t.name : rentable ? L('Сдаётся') : '';
+      const opening = owner ? owner.grandOpening : sim.grandOpening;
+      const status = mine ? (ownOpen ? (opening ? L('🎀 открытие!') : L('открыто')) : L('закрыто')) : theirs ? tr`конкурент · ${theirsOpen ? L('открыто') : L('закрыто')}` : rentable ? shop.place.name : '';
       shop.name.setText(name).setVisible(name !== '');
       shop.status.setText(status).setVisible(status !== '');
-      shop.status.setColor(mine && open ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');
+      shop.status.setColor(mine && ownOpen ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');
       // Подпись не уезжает за левый край карты, даже когда длинная
       const x0 = shop.sprite.x;
       const half = Math.max(shop.name.displayWidth, shop.status.displayWidth) / 2 + 6;
@@ -974,7 +997,11 @@ export class StreetScene extends Phaser.Scene {
       else if (p.kind === 'office') on = h >= 7 && h < 21 ? 1 : 0.1;
       else if (p.kind === 'shop') on = h >= 8 && h < 22 ? 1 : 0;
       else if (p.kind === 'school') on = h >= 8 && h < 18 ? 1 : 0;
-      else if (p.kind === 'vacant') on = 0;
+      else if (p.kind === 'vacant') {
+        // Помещение на Садовой: свет, когда там твоя пекарня и она открыта
+        const bakery = this.hooks.city.points.find((s) => s.district === this.district && s.cafe.opened && s.shopId === p.id);
+        on = bakery && bakery.cafe.isOpenAt(minute) ? 1 : 0;
+      }
       else on = 1;
       image.setAlpha(k * on).setVisible(k * on > 0.01);
     }

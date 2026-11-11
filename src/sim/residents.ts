@@ -108,6 +108,8 @@ export interface Resident {
 export interface Visit {
   want: Want;
   itemId: string;
+  /** К какой точке игрока идёт, если не к главной в районе: её место на карте (sim/simulation.ts, гостевые точки) */
+  point?: string;
   stage: 'going' | 'queued' | 'dining';
   until: number;
   /** Когда житель решил зайти — чтобы не ждать бесконечно */
@@ -144,7 +146,7 @@ function makeName(rng: Rng): string {
 
 const HOMES = ['home-1', 'home-2', 'home-3', 'home-4'];
 /** Жилые дома Садовой. Дом 4 переехал туда с Кленовой */
-const SADOVAYA_HOMES = ['home-4', 'home-5', 'home-6', 'home-7'];
+export const SADOVAYA_HOMES = ['home-4', 'home-5', 'home-6', 'home-7'];
 /** Сколько людей проходит через улицу и приезжает отдохнуть */
 export const PASSENGERS = 40;
 export const VISITORS = 36;

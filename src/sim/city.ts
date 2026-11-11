@@ -3,6 +3,7 @@
 import { SAVE_VERSION, Simulation, STEP, type SaveData } from './simulation';
 import { hm, MINUTES_PER_DAY } from './clock';
 import { linkCommuters, syncCommuters } from './commute';
+import { PREMISES } from './economy';
 import type { Resident } from './residents';
 import type { DistrictId } from './world';
 
@@ -18,6 +19,8 @@ export interface CitySave {
   main: SaveData;
   branch: SaveData | null;
   unlocked: boolean;
+  /** Гостевые точки в районе главной: пекарня на Садовой (нет в старых сохранениях) */
+  extras?: SaveData[];
 }
 
 export interface UnlockProgress {
@@ -38,11 +41,37 @@ export class City {
   /** Сквозные жители: пары «Кленовая — квартал» */
   private commuters: [Resident, Resident][] = [];
 
+  /** Гостевые точки в районе главной (пекарня на Садовой): жители общие, касса общая */
+  readonly extras: Simulation[] = [];
+
   constructor(
     readonly main: Simulation,
     public branch: Simulation | null = null,
   ) {
     if (branch) this.linkBranch(branch);
+  }
+
+  /** Пекарня на Садовой: открывается вместе с деловым кварталом, нужна своя точка на Кленовой */
+  get bakery(): Simulation | null {
+    return this.extras.find((p) => p.cafe.premisesId === 'bakery') ?? null;
+  }
+
+  canOpenBakery(): boolean {
+    return this.unlocked && !this.bakery && this.main.cafe.opened && this.main.cash >= PREMISES.bakery.openingCost;
+  }
+
+  /** Открыть пекарню: новая точка в том же районе, жители выбирают между твоими точками */
+  openBakery(): Simulation | null {
+    if (!this.canOpenBakery()) return null;
+    const p = new Simulation(this.main.seed * 53 + 11, this.main.time, this.main.district);
+    p.attachTo(this.main);
+    if (!p.openCafe('bakery')) {
+      this.main.guests.splice(this.main.guests.indexOf(p), 1);
+      return null;
+    }
+    this.extras.push(p);
+    this.carry = 0;
+    return p;
   }
 
   private linkBranch(branch: Simulation): void {
@@ -51,7 +80,7 @@ export class City {
   }
 
   get points(): Simulation[] {
-    return this.branch ? [this.main, this.branch] : [this.main];
+    return [this.main, ...this.extras, ...(this.branch ? [this.branch] : [])];
   }
 
   point(district: DistrictId): Simulation | null {
@@ -60,7 +89,7 @@ export class City {
 
   /** Продвинуть все точки на dt игровых минут — шаг в шаг, чтобы день у всех закрывался одновременно */
   advance(dt: number): void {
-    if (!this.branch) {
+    if (!this.branch && !this.extras.length) {
       this.main.advance(dt);
       this.checkUnlock();
       return;
@@ -70,10 +99,15 @@ export class City {
       this.carry -= STEP;
       const day = this.main.today;
       this.main.tick();
-      this.branch.tick();
-      // Новый день: свои люди одной точки узнают другую
-      if (this.main.today !== day) syncCommuters(this.commuters, this.main, this.branch);
+      // Гостевые точки — сразу после главной: она только что отдала им визиты
+      for (const p of this.extras) p.tick();
+      if (this.branch) {
+        this.branch.tick();
+        // Новый день: свои люди одной точки узнают другую
+        if (this.main.today !== day) syncCommuters(this.commuters, this.main, this.branch);
+      }
     }
+    if (!this.branch) this.checkUnlock();
   }
 
   /** Промотать до 6:00 утра все точки вместе */
@@ -118,7 +152,13 @@ export class City {
   }
 
   serialize(): CitySave {
-    return { city: 1, main: this.main.serialize(), branch: this.branch?.serialize() ?? null, unlocked: this.unlocked };
+    return {
+      city: 1,
+      main: this.main.serialize(),
+      branch: this.branch?.serialize() ?? null,
+      unlocked: this.unlocked,
+      extras: this.extras.map((p) => p.serialize()),
+    };
   }
 
   /** Сохранение города или старое сохранение одной точки. null — несовместимая версия */
@@ -132,6 +172,12 @@ export class City {
     const branch = d.branch && d.branch.version === SAVE_VERSION ? Simulation.restore(d.branch) : null;
     const city = new City(main, branch);
     city.unlocked = d.unlocked || branch !== null;
+    for (const e of d.extras ?? []) {
+      const p = e.version === SAVE_VERSION ? Simulation.restore(e) : null;
+      if (!p) continue;
+      p.attachTo(main);
+      city.extras.push(p);
+    }
     return city;
   }
 }

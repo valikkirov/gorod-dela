@@ -34,7 +34,7 @@ export function formatMoney(amount: number, currency: Currency = CURRENCY): stri
   return `${sign}${abs} ${currency === 'RUB' ? '₽' : currency}`;
 }
 
-export type PremisesId = 'cafe' | 'kiosk' | 'bistro';
+export type PremisesId = 'cafe' | 'kiosk' | 'bistro' | 'bakery';
 
 /** Помещения под бизнес: формат начинается с места */
 export interface Premises {
@@ -114,6 +114,23 @@ export const PREMISES: Record<PremisesId, Premises> = {
     equipped: ['stove'],
     lunchService: 0.5,
     starterMenu: ['americano', 'cappuccino', 'croissant', 'soup', 'lunch', 'tea'],
+  },
+  // Вторая точка на\u00a0Кленовой: пекарня на\u00a0Садовой. Печёт сама каждое утро — дешевле поставщика, но непроданное к ночи списывается
+  bakery: {
+    id: 'bakery',
+    placeId: 'premises-2',
+    name: L('Пекарня на\u00a0Садовой'),
+    mine: L('Твоя пекарня'),
+    about: L('20\u00a0м² с\u00a0печью на\u00a0Садовой. Каждое утро печёшь партию: хлеб, булочки, пирожки\u00a0— втрое дешевле поставщика, но к\u00a0ночи непроданное списывается. Кофе и\u00a0чай навынос'),
+    rentPerDay: 700,
+    utilitiesPerDay: 150,
+    utilitiesPerHour: 20,
+    openingCost: 70_000,
+    seats: false,
+    kinds: ['coffee', 'snack', 'tea'],
+    maxBaristas: 1,
+    district: 'klenovaya',
+    starterMenu: ['bread', 'bun', 'pie', 'americano', 'tea'],
   },
 };
 

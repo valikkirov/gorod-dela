@@ -76,6 +76,10 @@ export const RIVALS: Record<PremisesId, RivalTemplate> = {
     closeAt: hm(16),
     seats: false,
   },
+  // Пекарня — гостевая точка: своего конкурента у неё нет (в районе он один, у главной); шаблон для полноты
+  get bakery(): RivalTemplate {
+    return RIVALS.cafe;
+  },
 };
 
 export interface RivalSave {

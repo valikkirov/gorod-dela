@@ -1,13 +1,13 @@
 import { canPlace, FINISH_SLOTS, SEASON_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, STYLE_SLOTS, styleSet, type StyleId } from './interior';
-import { Cafe, CATALOG, hours24, ownerShiftText, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, SPECIALTY, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
+import { Cafe, CATALOG, hours24, ownerShiftText, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, MARKDOWN_DEFAULT, SPECIALTY, type CafeSave, type Change, type Markdown, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
 import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
 import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
 import { tasteMatch } from './character';
-import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
+import { dayNumber, formatClock, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
 import { evaluate, rejectReason, rollWant, type Offer, type Want } from './demand';
 import { ECONOMY, EQUIPMENT, formatMoney, PREMISES, type EquipmentId, type PremisesId } from './economy';
 import { rateVisit, remember, type Memory } from './character';
-import { currentEntry, generateResidents, isFemale, type Resident, type ResidentKind, type ScheduleEntry } from './residents';
+import { currentEntry, generateResidents, isFemale, SADOVAYA_HOMES, type Resident, type ResidentKind, type ScheduleEntry } from './residents';
 import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marketing';
 import { Rng } from './rng';
 import { INGREDIENTS, ingredient, recipeCost, recipeOf, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
@@ -122,6 +122,22 @@ const PARK_SHARE = { day: 0.6, night: 0.3, strollEvery: 12 } as const;
 /** Дольше этого житель не ждёт заказ и уходит по делам */
 const PATIENCE = 30;
 
+/** Пекарня: домой берут ещё одно изделие — к хлебу (хлеб домой) и к кофе или чаю */
+export const BAKERY = {
+  takeHomeBread: 0.8,
+  takeHomeOther: 0.35,
+  /** Своя выпечка в свои точки: почём пекарня отдаёт порцию (поставщик берёт 60) и во что ей обходится */
+  supplyPrice: 40,
+  supplyCost: 25,
+  /** Хлеб в «Продукты»: оптовая цена, сколько можно возить; магазин платит за проданное, остаток возвращает */
+  wholesalePrice: 60,
+  wholesaleMax: 40,
+  /** Доля проданного в магазине: от min до min+spread (бросок), в выходные ×weekend */
+  wholesaleMin: 0.65,
+  wholesaleSpread: 0.35,
+  wholesaleWeekend: 0.8,
+} as const;
+
 export type SimEvent =
   | { type: 'sale'; residentId: number; price: number; itemId: string }
   | { type: 'reject'; residentId: number; reason: RejectReason }
@@ -177,13 +193,14 @@ export interface OfficeContract {
 export class Simulation {
   /** Игровое время в минутах с начала первого дня */
   time: number;
-  readonly residents: Resident[];
+  /** Жители района. У гостевой точки — те же, что у главной в районе (attachTo) */
+  residents: Resident[];
   readonly cafe = new Cafe();
   readonly marketing = new Marketing();
   /** Конкурент в соседнем помещении — появляется после открытия игрока */
   rival: Rival | null = null;
   /** Знакомые лица — шесть жителей, за которыми видна история */
-  readonly regulars: Regular[];
+  regulars: Regular[];
   private readonly regularById = new Map<number, Regular>();
   /** Достигнутые вехи: id → день */
   readonly milestones: Partial<Record<MilestoneId, number>> = {};
@@ -201,9 +218,16 @@ export class Simulation {
   /** Когда какое событие было в последний раз — чтобы не повторялись подряд */
   private lastEvent: Partial<Record<EventId, number>> = {};
   /** Компании коллег: обедают вместе (sim/groups.ts) */
-  readonly groups: Group[];
+  groups: Group[];
   private readonly groupOf = new Map<number, Group>();
   private groupDay: Record<number, GroupDay> = {};
+  /**
+   * Несколько точек в одном районе: главная (хозяин) ведёт жителей — их день, маршруты, желания —
+   * и решает, к какой из точек игрока идти. Гостевая точка (пекарня на Садовой) — своя касса дня, склад, меню
+   * и очередь, но жители общие: она их не двигает, а принимает визиты, которые ей отдала главная.
+   */
+  private host: Simulation | null = null;
+  readonly guests: Simulation[] = [];
   private groupWas: Record<number, boolean> = {};
   /** Договор с офисом «Север»: обеды каждый будний день */
   contract: OfficeContract | null = null;
@@ -503,9 +527,15 @@ export class Simulation {
     }
     // В киоске нет кухни и бара — стартовое меню без них
     for (const m of [...this.cafe.menu]) if (!this.cafe.fits(m.id)) this.cafe.removeItem(m.id);
-    if (!this.cafe.hasItem('croissant')) this.cafe.addItem('croissant');
+    if (!this.cafe.hasItem('croissant') && premisesId !== 'bakery') this.cafe.addItem('croissant');
+    // Пекарня: вечером своя выпечка дешевле — лучше продать со скидкой, чем списать
+    if (premisesId === 'bakery') {
+      this.cafe.markdown = { ...MARKDOWN_DEFAULT };
+      this.cafe.wholesale = 20;
+    }
     this.note('open', tr`${pr.name}: открыто`, undefined, '');
-    this.rival = new Rival(premisesId, this.day + RIVAL.delayDays);
+    // У гостевой точки своего конкурента нет: в районе он один, у главной
+    if (!this.host) this.rival = new Rival(premisesId, this.day + RIVAL.delayDays);
     // Сразу знают соседи и продавцы напротив; у киоска — те, кто ходит через метро
     for (const r of this.residents) {
       const neighbour =
@@ -513,7 +543,9 @@ export class Simulation {
           ? r.homeId === 'home-1' || r.homeId === 'home-2'
           : premisesId === 'bistro'
             ? r.workId === 'bc-alfa' || r.workId === 'cowork'
-            : r.homeId === 'metro' && r.kind !== 'visitor';
+            : premisesId === 'bakery'
+              ? SADOVAYA_HOMES.includes(r.homeId)
+              : r.homeId === 'metro' && r.kind !== 'visitor';
       const p = r.kind === 'shopkeeper' ? 1 : neighbour ? (premisesId === 'kiosk' ? 0.35 : 0.7) : MARKETING.openingHeard;
       if (this.rng.chance(p)) this.learn(r, 'start');
     }
@@ -762,6 +794,30 @@ export class Simulation {
     return this.main !== null;
   }
 
+  /** Сделать точку гостевой при главной в том же районе: жители, погода и касса — общие */
+  attachTo(host: Simulation): void {
+    this.link(host);
+    this.host = host;
+    this.residents = host.residents;
+    this.regulars = [];
+    this.regularById.clear();
+    this.groups = [];
+    this.groupOf.clear();
+    this.rival = null;
+    if (!host.guests.includes(this)) host.guests.push(this);
+  }
+
+  /** Гостевая точка: жителей ведёт главная */
+  get isGuest(): boolean {
+    return this.host !== null;
+  }
+
+  /** Точка, к которой сейчас идёт или в которой сидит житель */
+  private pointOf(r: Resident): Simulation {
+    const id = r.visit?.point;
+    return (id && this.guests.find((g) => g.shopId === id)) || this;
+  }
+
   /** Один шаг симуляции — для города из нескольких точек, которые идут в ногу */
   tick(): void {
     if (!this.bankrupt) this.step(STEP);
@@ -795,12 +851,13 @@ export class Simulation {
       for (const id of this.cafe.flush()) this.dropVisit(this.residents[id], 'closed');
     }
 
-    for (const r of this.residents) {
+    // Гостевая точка жителей не ведёт: их шаг делает главная
+    for (const r of this.host ? [] : this.residents) {
       const entry = currentEntry(r.schedule, minute);
       // Пока житель в кафе и ещё не получил заказ, следующее занятие подождёт
       const waiting = r.visit && r.visit.stage !== 'dining' && this.time - r.visit.since < PATIENCE;
       if (entry !== r.entry && !waiting) this.onTransition(r, entry);
-      if (r.visit?.stage === 'dining' && this.time >= r.visit.until) this.finishVisit(r);
+      if (r.visit?.stage === 'dining' && this.time >= r.visit.until) this.pointOf(r).finishVisit(r);
       if (r.rivalVisit?.until != null && this.time >= r.rivalVisit.until) {
         r.rivalVisit = null;
         this.goTo(r, r.entry.placeId);
@@ -852,12 +909,17 @@ export class Simulation {
     const prev = r.entry;
     r.entry = entry;
     r.activity = entry.activity;
-    if (r.visit) this.dropVisit(r, 'no-time');
+    if (r.visit) this.pointOf(r).dropVisit(r, 'no-time');
     r.rivalVisit = null;
 
-    const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day), this.sitMood(), this.holidayRush(this.minute));
-    if (want && this.decide(r, want, entry)) {
-      this.goTo(r, this.shopId);
+    const bakery = this.guests.some((g) => g.cafe.opened && g.cafe.premisesId === 'bakery');
+    const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day), this.sitMood(), this.holidayRush(this.minute), bakery);
+    const point = want ? this.pickPoint(r, want, entry) : this;
+    // Хлеб домой бывает только в пекарне: закрыта — житель купит хлеб в «Продуктах», в отчёт кафе это не идёт
+    const breadOnly = want?.bakery && point === this;
+    if (want && !breadOnly && point.decide(r, want, entry)) {
+      if (point !== this) r.visit!.point = point.shopId;
+      this.goTo(r, point.shopId);
       return;
     }
     if (r.rivalVisit && this.rival) {
@@ -871,6 +933,24 @@ export class Simulation {
       return;
     }
     this.goTo(r, this.parkFor(entry));
+  }
+
+  /**
+   * Куда из точек игрока в районе житель пойдёт с этим желанием: туда, где у него больше шансов зайти.
+   * Без гостевых точек — всегда сюда. Закрытые и неоткрытые точки не рассматриваются (кроме главной: её отказ
+   * «закрыто» тоже считается в отчёте).
+   */
+  private pickPoint(r: Resident, want: Want, entry: ScheduleEntry): Simulation {
+    if (!this.guests.length) return this;
+    const minute = Math.floor(this.minute);
+    let best: Simulation = this;
+    let top = this.cafe.opened && this.cafe.isOpenAt(minute) && r.aware ? this.chances(r, want, entry, minute).pP : 0;
+    for (const g of this.guests) {
+      if (!g.cafe.opened || !g.cafe.isOpenAt(minute) || !g.cafe.isOpenAt(minuteOfDay(minute + 10))) continue;
+      const p = r.aware ? g.chances(r, want, entry, minute).pP : 0;
+      if (p > top) [best, top] = [g, p];
+    }
+    return best;
   }
 
   /** Решение «зайти или нет». true — житель идёт в кафе. */
@@ -949,8 +1029,9 @@ export class Simulation {
     // Житель видит цены с учётом счастливых часов
     const festive = this.holiday;
     const menu = cafe.menu
-      .filter((m) => !this.blocked(m.kind))
-      .map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute), festive: festive && !!m.seasonal }));
+      // За хлебом домой — только своя выпечка пекарни
+      .filter((m) => !this.blocked(m.kind) && (!want.bakery || !!CATALOG.find((c) => c.id === m.id)?.bakery))
+      .map((m) => ({ ...m, price: cafe.priceAt(m, minute), festive: festive && !!m.seasonal }));
     const offer = evaluate(r, want, menu, r.pos, this.at(this.shopId).front, nearestFront(this.at(entry.placeId), r.pos), this.weather.kind);
     // Специализация: за своей категорией идут именно сюда
     const special = cafe.specialty?.has(want.kind) ? 1 + SPECIALTY.pull : 1;
@@ -1028,6 +1109,8 @@ export class Simulation {
   }
 
   private onArrive(r: Resident): void {
+    const point = this.pointOf(r);
+    if (point !== this) return point.onArrive(r);
     if (this.rival && r.rivalVisit && r.placeId === this.rival.placeId && r.rivalVisit.until === null) {
       r.rivalVisit.until = this.time + Math.max(2, r.rivalVisit.dwell);
       this.rival.servedToday += 1;
@@ -1118,6 +1201,7 @@ export class Simulation {
     this.bringCompany(r, itemId);
     this.extraOrder(r, itemId);
     this.pastryImpulse(r, itemId);
+    this.takeHome(r, itemId);
   }
 
   /**
@@ -1165,6 +1249,25 @@ export class Simulation {
     if (kind !== 'coffee' && kind !== 'tea') return;
     const options = this.cafe.menu.filter((m) => m.kind === 'snack' && this.cafe.stock.canMake(m.id));
     if (!options.length || !this.rng.chance(UPGRADE_EFFECT.pastryChance)) return;
+    const pick = evaluate(r, { kind: 'snack', mode: 'stopover', dwell: 0 }, options, r.pos, r.pos, r.pos, this.weather.kind).item;
+    if (!pick) return;
+    const price = this.cafe.sellExtra(pick.id, this.minute);
+    if (price > 0) {
+      this.cash += price;
+      this.events.push({ type: 'sale', residentId: r.id, price, itemId: pick.id });
+    }
+  }
+
+  /**
+   * Пекарня: домой берут не одно — к хлебу булочки, к кофе пирожок. Только своя выпечка и только в пекарне,
+   * один раз за визит.
+   */
+  private takeHome(r: Resident, itemId: string): void {
+    if (this.cafe.premisesId !== 'bakery' || !r.visit) return;
+    const chance = r.visit.want.bakery ? BAKERY.takeHomeBread : BAKERY.takeHomeOther;
+    if (!this.rng.chance(chance)) return;
+    const options = this.cafe.menu.filter((m) => m.id !== itemId && CATALOG.find((c) => c.id === m.id)?.bakery && this.cafe.stock.canMake(m.id));
+    if (!options.length) return;
     const pick = evaluate(r, { kind: 'snack', mode: 'stopover', dwell: 0 }, options, r.pos, r.pos, r.pos, this.weather.kind).item;
     if (!pick) return;
     const price = this.cafe.sellExtra(pick.id, this.minute);
@@ -1237,7 +1340,14 @@ export class Simulation {
 
   private receiveDelivery(): void {
     if (!this.cafe.opened) return;
+    // Выпечку везёт своя пекарня, если она есть и возит: дешевле поставщика, деньги остаются в сети
+    const baker = this.ownBakery();
+    if (baker) this.cafe.stock.unitPrice.bakery = BAKERY.supplyPrice;
+    else delete this.cafe.stock.unitPrice.bakery;
     const d = this.cafe.stock.deliver(this.day);
+    const shipped = d.items.bakery ?? 0;
+    if (baker && shipped > 0) baker.supplyOut(shipped);
+    if (this.cafe.premisesId === 'bakery') this.sellWholesale();
     // Соцсети работают каждый день кампании
     if (this.marketing.socialDaysLeft > 0) {
       this.marketing.socialDaysLeft -= 1;
@@ -1256,6 +1366,58 @@ export class Simulation {
     this.resolveBlogger();
     this.runContract();
     this.rollEvent();
+  }
+
+  /** Своя пекарня, которая возит выпечку в эту точку (сама пекарня себе не возит) */
+  private ownBakery(): Simulation | null {
+    if (this.cafe.premisesId === 'bakery') return null;
+    const hub = this.host ?? this.main ?? this;
+    return hub.guests.find((g) => g.cafe.opened && g.cafe.premisesId === 'bakery' && g.cafe.supply) ?? null;
+  }
+
+  /** Пекарня утром везёт хлеб в «Продукты»: магазин платит за проданное, непроданное возвращает (печь уже потрачена) */
+  private sellWholesale(): void {
+    const qty = Math.min(BAKERY.wholesaleMax, Math.max(0, Math.round(this.cafe.wholesale)));
+    if (!qty) return;
+    const share = (BAKERY.wholesaleMin + BAKERY.wholesaleSpread * this.eventRng.next()) * (isWeekend(this.day) ? BAKERY.wholesaleWeekend : 1);
+    const sold = Math.min(qty, Math.round(qty * share));
+    const t = this.cafe.today;
+    const revenue = sold * BAKERY.wholesalePrice;
+    const cost = qty * BAKERY.supplyCost;
+    t.revenue += revenue;
+    t.cogs += sold * BAKERY.supplyCost;
+    // Возврат: выпечка пропала, это расход «под заказ», а не списание со склада
+    t.orderCost = (t.orderCost ?? 0) + (qty - sold) * BAKERY.supplyCost;
+    t.wholesale = { qty, sold };
+    (t.revenueBy ??= {}).wholesale = (t.revenueBy.wholesale ?? 0) + revenue;
+    (t.cogsBy ??= {}).wholesale = (t.cogsBy.wholesale ?? 0) + cost;
+    this.cash += revenue - cost;
+  }
+
+  /** Пекарня: возить ли выпечку в свои точки */
+  setSupply(on: boolean): void {
+    this.cafe.supply = on;
+    this.toggle('supply', L('Выпечка в\u00a0свои точки'), L('возим'), L('не\u00a0возим'), on);
+  }
+
+  /** Пекарня: сколько хлеба возить в «Продукты» каждое утро */
+  setWholesale(qty: number): void {
+    const before = this.cafe.wholesale;
+    this.cafe.wholesale = Math.min(BAKERY.wholesaleMax, Math.max(0, Math.round(qty)));
+    this.note('wholesale', L('Хлеб в\u00a0«Продукты»'), tr`${before}\u00a0шт.`, tr`${this.cafe.wholesale}\u00a0шт.`);
+  }
+
+  /** Пекарня отвезла выпечку в свою точку: выручка по цене сети, затраты на выпечку — себестоимость */
+  private supplyOut(qty: number): void {
+    const t = this.cafe.today;
+    const revenue = qty * BAKERY.supplyPrice;
+    const cost = qty * BAKERY.supplyCost;
+    t.revenue += revenue;
+    t.cogs += cost;
+    t.supplied = (t.supplied ?? 0) + qty;
+    (t.revenueBy ??= {}).supply = (t.revenueBy.supply ?? 0) + revenue;
+    (t.cogsBy ??= {}).supply = (t.cogsBy.supply ?? 0) + cost;
+    this.cash += revenue - cost;
   }
 
   /** Житель узнал о точке от самого себя: он свой в другой вашей точке (sim/commute.ts) */
@@ -1547,7 +1709,7 @@ export class Simulation {
   }
 
   private rollEvent(): void {
-    if (!this.cafe.opened || this.pendingEvent || this.day < this.openedDay + EVENTS.fromDay) return;
+    if (this.host || !this.cafe.opened || this.pendingEvent || this.day < this.openedDay + EVENTS.fromDay) return;
     if (!this.eventRng.chance(EVENTS.chance)) return;
     const options = this.eligibleEvents().filter((e) => (this.lastEvent[e.id] ?? -99) <= this.day - EVENTS.cooldownDays);
     if (options.length === 0) return;
@@ -1905,7 +2067,7 @@ export class Simulation {
 
   /** Сколько гостей сейчас сидит в зале */
   seated(): number {
-    return this.residents.filter((r) => r.visit?.stage === 'dining' && r.visit.want.mode === 'replace').length;
+    return this.residents.filter((r) => r.visit?.stage === 'dining' && r.visit.want.mode === 'replace' && r.placeId === this.shopId).length;
   }
 
   /** Зал есть только у кафе; киоск — навынос */
@@ -2041,26 +2203,38 @@ export class Simulation {
         budget = 0;
       }
     }
-    // Проходя мимо открытого кафе, можно его заметить — вывеска помогает
-    if (this.cafe.opened && !r.aware && !r.noticed) {
-      const front = this.at(this.shopId).front;
-      if (Math.abs(r.pos.x - front.x) < 45 && Math.abs(r.pos.y - front.y) < 60) {
-        r.noticed = true;
-        // Любопытный замечает новое место чаще, торопливый — реже
-        const look = 1 + 0.8 * (r.character.curiosity - 0.5) - 0.3 * (r.character.hurry - 0.5);
-        // Доска с подсветкой у киоска: замечают чаще, особенно вечером
-        const board = this.cafe.has('board') ? (this.minute >= hm(17) ? UPGRADE_EFFECT.boardNoticeEvening : UPGRADE_EFFECT.boardNotice) : 1;
-        const base = this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase;
-        // Зал своего стиля виден в окне — своя аудитория замечает его чаще
-        const style = this.hasHall ? 1 + INTERIOR.styleNotice * this.cafe.interior.styleFit(r.kind) : 1;
-        const p = (this.grandOpening ? Math.max(base, MARKETING.noticeOpening) : base) * look * board * style;
-        if (this.rng.chance(Math.min(1, p))) this.learn(r, 'walk');
-      }
-    }
+    // Проходя мимо открытой точки игрока, можно её заметить — вывеска помогает
+    for (const point of this.host ? [] : [this, ...this.guests]) if (!r.aware && !r.noticed) point.notice(r);
     if (r.path.length === 0) {
       r.walking = false;
       r.visible = !this.at(r.placeId).indoor;
       this.onArrive(r);
+    }
+  }
+
+  /** Пекарня: вечерняя уценка своей выпечки (null — не уценивать, продавать по полной до закрытия) */
+  setMarkdown(md: Markdown | null): void {
+    const before = this.cafe.markdown;
+    this.cafe.markdown = md ? { from: md.from, off: Math.min(0.7, Math.max(0.1, md.off)) } : null;
+    const text = (m: Markdown | null) => (m ? tr`с\u00a0${formatClock(m.from)} −${Math.round(m.off * 100)}\u00a0%` : L('без уценки'));
+    this.note('markdown', L('Уценка выпечки вечером'), text(before), text(this.cafe.markdown));
+  }
+
+  /** Житель проходит мимо: может заметить точку */
+  private notice(r: Resident): void {
+    if (!this.cafe.opened) return;
+    const front = this.at(this.shopId).front;
+    if (Math.abs(r.pos.x - front.x) < 45 && Math.abs(r.pos.y - front.y) < 60) {
+      r.noticed = true;
+      // Любопытный замечает новое место чаще, торопливый — реже
+      const look = 1 + 0.8 * (r.character.curiosity - 0.5) - 0.3 * (r.character.hurry - 0.5);
+      // Доска с подсветкой у киоска: замечают чаще, особенно вечером
+      const board = this.cafe.has('board') ? (this.minute >= hm(17) ? UPGRADE_EFFECT.boardNoticeEvening : UPGRADE_EFFECT.boardNotice) : 1;
+      const base = this.marketing.sign ? MARKETING.noticeWithSign : MARKETING.noticeBase;
+      // Зал своего стиля виден в окне — своя аудитория замечает его чаще
+      const style = this.hasHall ? 1 + INTERIOR.styleNotice * this.cafe.interior.styleFit(r.kind) : 1;
+      const p = (this.grandOpening ? Math.max(base, MARKETING.noticeOpening) : base) * look * board * style;
+      if (this.rng.chance(Math.min(1, p))) this.learn(r, 'walk');
     }
   }
 

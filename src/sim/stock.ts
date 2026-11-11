@@ -6,6 +6,8 @@ export type IngredientId =
   | 'beans'
   | 'milk'
   | 'bakery'
+  /** Своя выпечка пекарни: утренняя партия, к ночи непроданное списывается */
+  | 'oven'
   | 'kitchen'
   | 'drinks'
   | 'bar'
@@ -31,6 +33,7 @@ export const INGREDIENTS: readonly Ingredient[] = [
   { id: 'beans', name: L('Кофейное зерно'), unitCost: 30, shelfDays: null },
   { id: 'milk', name: L('Молоко'), unitCost: 20, shelfDays: 3 },
   { id: 'bakery', name: L('Выпечка'), unitCost: 60, shelfDays: 1 },
+  { id: 'oven', name: L('Своя выпечка'), unitCost: 25, shelfDays: 1 },
   { id: 'kitchen', name: L('Продукты для кухни'), unitCost: 80, shelfDays: 2 },
   { id: 'drinks', name: L('Чай и лимонад'), unitCost: 20, shelfDays: null },
   { id: 'bar', name: L('Пиво и сидр'), unitCost: 110, shelfDays: null },
@@ -44,7 +47,7 @@ export const INGREDIENTS: readonly Ingredient[] = [
 ];
 
 /** Добавки: на складе по нулям, пока игрок не придумает блюдо */
-const NONE_EXTRA = { syrup: 0, chocolate: 0, honey: 0, spices: 0, berries: 0, cheese: 0, ham: 0 } as const;
+const NONE_EXTRA = { oven: 0, syrup: 0, chocolate: 0, honey: 0, spices: 0, berries: 0, cheese: 0, ham: 0 } as const;
 
 export const ingredient = (id: IngredientId): Ingredient => INGREDIENTS.find((i) => i.id === id)!;
 
@@ -66,6 +69,10 @@ export const RECIPES: Record<string, Partial<Record<IngredientId, number>>> = {
   cocoa: { milk: 1, chocolate: 1 },
   mulled: { drinks: 1, spices: 1, berries: 0.3 },
   gingerbread: { honey: 1, spices: 1, chocolate: 1 },
+  // Пекарня: всё из утренней партии
+  bread: { oven: 1 },
+  bun: { oven: 1 },
+  pie: { oven: 1 },
 };
 
 /** Рецепт позиции каталога или своего блюда */
@@ -119,6 +126,8 @@ export const STARTER_KEEP_WEEKEND: Record<IngredientId, number> = {
   drinks: 15,
   bar: 0,
   ...NONE_EXTRA,
+  // Пекарня печёт с первого утра (у остальных точек своей выпечки в меню нет — не заказывается)
+  oven: 40,
 };
 
 export const STARTER_KEEP: Record<IngredientId, number> = {
@@ -129,6 +138,8 @@ export const STARTER_KEEP: Record<IngredientId, number> = {
   drinks: 15,
   bar: 0,
   ...NONE_EXTRA,
+  // Пекарня печёт с первого утра (у остальных точек своей выпечки в меню нет — не заказывается)
+  oven: 40,
 };
 
 export interface StockSave {
@@ -148,6 +159,8 @@ export class Stock {
   keepWeekend: Record<IngredientId, number> = { beans: 0, milk: 0, bakery: 0, kitchen: 0, drinks: 0, bar: 0, ...NONE_EXTRA };
   /** На сколько дней дольше хранится скоропорт (холодильная витрина). Выставляет кафе, не сохраняется отдельно. */
   shelfBonus = 0;
+  /** Своя цена за порцию вместо цены поставщика (выпечка из своей пекарни). Выставляет точка перед поставкой */
+  unitPrice: Partial<Record<IngredientId, number>> = {};
 
   toJSON(): StockSave {
     const batches: StockSave['batches'] = {};
@@ -230,7 +243,8 @@ export class Stock {
     for (const [id, qty] of Object.entries(this.pending) as [IngredientId, number][]) {
       if (!qty) continue;
       const ing = ingredient(id);
-      const cost = orderPrice(id, qty);
+      const own = this.unitPrice[id];
+      const cost = own !== undefined ? Math.round(own * qty) : orderPrice(id, qty);
       const list = this.batches.get(id) ?? [];
       list.push({
         qty,
