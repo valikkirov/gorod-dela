@@ -30,6 +30,8 @@ const KINDS: Record<Exclude<Kind, Scheduled>, { weight: number; len: number; spe
   bike: { weight: 5, len: 36, speed: [80, 110] },
 };
 const CARS = ['car-a', 'car-b', 'car-c'];
+/** Сколько секунд можно стоять в пробке из-за соседей, потом машина протискивается */
+const JAM_LIMIT = 6;
 const BUS = { len: 126, speed: 110, waitSeconds: 2.5, everyMinutes: 40 };
 /** Трамвай: по Садовой туда и обратно, примерно раз в 2 игровых часа днём */
 const TRAM = { len: 190, speed: 100, everyMinutes: 120 };
@@ -158,6 +160,10 @@ interface Vehicle {
   /** Сколько ещё стоять на остановке, секунд (только автобус) */
   wait: number;
   stopped: boolean;
+  /** Сколько секунд стоит из-за машины или пешехода впереди (не на светофоре) */
+  jam: number;
+  /** Стоит в очереди к светофору или остановке (сам или машина впереди по цепочке) — это не пробка */
+  queued: boolean;
 }
 
 /** Светофор на карте: столб и три окошка, горит одно */
@@ -347,6 +353,8 @@ export class Traffic {
       speed: bus ? BUS.speed : tram ? TRAM.speed : spec!.speed[0] + Math.random() * (spec!.speed[1] - spec!.speed[0]),
       wait: bus ? BUS.waitSeconds : 0,
       stopped: false,
+      jam: 0,
+      queued: false,
     });
   }
 
@@ -377,8 +385,12 @@ export class Traffic {
     const hy = Math.sin(v.angle);
     const front = { x: v.pos.x + (hx * v.len) / 2, y: v.pos.y + (hy * v.len) / 2 };
     let blocked = false;
+    // Пробка, где все ждут друг друга по кругу (три машины в перекрёстке, автобус в повороте), сама не рассосётся:
+    // кто простоял из-за соседей дольше JAM_LIMIT, протискивается — на миг машины наезжают, зато улица едет
+    const squeeze = v.jam > JAM_LIMIT;
+    let jammed = false;
     // Пешеход впереди — ждём
-    for (const r of this.sim.residents) {
+    for (const r of squeeze ? [] : this.sim.residents) {
       if (!r.visible) continue;
       const dx = r.pos.x - front.x;
       const dy = r.pos.y - front.y;
@@ -386,6 +398,7 @@ export class Traffic {
       const side = Math.abs(dx * hy - dy * hx);
       if (side < 26 && ahead > -6 && ahead < 46) {
         blocked = true;
+        jammed = true;
         break;
       }
     }
@@ -397,17 +410,26 @@ export class Traffic {
         if (toLine < 4 + v.speed * dt) blocked = true;
       }
     }
+    let queued = blocked && !jammed;
     // Машина впереди — держим дистанцию. Если две ждут друг друга, первой едет та, что появилась раньше
-    if (!blocked) {
+    if (!blocked && !squeeze) {
       const o = this.carAhead(v);
-      if (o && !(this.carAhead(o) === v && v.id < o.id)) blocked = true;
+      if (o && !(this.carAhead(o) === v && v.id < o.id)) {
+        blocked = true;
+        if (o.queued) queued = true;
+        else jammed = true;
+      }
     }
+    v.jam = jammed ? v.jam + dt : squeeze && !blocked ? v.jam : 0;
+    // Протиснулся и впереди снова свободно — счётчик сбрасывается
+    if (squeeze && !blocked && !this.carAhead(v)) v.jam = 0;
     // Автобус стоит на остановке
     if (v.kind === 'bus' && v.wait > 0 && v.route === 'E-N' && v.pos.x === UP_X && v.pos.y <= BUS_STOP_Y + 2) {
       if (v.wait === BUS.waitSeconds) sound.play('sfx-bus', 0.45);
       v.wait -= dt;
-      blocked = true;
+      blocked = queued = true;
     }
+    v.queued = queued;
     // В повороте машина притормаживает: поворот читается как манёвр, а не как скачок кадра
     const turning = Math.abs(Math.sin(2 * v.angle)) > 0.05;
     if (!blocked) v.s += v.speed * (turning ? TURN_SLOWDOWN : 1) * dt;
