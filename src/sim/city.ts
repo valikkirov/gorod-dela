@@ -2,6 +2,8 @@
 // время идёт в ногу. Деловой квартал открывается, когда первая точка встала на ноги.
 import { SAVE_VERSION, Simulation, STEP, type SaveData } from './simulation';
 import { hm, MINUTES_PER_DAY } from './clock';
+import { linkCommuters, syncCommuters } from './commute';
+import type { Resident } from './residents';
 import type { DistrictId } from './world';
 
 export const UNLOCK = {
@@ -33,12 +35,19 @@ export class City {
   unlocked = false;
   /** Квартал открылся только что — интерфейс покажет карточку и сбросит флаг */
   justUnlocked = false;
+  /** Сквозные жители: пары «Кленовая — квартал» */
+  private commuters: [Resident, Resident][] = [];
 
   constructor(
     readonly main: Simulation,
     public branch: Simulation | null = null,
   ) {
-    if (branch) branch.link(main);
+    if (branch) this.linkBranch(branch);
+  }
+
+  private linkBranch(branch: Simulation): void {
+    branch.link(this.main);
+    this.commuters = linkCommuters(this.main, branch);
   }
 
   get points(): Simulation[] {
@@ -59,8 +68,11 @@ export class City {
     this.carry += dt;
     while (this.carry >= STEP && !this.main.bankrupt) {
       this.carry -= STEP;
+      const day = this.main.today;
       this.main.tick();
       this.branch.tick();
+      // Новый день: свои люди одной точки узнают другую
+      if (this.main.today !== day) syncCommuters(this.commuters, this.main, this.branch);
     }
   }
 
@@ -99,7 +111,7 @@ export class City {
     if (this.branch) return this.branch;
     // Свой seed: другие люди, но та же погода (её ведёт главная точка)
     const branch = new Simulation(this.main.seed * 31 + 7, this.main.time, 'delovoy');
-    branch.link(this.main);
+    this.linkBranch(branch);
     this.branch = branch;
     this.carry = 0;
     return branch;

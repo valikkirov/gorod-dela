@@ -61,7 +61,7 @@ import { hallStyle, type FurnitureId, type PresetId, type StyleId } from '../sim
 import { goal } from './metrika';
 import { sound } from './sound';
 import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
-import { card } from '../sim/events';
+import { card, EVENTS } from '../sim/events';
 import cardKiosk from './art/cards/card-kiosk.webp';
 import cardCafe from './art/cards/card-cafe.webp';
 
@@ -1423,6 +1423,7 @@ export class Hud {
       </div>
       <p class="hint-line" data-live="stock-warn"></p>
       ${this.rivalCard()}
+      ${this.contractLine()}
       ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
       ${last ? tr`<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}
       ${this.restartBlock()}`;
@@ -1836,6 +1837,15 @@ export class Hud {
     const first = this.sim.reports.find((x) => x.opened);
     if (!first || !r.opened || r.profit >= 0 || r.day - first.day >= 7) return '';
     return tr`<p class="first-week">Первая неделя почти всегда в минусе: вывеска, реклама и стартовые закупки — это вложения в известность. Смотри не на итог, а растёт ли число гостей и тех, кто о тебе знает.</p>`;
+  }
+
+  /** Договор с офисом: что, когда и сколько осталось — чтобы не забыть открыться к 11:00 */
+  private contractLine(): string {
+    const c = this.sim.contract;
+    if (!c) return '';
+    const name = this.sim.cafe.menu.find((m) => m.id === c.itemId)?.name ?? itemName(c.itemId);
+    const strikes = c.strikes ? tr` · срывов ${c.strikes} из${NB}${EVENTS.contract.strikes}` : '';
+    return tr`<p class="hint-line">🤝 Договор с «Севером»: ${c.qty} × ${name} в будни к 11:00, осталось заказов: ${c.left}${strikes}. В 11:00 кафе должно быть открыто.</p>`;
   }
 
   /** Хроника района за неделю: из отчётов, ничего не хранится */
@@ -2634,12 +2644,14 @@ export class Hud {
       : r.walking
         ? tr`${ACTIVITY_LABEL[r.activity]} · в пути → ${where}`
         : `${ACTIVITY_LABEL[r.activity]} · ${where}`;
-    const home = r.homeId === 'metro' ? tr`Приезжает на метро` : tr`Живёт: ${this.sim.at(r.homeId).name}`;
+    const home = r.commute === 'klenovaya'
+      ? tr`Живёт на Кленовой, приезжает на метро`
+      : r.homeId === 'metro' ? tr`Приезжает на метро` : tr`Живёт: ${this.sim.at(r.homeId).name}`;
     const work =
       r.workId === null
         ? ''
         : `<div>${r.kind === 'student' ? L('Учится') : L('Работает')}: ${
-            r.workId === 'metro' ? tr`за пределами улицы` : this.sim.at(r.workId).name
+            r.commute === 'delovoy' ? tr`в Деловом квартале` : r.workId === 'metro' ? tr`за пределами улицы` : this.sim.at(r.workId).name
           }</div>`;
     const budget = (Object.keys(WANT_LABEL) as WantKind[])
       .map((k) => tr`${WANT_LABEL[k]} до ${money(r.budget[k])}`)

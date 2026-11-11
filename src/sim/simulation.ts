@@ -74,6 +74,10 @@ export interface SaveData {
   pendingEvent?: PendingEvent | null;
   effects?: Effect[];
   lastEvent?: Partial<Record<EventId, number>>;
+  /** Договор с офисом и счётчики для него (нет в старых сохранениях — значит, договора не было) */
+  contract?: OfficeContract | null;
+  officeOrders?: number;
+  contractBan?: number;
   eventRng?: number;
   /** Прогулки по большому скверу — свой генератор, чтобы не сдвигать остальную жизнь */
   parkRng?: number;
@@ -133,7 +137,7 @@ export type Effect =
   /** Праздник: гости охотнее заходят весь день */
   | { type: 'boost'; day: number; factor: number }
   /** Заказ офиса: в этот день и минуту забирают qty порций itemId */
-  | { type: 'order'; day: number; minute: number; itemId: string; qty: number; pay: number; corporate?: boolean }
+  | { type: 'order'; day: number; minute: number; itemId: string; qty: number; pay: number; corporate?: boolean; contract?: boolean }
   /** Блогер: на этот день выйдет обзор (или не выйдет) */
   | { type: 'blogger'; day: number; success: boolean };
 
@@ -144,6 +148,24 @@ interface Wallet {
   bankrupt: boolean;
   loan: Loan | null;
   loanHistory: LoanHistory;
+}
+
+/** Договор с офисом: заказ каждый будний день к 11:00 по фиксированной цене */
+export interface OfficeContract {
+  itemId: string;
+  qty: number;
+  /** Платят за день */
+  pay: number;
+  /** Продукты под заказ на день */
+  ingredientCost: number;
+  /** С какого дня действует */
+  from: number;
+  /** Сколько будних заказов осталось */
+  left: number;
+  /** Сорвано заказов */
+  strikes: number;
+  done: number;
+  earned: number;
 }
 
 /** Ядро симуляции. Не знает ничего об отрисовке — этот же код
@@ -174,6 +196,12 @@ export class Simulation {
   effects: Effect[] = [];
   /** Когда какое событие было в последний раз — чтобы не повторялись подряд */
   private lastEvent: Partial<Record<EventId, number>> = {};
+  /** Договор с офисом «Север»: обеды каждый будний день */
+  contract: OfficeContract | null = null;
+  /** Сколько разовых заказов офиса выполнено — после первого офис предлагает договор */
+  private officeOrders = 0;
+  /** До какого дня офис не предлагает договор после расторжения */
+  private contractBan = 0;
   /** Свой генератор для событий: они не сдвигают жизнь жителей */
   private readonly eventRng: Rng;
   private readonly parkRng: Rng;
@@ -332,6 +360,9 @@ export class Simulation {
       pendingEvent: this.pendingEvent,
       effects: this.effects,
       lastEvent: { ...this.lastEvent },
+      contract: this.contract,
+      officeOrders: this.officeOrders,
+      contractBan: this.contractBan,
       eventRng: this.eventRng.snapshot,
       parkRng: this.parkRng.snapshot,
       loan: this.loan,
@@ -393,6 +424,9 @@ export class Simulation {
     sim.pendingEvent = d.pendingEvent ?? null;
     sim.effects = d.effects ?? [];
     sim.lastEvent = { ...(d.lastEvent ?? {}) };
+    sim.contract = d.contract ?? null;
+    sim.officeOrders = d.officeOrders ?? 0;
+    sim.contractBan = d.contractBan ?? 0;
     if (d.eventRng !== undefined) sim.eventRng.snapshot = d.eventRng;
     if (d.parkRng !== undefined) sim.parkRng.snapshot = d.parkRng;
     sim.loan = d.loan ?? null;
@@ -1134,7 +1168,18 @@ export class Simulation {
       this.events.push({ type: 'delivery', cost: d.cost });
     }
     this.resolveBlogger();
+    this.runContract();
     this.rollEvent();
+  }
+
+  /** Житель узнал о точке от самого себя: он свой в другой вашей точке (sim/commute.ts) */
+  learnFromChain(r: Resident): void {
+    this.learn(r, 'word');
+  }
+
+  /** Новость о знакомых лицах в сегодняшний отчёт */
+  addNews(line: string): void {
+    (this.cafe.today.news ??= []).push(line);
   }
 
   private learn(r: Resident, source: AwareSource): void {
@@ -1458,10 +1503,17 @@ export class Simulation {
     );
     if (perishable.length) out.push({ id: 'supplier', day, ingredientId: perishable[day % perishable.length] });
     const lunch = cafe.menu.find((m) => m.id === 'lunch') ?? cafe.menu.find((m) => m.kind === 'lunch');
-    if (lunch && wd <= 3) {
+    // Пока действует договор, разовых заказов «Север» не делает
+    if (lunch && wd <= 3 && !this.contract) {
       const pay = Math.round((lunch.price * EVENTS.order.qty * (1 - EVENTS.order.discount)) / 10) * 10;
       const ingredientCost = Math.round(recipeCost(lunch.id) * EVENTS.order.qty);
       out.push({ id: 'office-order', day, itemId: lunch.id, itemName: lunch.name, pay, ingredientCost });
+    }
+    // Договор: после удачного разового заказа, если договора нет и офис не в обиде
+    const ct = EVENTS.contract;
+    if (lunch && wd <= 3 && !this.contract && this.officeOrders >= ct.afterOrders && this.day >= this.contractBan) {
+      const pay = Math.round((lunch.price * ct.qty * (1 - ct.discount)) / 10) * 10;
+      out.push({ id: 'contract', day, itemId: lunch.id, itemName: lunch.name, qty: ct.qty, pay, ingredientCost: Math.round(recipeCost(lunch.id) * ct.qty) });
     }
     // Корпоратив в будни сезона: праздничное из меню, а если его нет — кофе или выпечка
     if (this.holiday && wd <= 3) {
@@ -1534,6 +1586,20 @@ export class Simulation {
         t.orderCost = (t.orderCost ?? 0) + e.ingredientCost!;
         this.effects.push({ type: 'order', day: e.day + 1, minute: EVENTS.corporate.minute, itemId: e.itemId!, qty: e.qty!, pay: e.pay!, corporate: true });
         break;
+      case 'contract:sign':
+      case 'contract-renew:renew':
+        this.contract = {
+          itemId: e.itemId!,
+          qty: e.qty!,
+          pay: e.pay!,
+          ingredientCost: e.ingredientCost!,
+          from: e.day + 1,
+          left: EVENTS.contract.weekdays,
+          strikes: 0,
+          done: 0,
+          earned: 0,
+        };
+        break;
       case 'blogger:treat':
         this.spend(EVENTS.blogger.cost);
         this.effects.push({ type: 'blogger', day: e.day + 1, success: this.eventRng.chance(EVENTS.blogger.success) });
@@ -1555,6 +1621,11 @@ export class Simulation {
       if (e.type !== 'order' || e.day !== this.day || minute < e.minute) continue;
       this.effects.splice(this.effects.indexOf(e), 1);
       const cafe = this.cafe;
+      // Договор: в назначенное время кафе закрыто — заказ сорван, продукты уже куплены
+      if (e.contract && !cafe.isOpenAt(minute)) {
+        this.contractStrike();
+        continue;
+      }
       // Обеды для заказа готовят партией — вдвое быстрее, чем по одному
       const prep = Math.ceil((e.qty * cafe.serviceMinutes * 0.5) / cafe.counters);
       cafe.prepUntil = Math.floor(minute) + prep;
@@ -1564,12 +1635,64 @@ export class Simulation {
       t.revenue += e.pay;
       t.sold[e.itemId] = (t.sold[e.itemId] ?? 0) + e.qty;
       cafe.countItem(e.itemId, e.pay, 0);
+      if (e.contract && this.contract) {
+        this.contract.done += 1;
+        this.contract.earned += e.pay;
+      } else if (!e.corporate) this.officeOrders += 1;
       (t.events ??= []).push(
-        e.corporate
+        e.contract
+          ? tr`🤝 Обеды для «Севера» по\u00a0договору: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`
+          : e.corporate
           ? tr`🎄 Корпоратив: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`
           : tr`🏢 Заказ офиса: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`,
       );
     }
+  }
+
+  /**
+   * Договор утром: в будни — закупка продуктов и заказ к 11:00; срок вышел — итог и, если без срывов, предложение продлить.
+   * Срыв проверяется в 11:00 (fulfilOrders): часы можно поменять до обеда.
+   */
+  private runContract(): void {
+    const c = this.contract;
+    if (!c || this.day < c.from) return;
+    const t = this.cafe.today;
+    if (c.left <= 0) {
+      // Предложение продлить ждёт свободного утра: событие дня уже идёт — завтра
+      if (c.strikes === 0 && this.pendingEvent) return;
+      this.contract = null;
+      (t.events ??= []).push(tr`🤝 Договор с\u00a0«Севером» закончился: ${c.done} заказов, +${formatMoney(c.earned)}`);
+      if (c.strikes === 0) {
+        const ct = EVENTS.contract;
+        const qty = Math.min(ct.maxQty, c.qty + ct.grow);
+        const item = this.cafe.menu.find((m) => m.id === c.itemId);
+        if (item) {
+          const pay = Math.round((c.pay / c.qty) * qty / 10) * 10;
+          this.startEvent({ id: 'contract-renew', day: this.day, itemId: item.id, itemName: item.name, qty, pay, ingredientCost: Math.round(recipeCost(item.id) * qty) });
+        }
+      }
+      return;
+    }
+    if (weekday(this.day) > 4) return;
+    c.left -= 1;
+    this.cash -= c.ingredientCost;
+    t.purchases += c.ingredientCost;
+    t.orderCost = (t.orderCost ?? 0) + c.ingredientCost;
+    this.effects.push({ type: 'order', day: this.day, minute: EVENTS.contract.minute, itemId: c.itemId, qty: c.qty, pay: c.pay, contract: true });
+  }
+
+  /** Сорванный заказ по договору: второй срыв — офис расторгает договор и месяц не обращается */
+  private contractStrike(): void {
+    const c = this.contract;
+    if (!c) return;
+    c.strikes += 1;
+    const t = this.cafe.today;
+    const ct = EVENTS.contract;
+    if (c.strikes >= ct.strikes) {
+      this.contract = null;
+      this.contractBan = this.day + ct.banDays;
+      (t.events ??= []).push(tr`🤝 «Север» расторг договор: в\u00a011:00 кафе было закрыто уже ${c.strikes}\u00a0раза`);
+    } else (t.events ??= []).push(tr`🤝 Заказ «Севера» сорван: в\u00a011:00 кафе закрыто, продукты пропали. Ещё срыв\u00a0— и\u00a0договор расторгнут`);
   }
 
   /** Утром выходит (или не выходит) обзор блогера */

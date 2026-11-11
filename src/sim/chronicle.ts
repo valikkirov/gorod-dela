@@ -127,6 +127,15 @@ function candidates(days: DayReport[], prevDays: DayReport[], names: ChronicleNa
       text: tr`За\u00a0неделю постоянные гости ${times(company)} приводили с\u00a0собой знакомых.`,
     });
 
+  // Свои люди другой вашей точки узнали эту
+  const chain = sum(days.map((r) => r.chain ?? 0));
+  if (chain)
+    add(6, 'chain', {
+      icon: '🚇',
+      title: L('Свои люди'),
+      text: tr`Постоянные гости вашей другой точки ездят тем же метро: ${num(chain)} из\u00a0них узнали и\u00a0эту: сюда они придут уже не\u00a0чужими.`,
+    });
+
   // Известность
   const before = prevDays.at(-1)?.awareCount ?? 0;
   const after = days.at(-1)!.awareCount;

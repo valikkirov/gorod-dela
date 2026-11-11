@@ -77,6 +77,8 @@ export interface Resident {
   decision: Decision | null;
   /** Знает ли о кафе игрока */
   aware: boolean;
+  /** Сквозной житель: во втором районе он тоже есть (sim/commute.ts), в сохранение не идёт */
+  commute?: DistrictId;
   /** Уже проходил мимо кафе в этой прогулке — второй раз не «замечает» */
   noticed: boolean;
   /** Сколько кофе купил — для карты лояльности */

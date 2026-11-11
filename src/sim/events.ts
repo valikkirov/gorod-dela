@@ -6,7 +6,17 @@ import { ECONOMY, formatMoney } from './economy';
 import { ingredient, type IngredientId } from './stock';
 
 import { L, tr } from './i18n';
-export type EventId = 'breakdown' | 'festival' | 'supplier' | 'office-order' | 'blogger' | 'day-off' | 'corporate' | 'fair';
+export type EventId =
+  | 'breakdown'
+  | 'festival'
+  | 'supplier'
+  | 'office-order'
+  | 'blogger'
+  | 'day-off'
+  | 'corporate'
+  | 'fair'
+  | 'contract'
+  | 'contract-renew';
 
 export const EVENTS = {
   /** С какого дня работы начинаются события */
@@ -27,6 +37,12 @@ export const EVENTS = {
   corporate: { qty: 30, premium: 0.1, minute: 16 * 60 },
   /** Новогодняя ярмарка в сквере — как праздник района, но народу больше */
   fair: { cost: 3_000, boost: 1.4 },
+  /**
+   * Договор с офисом после удачного разового заказа: каждый будний день порции к полудню, две недели.
+   * Обязательство — в 11:00 открыто; сорвал strikes заказов — договор расторгнут, офис не обращается banDays.
+   * Без срывов офис предлагает продлить и берёт на grow порций больше (до maxQty).
+   */
+  contract: { qty: 12, discount: 0.1, minute: 11 * 60, weekdays: 10, strikes: 2, banDays: 28, grow: 4, maxQty: 20, afterOrders: 1 },
 } as const;
 
 /** Что известно о событии, когда оно случилось: подставляется в тексты и в последствия */
@@ -41,7 +57,7 @@ export interface PendingEvent {
   pay?: number;
   /** Заказ офиса: сколько продуктов докупим и сколько минут стойка будет занята */
   ingredientCost?: number;
-  /** Корпоратив: сколько порций (у заказа офиса — EVENTS.order.qty) */
+  /** Корпоратив и договор: сколько порций (у заказа офиса — EVENTS.order.qty) */
   qty?: number;
   /** Отгул: какой бариста */
   baristaId?: number;
@@ -179,6 +195,33 @@ export function card(e: PendingEvent): EventCard {
           { id: 'decline', label: L('Отказаться'), hint: L('Ничего не меняется') },
         ],
         fallback: 'decline',
+      };
+    }
+    case 'contract': {
+      const c = EVENTS.contract;
+      return {
+        icon: '🤝',
+        title: L('«Север» предлагает договор'),
+        text: tr`После удачного заказа офис «Север» хочет обедать у\u00a0вас постоянно: ${e.qty} порций «${e.itemName}» каждый будний день к\u00a0полудню, две недели. Платят ${money(e.pay!)} за\u00a0день (со\u00a0скидкой 10\u00a0%), продукты под заказ закупаются каждое утро. Условие одно: в\u00a011:00 кафе открыто. Сорвёте ${c.strikes} заказа\u00a0— договор расторгнут.`,
+        stake: tr`Каждый будний день стабильные деньги, но в\u00a0обед стойка занята`,
+        options: [
+          { id: 'sign', label: L('Подписать'), hint: tr`+${money(e.pay!)} в\u00a0будни, продукты −${money(e.ingredientCost!)} в\u00a0день` },
+          { id: 'decline', label: L('Отказаться'), hint: L('Разовые заказы офиса по-прежнему возможны') },
+        ],
+        fallback: 'decline',
+      };
+    }
+    case 'contract-renew': {
+      return {
+        icon: '🤝',
+        title: L('«Север» хочет продлить договор'),
+        text: tr`Две недели без единого срыва: офис доволен и\u00a0готов продлить ещё на\u00a0две недели, теперь ${e.qty} порций «${e.itemName}» в\u00a0день за\u00a0${money(e.pay!)}.`,
+        stake: tr`Порций больше\u00a0— стойка в\u00a0обед занята дольше`,
+        options: [
+          { id: 'renew', label: L('Продлить'), hint: tr`+${money(e.pay!)} в\u00a0будни, продукты −${money(e.ingredientCost!)} в\u00a0день` },
+          { id: 'stop', label: L('Закончить'), hint: L('Договор завершится, офис останется доволен') },
+        ],
+        fallback: 'stop',
       };
     }
     case 'blogger': {
