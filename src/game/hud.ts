@@ -54,6 +54,9 @@ import { UNLOCK, type City } from '../sim/city';
 import { clearSave, exportSave, importSave } from './save';
 import { openFeedback } from './feedback';
 import { IS_PORTAL, PLATFORM } from './platform';
+
+/** Страница игры на Boosty: только в веб-версии (на порталах внешних ссылок нет) */
+const BOOSTY_URL = 'https://boosty.to/goroddela';
 import { switchLang } from './lang';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
@@ -2320,6 +2323,7 @@ export class Hud {
            <button class="link" data-action="tutorial">Как играть</button>
            <button class="link" data-action="restart-ask">Начать заново</button>
          </div>
+         <div class="links"><a class="link boosty" href="${BOOSTY_URL}" target="_blank" rel="noopener">❤️ Поддержать игру на\u00a0Boosty</a></div>
          ${this.challenge ? '' : this.transferBlock()}
          ${
            this.challenge

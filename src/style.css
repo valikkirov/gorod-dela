@@ -1101,6 +1101,14 @@ button.small.danger {
   margin: 14px 0 2px;
 }
 
+a.link.boosty {
+  margin: 14px 0 2px;
+  color: #c75a2e;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 /* ——— Обучение и отзыв ——— */
 .overlay {
   position: fixed;
