@@ -39,7 +39,7 @@ import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, sum
 import { iconImg, namedIcon } from './icons';
 import { compositionOf } from '../sim/composition';
 import { placeInterior, portrait } from './portraits';
-import { standTab } from './stand';
+import { standPicker, standTab } from './stand';
 import { cookable, dailyUse, daysLeft, ingredientOrder, usedIn, USE_DAYS } from '../sim/stockView';
 import { BASES, base as dishBase, addIn as dishAddIn, defaultDishName, dishId, dishPrep, MAX_ADDINS, MAX_OWN, type AddInId, type BaseId } from '../sim/dishes';
 import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/weather';
@@ -57,7 +57,7 @@ import { IS_PORTAL, PLATFORM } from './platform';
 import { switchLang } from './lang';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
-import { hallTab } from './hall';
+import { hallPicker, hallTab } from './hall';
 import { hallStyle, type FurnitureId, type PresetId, type StyleId } from '../sim/interior';
 import { goal } from './metrika';
 import { sound } from './sound';
@@ -780,6 +780,9 @@ export class Hud {
       case 'hall-slot':
         this.hallSlot = this.hallSlot === item ? null : item!;
         break;
+      case 'hall-close':
+        this.hallSlot = null;
+        break;
       case 'hall-place': {
         const [slot, id] = item!.split(':');
         if (sim.placeFurniture(slot, id as FurnitureId)) sound.play('ui-upgrade');
@@ -899,13 +902,15 @@ export class Hud {
         return;
       case 'stand-pick':
         this.standPick = this.standPick === item ? null : (item as UpgradeId);
-        // Показать строку улучшения под картинкой
-        setTimeout(() => document.getElementById(`fit-${item}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 0);
+        break;
+      case 'stand-close':
+        this.standPick = null;
         break;
       case 'buy-upgrade':
         if (sim.buyUpgrade(item as UpgradeId)) {
           goal('upgrade', { id: item });
           sound.play('ui-upgrade');
+          this.standPick = null;
         }
         break;
       case 'skip-morning':
@@ -1502,8 +1507,17 @@ export class Hud {
       body = this.growthTab();
     } else if (this.tab === 'hall') {
       body = hallTab(this.sim, this.hallSlot);
+      // Выбор вещи — окном поверх: список длинный, внизу панели его не видно
+      if (this.hallSlot) {
+        const pick = hallPicker(this.sim, this.hallSlot);
+        this.modalHtml = this.modalSheet(pick.title, pick.body, 'hall-close');
+      }
     } else if (this.tab === 'stand') {
       body = standTab(this.sim, this.standPick);
+      if (this.standPick) {
+        const pick = standPicker(this.sim, this.standPick);
+        this.modalHtml = this.modalSheet(pick.title, pick.body, 'stand-close');
+      }
     } else {
       const ownerLine = this.ownerCard();
       body = tr`

@@ -57,29 +57,37 @@ export function standTab(sim: Simulation, selected: UpgradeId | null): string {
       <div><small>Докупают</small><b>${cafe.has('pastry') ? tr`1 из ${Math.round(1 / UPGRADE_EFFECT.pastryChance)}` : '—'}</b></div>
     </div>`;
 
-  const rows = KIOSK_FITS.map((id, i) => {
-    const u = upgrade(id);
-    const st = sim.upgradeState(id);
-    if (st === 'premises') return '';
-    const badge = st === 'owned' ? L('<span class="badge on">стоит</span>') : `<span class="badge">${money(u.cost)}</span>`;
-    const control =
-      st === 'owned'
-        ? ''
-        : st === 'locked'
-          ? tr`<small class="lock">Откроется после вехи «${milestone(u.unlock!).title}»</small>`
-          : `<button class="small" data-action="buy-upgrade" data-item="${id}" ${st === 'money' ? 'disabled' : ''}>${
-              st === 'money' ? tr`Не хватает денег` : tr`Поставить за ${money(u.cost)}`
-            }</button>`;
-    return `<li class="upgrade${selected === id ? ' selected' : ''}" id="fit-${id}">
-      <div class="row">${namedIcon(ICON[id] ?? '')}<b class="grow">${i + 1}. ${u.name}</b>${badge}</div>
-      <small>${u.effect}</small>${control}</li>`;
-  }).join('');
+  const rows = KIOSK_FITS.map((id) => fitRow(sim, id, selected)).join('');
 
   return tr`
     <div class="stand">${layers.join('')}${pins.join('')}</div>
-    <small>Нажми на номер в киоске — покажу, что это и сколько стоит.</small>
+    <small>Нажми на номер в киоске — покажу, что это и сколько стоит.</small>
     ${kpis}
     <h4>Улучшения стойки</h4>
-    <small>Покупаются один раз. Это вложение: в прибыль дня не входит, но из кассы уходит.</small>
+    <small>Покупаются один раз. Это вложение: в прибыль дня не входит, но из кассы уходит.</small>
     <ul class="menu upgrades">${rows}</ul>`;
+}
+
+/** Улучшение по номеру на стойке — в окне поверх экрана */
+export function standPicker(sim: Simulation, id: UpgradeId): { title: string; body: string } {
+  return { title: upgrade(id).name, body: `<ul class="menu upgrades">${fitRow(sim, id, null)}</ul>` };
+}
+
+function fitRow(sim: Simulation, id: UpgradeId, selected: UpgradeId | null): string {
+  const i = KIOSK_FITS.indexOf(id);
+  const u = upgrade(id);
+  const st = sim.upgradeState(id);
+  if (st === 'premises') return '';
+  const badge = st === 'owned' ? L('<span class="badge on">стоит</span>') : `<span class="badge">${money(u.cost)}</span>`;
+  const control =
+    st === 'owned'
+      ? ''
+      : st === 'locked'
+        ? tr`<small class="lock">Откроется после вехи «${milestone(u.unlock!).title}»</small>`
+        : `<button class="small" data-action="buy-upgrade" data-item="${id}" ${st === 'money' ? 'disabled' : ''}>${
+            st === 'money' ? tr`Не хватает денег` : tr`Поставить за ${money(u.cost)}`
+          }</button>`;
+  return `<li class="upgrade${selected === id ? ' selected' : ''}" id="fit-${id}">
+    <div class="row">${namedIcon(ICON[id] ?? '')}<b class="grow">${i + 1}. ${u.name}</b>${badge}</div>
+    <small>${u.effect}</small>${control}</li>`;
 }

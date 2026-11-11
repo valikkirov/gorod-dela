@@ -241,36 +241,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
     </li>`;
   }).join('');
 
-  let design = tr`<small>Нажми на место в зале — пустое (+) или занятое, — чтобы поставить, заменить или продать вещь.</small>`;
-  if (selected) {
-    const cur = layout[selected];
-    const options = FURNITURE.filter((f) => canPlace(selected, f.id))
-      .map((f) => {
-        const net = f.cost - (cur ? Interior.refund(cur) : 0);
-        const here = cur === f.id;
-        const likes = f.likes.length
-          ? tr` · нравится ${f.likes.map((k) => LIKE_LABEL[k]).join(L(' и\u00a0'))}`
-          : f.style
-            ? tr` · стиль «${STYLES.find((st) => st.id === f.style)!.name}»`
-            : '';
-        return `<li class="furniture${here ? ' on' : ''}">
-          ${swatch(f.id)}
-          <div class="grow"><b>${f.name}</b><small>${facts(f.seats, f.cozy)}${likes}</small></div>
-          ${
-            here
-              ? L('<span class="badge on">стоит</span>')
-              : `<button class="small" data-action="hall-place" data-item="${selected}:${f.id}" ${sim.cash < net ? 'disabled' : ''}>${money(f.cost)}</button>`
-          }
-        </li>`;
-      })
-      .join('');
-    const finish = FINISH_SLOTS.includes(selected);
-    design = `<div class="row"><b class="grow">${SLOT_TITLE[selected]}</b>${
-      cur && !finish ? tr`<button class="small secondary" data-action="hall-sell" data-item="${selected}">Продать за ${money(Interior.refund(cur))}</button>` : ''
-    }</div>
-      ${cur ? tr`<small>Замена: старая вещь продаётся за полцены.</small>` : ''}
-      <ul class="menu furniture-list">${options}</ul>`;
-  }
+  const design = tr`<small>Нажми на место в зале — пустое (+) или занятое, — чтобы поставить, заменить или продать вещь.</small>`;
 
   const styleBlock = styleSection(sim);
 
@@ -287,6 +258,39 @@ export function hallTab(sim: Simulation, selected: string | null): string {
       (slot) => `<button class="small secondary${selected === slot ? ' on' : ''}" data-action="hall-slot" data-item="${slot}">${SLOT_TITLE[slot]}</button>`,
     ).join('')}</div>
     ${design}`;
+}
+
+/** Выбор вещи для места в зале — в окне поверх экрана: длинный список не уезжает вниз панели */
+export function hallPicker(sim: Simulation, selected: string): { title: string; body: string } {
+  const layout = sim.cafe.interior.layout;
+  const cur = layout[selected];
+  const options = FURNITURE.filter((f) => canPlace(selected, f.id))
+    .map((f) => {
+      const net = f.cost - (cur ? Interior.refund(cur) : 0);
+      const here = cur === f.id;
+      const likes = f.likes.length
+        ? tr` · нравится ${f.likes.map((k) => LIKE_LABEL[k]).join(L(' и\u00a0'))}`
+        : f.style
+          ? tr` · стиль «${STYLES.find((st) => st.id === f.style)!.name}»`
+          : '';
+      return `<li class="furniture${here ? ' on' : ''}">
+          ${swatch(f.id)}
+          <div class="grow"><b>${f.name}</b><small>${facts(f.seats, f.cozy)}${likes}</small></div>
+          ${
+            here
+              ? L('<span class="badge on">стоит</span>')
+              : `<button class="small" data-action="hall-place" data-item="${selected}:${f.id}" ${sim.cash < net ? 'disabled' : ''}>${money(f.cost)}</button>`
+          }
+        </li>`;
+    })
+    .join('');
+  const finish = FINISH_SLOTS.includes(selected);
+  const body = `${
+    cur && !finish ? tr`<button class="small secondary" data-action="hall-sell" data-item="${selected}">Продать за ${money(Interior.refund(cur))}</button>` : ''
+  }
+      ${cur ? tr`<small>Замена: старая вещь продаётся за полцены.</small>` : ''}
+      <ul class="menu furniture-list">${options}</ul>`;
+  return { title: SLOT_TITLE[selected], body };
 }
 
 const AUDIENCE_LABEL: Record<StyleId, string> = {
