@@ -2826,10 +2826,10 @@ button.small.danger {
   color: var(--bad);
 }
 
-/* 02 · Вкладки: раздел, а не кнопка — кремовая подложка и терракотовая линия снизу */
+/* 02 · Вкладки: раздел, а не кнопка — кремовая подложка и терракотовая линия снизу. Пять разделов в ряд */
 .tabs {
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
   margin: 8px 0 12px;
   padding: 0 0 10px;
 }
@@ -2867,6 +2867,36 @@ button.small.danger {
 }
 .tabs button.more::before {
   content: '';
+}
+/* Подменю раздела: вкладки внутри раздела — тонкой строкой-переключателем */
+.subtabs {
+  display: flex;
+  gap: 4px;
+  margin: -4px 0 12px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--sunken);
+}
+.subtabs button {
+  flex: 1;
+  min-height: 34px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font: 500 13px var(--font-head);
+  line-height: 1.15;
+  cursor: pointer;
+}
+.subtabs button.active {
+  background: var(--card);
+  color: var(--accent-text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+.tabs button {
+  padding: 0 2px;
+  font-size: 13px;
 }
 .tabs-more {
   display: grid;

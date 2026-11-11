@@ -1,5 +1,5 @@
 import { canPlace, FINISH_SLOTS, SEASON_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, STYLE_SLOTS, styleSet, type StyleId } from './interior';
-import { Cafe, CATALOG, hours24, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
+import { Cafe, CATALOG, hours24, ownerShiftText, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
 import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
 import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
 import { tasteMatch } from './character';
@@ -523,6 +523,19 @@ export class Simulation {
     this.cafe.setSchedule(id, schedule);
     const n = this.cafe.staff.indexOf(b) + 1;
     this.note(`schedule:${id}`, tr`График бариста ${n}`, from, scheduleText(b));
+  }
+
+  /**
+   * Свои часы владельца — когда он встаёт за стойку вместе с персоналом. Без персонала не нужны:
+   * владелец и так стоит всё время работы. null — убрать свои часы
+   */
+  setOwnerShift(schedule: StaffSchedule | null): boolean {
+    if (schedule && (!validWindow(schedule) || schedule.to - schedule.from > ECONOMY.ownerHours * 60)) return false;
+    if (schedule && this.cafe.staff.length === 0) return false;
+    const from = ownerShiftText(this.cafe.ownerShift);
+    this.cafe.ownerShift = schedule ? { days: [...schedule.days], from: schedule.from, to: schedule.to } : null;
+    this.note('owner-shift', L('Твои часы за стойкой'), from, ownerShiftText(this.cafe.ownerShift));
+    return true;
   }
 
   /** Промотать до 6:00 следующего утра (если сейчас раньше 6:00 — до сегодняшних 6:00) */

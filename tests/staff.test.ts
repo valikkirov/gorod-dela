@@ -157,3 +157,35 @@ describe('Помещения', () => {
     expect(extras).toBeGreaterThan(10);
   });
 });
+
+describe('Свои часы владельца', () => {
+  it('без персонала свои часы не ставятся: владелец и так за стойкой', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    expect(sim.setOwnerShift({ days: ALL, from: hm(8), to: hm(10) })).toBe(false);
+    expect(sim.cafe.ownerShift).toBe(null);
+  });
+
+  it('с бариста владелец встаёт рядом в свои часы: две стойки вместо одной, а вне окна отдыхает', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.hireBarista('shift');
+    expect(sim.setOwnerShift({ days: ALL, from: hm(8), to: hm(10) })).toBe(true);
+    sim.advance(hm(9) - sim.minute);
+    expect(sim.cafe.baristas).toBe(1);
+    expect(sim.cafe.counters).toBe(2);
+    sim.advance(2 * 60);
+    expect(sim.cafe.counters).toBe(1);
+  });
+
+  it('свои часы идут в его 12 часов и сохраняются', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.hireBarista('hourly');
+    sim.setOwnerShift({ days: ALL, from: hm(8), to: hm(10) });
+    sim.advance(hm(11) - sim.minute);
+    expect(sim.cafe.ownerMinutes).toBeGreaterThanOrEqual(115);
+    const back = Simulation.restore(JSON.parse(JSON.stringify(sim.serialize())))!;
+    expect(back.cafe.ownerShift?.from).toBe(hm(8));
+  });
+});

@@ -280,6 +280,11 @@ const DAY_SHORT = [L('Пн'), L('Вт'), L('Ср'), L('Чт'), L('Пт'), L('С�
 const clock = (m: number): string =>
   `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 
+/** Свои часы владельца одной строкой: «Пн–Пт 08:00–10:00» или «нет» */
+export function ownerShiftText(s: StaffSchedule | null): string {
+  return s && s.days.some(Boolean) ? `${daysText(s.days)} ${clock(s.from)}–${clock(s.to)}` : L('нет');
+}
+
 /** «каждый день», «Пн–Пт», «Сб–Вс», «Пн, Ср, Пт», «не выходит» */
 export function daysText(days: boolean[]): string {
   const on = days.map((d, i) => (d ? i : -1)).filter((i) => i >= 0);
@@ -377,6 +382,8 @@ export interface CafeSave {
   name?: string | null;
   /** Сколько минут владелец уже простоял за стойкой с открытия */
   ownerMinutes?: number;
+  /** Часы, когда владелец встаёт за стойку вместе с персоналом */
+  ownerShift?: StaffSchedule | null;
   /** Свои блюда — и те, что сейчас в меню, и убранные */
   own?: MenuItem[];
 }
@@ -410,6 +417,11 @@ export class Cafe {
   ownerMinutes = 0;
   /** Владелец стоит в другой точке: здесь за стойкой только бариста */
   ownerAway = false;
+  /**
+   * Свои часы владельца: когда он встаёт за стойку вместе с персоналом (утренний пик и т.п.).
+   * Без них владелец работает, только когда никого из персонала нет. null — своих часов нет
+   */
+  ownerShift: StaffSchedule | null = null;
   /** До этой минуты дня стойка занята большим заказом и новых гостей не берёт */
   prepUntil = -1;
   /** Цена в момент продажи (счастливые часы) — подставляет симуляция */
@@ -456,6 +468,7 @@ export class Cafe {
       name: this.customName,
       own: this.own,
       ownerMinutes: this.ownerMinutes,
+      ownerShift: this.ownerShift,
     };
   }
 
@@ -484,6 +497,7 @@ export class Cafe {
     this.wagesToday = d.wagesToday;
     this.lastPaidMinute = d.lastPaidMinute;
     this.ownerMinutes = d.ownerMinutes ?? 0;
+    this.ownerShift = d.ownerShift ?? null;
     this.stock.load(d.stock);
     this.upgrades = [...(d.upgrades ?? [])];
     // Сохранения до оборудования: что уже продаётся — то оборудование и стоит
@@ -801,14 +815,29 @@ export class Cafe {
     return this.ownerAway || this.ownerMinutes >= ECONOMY.ownerHours * 60;
   }
 
+  /** Своё окно владельца сейчас (как у почасового бариста, с хвостом после полуночи) */
+  ownerScheduledNow(minute = this.nowMinute): boolean {
+    const s = this.ownerShift;
+    if (!s) return false;
+    const m = Math.floor(minute);
+    const today = windowOn(s, this.weekday);
+    if (today && m >= today.from && m < Math.min(today.to, MINUTES_PER_DAY)) return true;
+    const yesterday = windowOn(s, this.weekday - 1);
+    return !!yesterday && yesterday.to > MINUTES_PER_DAY && m < yesterday.to - MINUTES_PER_DAY;
+  }
+
+  /** Владелец за стойкой: когда никого из персонала нет или в свои часы — пока не отстоял свои ECONOMY.ownerHours */
+  get ownerAtCounter(): boolean {
+    return !this.ownerTired && (this.baristas === 0 || this.ownerScheduledNow());
+  }
+
   /** Сейчас за стойкой никого: бариста нет, а владелец уже отработал свои часы */
   get unstaffed(): boolean {
-    return this.baristas === 0 && this.ownerTired;
+    return this.counters === 0;
   }
 
   get counters(): number {
-    if (this.baristas > 0) return this.baristas;
-    return this.ownerTired ? 0 : 1;
+    return this.baristas + (this.ownerAtCounter ? 1 : 0);
   }
 
   get busy(): number {
@@ -892,8 +921,8 @@ export class Cafe {
       }
       this.ownerMinutes = 0;
     }
-    // Нет бариста — за стойкой владелец, пока не отработал свои часы
-    if (this.baristas === 0 && !this.ownerTired) this.ownerMinutes += 1;
+    // Владелец за стойкой (один или в свои часы вместе с персоналом) — пока не отработал свои часы
+    if (this.ownerAtCounter) this.ownerMinutes += 1;
     const night = isNightMinute(whole) ? ECONOMY.nightBonus : 0;
     const shiftHourly = ECONOMY.shiftWage / (ECONOMY.shiftHours * 60);
     for (const b of this.staff) {

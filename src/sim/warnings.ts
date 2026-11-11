@@ -114,6 +114,22 @@ export function staffWarnings(cafe: Cafe): string[] {
       tr`${cap(daysText(over))} без бариста точка открыта дольше, чем ты можешь стоять сам (${ECONOMY.ownerHours} ч): до ${String(hours).replace('.', ',')} ч в день гостей некому обслужить`,
     );
   }
+  // Свои часы владельца вместе с персоналом тоже идут в его ECONOMY.ownerHours: не останется на то время, когда он один
+  const own = cafe.ownerShift;
+  if (own && !cafe.ownerAway && cafe.staff.length) {
+    const tight: number[] = [];
+    for (let d = 0; d < 7; d++) {
+      const w = windowOn(own, d);
+      const h = cafe.hoursOn(d);
+      if (!w || !h) continue;
+      const extra = Math.max(0, Math.min(w.to, h.closeAt) - Math.max(w.from, h.openAt));
+      if (extra > 0 && uncoveredMinutes(cafe, d) + extra > limit) tight.push(d);
+    }
+    if (tight.length)
+      out.push(
+        tr`${cap(daysText(tight))} твои часы с персоналом плюс время, когда ты один, — больше ${ECONOMY.ownerHours} ч: под конец дня за стойкой никого не останется`,
+      );
+  }
   const shiftMin = ECONOMY.shiftHours * 60;
   cafe.staff.forEach((b, i) => {
     const who = cafe.staff.length > 1 ? tr`Бариста ${i + 1}` : L('Бариста');

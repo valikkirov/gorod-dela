@@ -32,7 +32,7 @@ import { analyzeDay, describeLost } from '../sim/analysis';
 import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { ingredient, INGREDIENTS, orderPrice, recipeCost, recipeOf, type IngredientId } from '../sim/stock';
 import { cashDiagnosis, LOAN, LOAN_LABEL, LOAN_TERMS, paymentLeft, totalInterest, weeklyPayment, type LoanSource } from '../sim/loans';
-import { menuAddWarning, orderWarning, priceWarning, staffWarnings } from '../sim/warnings';
+import { menuAddWarning, orderWarning, priceWarning, staffWarnings, uncoveredMinutes } from '../sim/warnings';
 import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, summarize, type Period, type PeriodKind } from '../sim/periods';
 import { iconImg, namedIcon } from './icons';
 import { compositionOf } from '../sim/composition';
@@ -75,7 +75,7 @@ const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
 
 type View = 'cafe' | 'resident' | 'report' | 'place';
-type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'guests' | 'hall' | 'stand' | 'growth';
+type CafeTab = 'overview' | 'menu' | 'stock' | 'staff' | 'hours' | 'guests' | 'ads' | 'promo' | 'hall' | 'stand' | 'growth';
 
 const $ = <T extends HTMLElement>(sel: string): T => {
   const el = document.querySelector<T>(sel);
@@ -314,8 +314,8 @@ export class Hud {
   private transfer = false;
   private transferError = '';
   private tab: CafeTab = 'overview';
-  /** Раскрыта строка «Ещё» с редкими вкладками */
-  private moreOpen = false;
+  /** Какая вкладка была открыта в каждом разделе — чтобы вернуться туда же */
+  private lastInGroup = new Map<string, CafeTab>();
   /** Какая позиция меню раскрыта для правки цены */
   private openItem: string | null = null;
   /** Выбранное место в зале (свой дизайн) */
@@ -749,11 +749,7 @@ export class Hud {
         break;
       case 'tab':
         this.tab = item as CafeTab;
-        this.moreOpen = false;
         this.panel.scrollTop = 0;
-        break;
-      case 'tab-more':
-        this.moreOpen = !this.moreOpen;
         break;
       case 'expand':
         this.onExpand();
@@ -815,6 +811,21 @@ export class Hud {
       case 'duty': {
         const st = sim.cafe.staff.find((b) => b.id === Number(item));
         if (st) sim.setOnDuty(st.id, !sim.cafe.isWorking(st));
+        break;
+      }
+      case 'owner-on':
+        sim.setOwnerShift({ days: [true, true, true, true, true, false, false], from: hm(8), to: hm(10) });
+        break;
+      case 'owner-off':
+        sim.setOwnerShift(null);
+        break;
+      case 'owner-day': {
+        const sh = sim.cafe.ownerShift;
+        if (!sh) break;
+        const days = [...sh.days];
+        const d = Number(btn.dataset.day);
+        days[d] = !days[d];
+        sim.setOwnerShift({ ...sh, days });
         break;
       }
       case 'staff-by-day':
@@ -974,6 +985,17 @@ export class Hud {
         if (to <= from) to = from + 60;
         if (to - from > MINUTES_PER_DAY) from = to - MINUTES_PER_DAY;
         this.sim.setStaffSchedule(id, { ...st.schedule, from, to });
+      }
+    }
+    if (el.dataset.action === 'owner-from' || el.dataset.action === 'owner-to') {
+      const sh = cafe.ownerShift;
+      const get = (a: string) => Number(this.panel.querySelector<HTMLSelectElement>(`select[data-action="${a}"]`)!.value);
+      if (sh) {
+        let from = get('owner-from');
+        let to = get('owner-to');
+        if (to <= from) to = from + 60;
+        if (to - from > ECONOMY.ownerHours * 60) from = to - ECONOMY.ownerHours * 60;
+        this.sim.setOwnerShift({ ...sh, from, to });
       }
     }
     if (el.dataset.action === 'staff-wfrom' || el.dataset.action === 'staff-wto') {
@@ -1221,6 +1243,15 @@ export class Hud {
     this.live.queue = String(this.sim.guestsInside);
     this.live.wages = money(cafe.wagesSoFar);
     this.live['owner-hours'] = (Math.floor(cafe.ownerMinutes / 6) / 10).toFixed(1).replace('.', ',');
+    this.live['owner-status'] = !cafe.isOpenAt(this.sim.minute)
+      ? L('кафе закрыто')
+      : cafe.ownerAtCounter
+        ? cafe.baristas > 0
+          ? L('за стойкой вместе с персоналом')
+          : L('за стойкой')
+        : cafe.ownerTired
+          ? L('отработал своё на сегодня')
+          : L('отдыхаешь');
 
     const items = cafe.menu
       .map((m) => {
@@ -1337,27 +1368,33 @@ export class Hud {
     const staffRows = cafe.staff.map((st, i) => this.staffRow(st, i, open)).join('');
     const last = this.sim.reports.at(-1);
 
-    const tabs: [CafeTab, string][] = [
-      ['overview', L('Обзор')],
-      ['menu', L('Меню')],
-      ['stock', L('Склад')],
-      ['staff', L('Персонал')],
-      ['guests', L('Гости')],
-      ...(this.sim.hasHall ? ([['hall', L('Зал')]] as [CafeTab, string][]) : []),
-      ...(cafe.premisesId === 'kiosk' ? ([['stand', L('Стойка')]] as [CafeTab, string][]) : []),
-      ['growth', L('Развитие')],
+    // Меню управления: пять разделов, в разделе — свои вкладки (подменю). Сгруппированы по смыслу:
+    // что продаём (меню, склад), кто работает (персонал, часы), кто приходит (гости, реклама, акции), как растём
+    const groups: { label: string; tabs: [CafeTab, string][] }[] = [
+      { label: L('Обзор'), tabs: [['overview', L('Обзор')]] },
+      { label: L('Меню'), tabs: [['menu', L('Меню и цены')], ['stock', L('Склад')]] },
+      { label: L('Команда'), tabs: [['staff', L('Персонал')], ['hours', L('Часы работы')]] },
+      { label: L('Гости'), tabs: [['guests', L('Знакомые')], ['ads', L('Реклама')], ['promo', L('Акции')]] },
+      {
+        label: L('Развитие'),
+        tabs: [
+          ...(this.sim.hasHall ? ([['hall', L('Зал')]] as [CafeTab, string][]) : []),
+          ...(cafe.premisesId === 'kiosk' ? ([['stand', L('Стойка')]] as [CafeTab, string][]) : []),
+          ['growth', L('Вехи и улучшения')],
+        ],
+      },
     ];
-    // Четыре вкладки в ряд: три частых и «Ещё» — остальные раскрываются строкой ниже (UI 2.1)
-    const main = tabs.slice(0, 3);
-    const rest = tabs.slice(3);
-    const inRest = rest.find(([id]) => id === this.tab);
-    const tabBtn = ([id, label]: [CafeTab, string]) =>
+    const group = groups.find((g) => g.tabs.some(([id]) => id === this.tab)) ?? groups[0];
+    if (!group.tabs.some(([id]) => id === this.tab)) this.tab = group.tabs[0][0];
+    const groupBtn = (g: (typeof groups)[number]) => {
+      const target = g === group ? this.tab : (this.lastInGroup.get(g.label) ?? g.tabs[0][0]);
+      return `<button data-action="tab" data-item="${target}" class="${g === group ? 'active' : ''}">${g.label}</button>`;
+    };
+    const subBtn = ([id, label]: [CafeTab, string]) =>
       `<button data-action="tab" data-item="${id}" class="${this.tab === id ? 'active' : ''}">${label}</button>`;
-    const moreBtn = `<button data-action="tab-more" class="more${inRest ? ' active' : ''}" aria-expanded="${this.moreOpen}">${
-      inRest ? inRest[1] : L('Ещё')
-    }${NB}${this.moreOpen ? '⌃' : '⌄'}</button>`;
-    const tabBar = `<nav class="tabs">${main.map(tabBtn).join('')}${moreBtn}</nav>${
-      this.moreOpen ? `<nav class="tabs-more">${rest.map(tabBtn).join('')}</nav>` : ''
+    this.lastInGroup.set(group.label, this.tab);
+    const tabBar = `<nav class="tabs">${groups.map(groupBtn).join('')}</nav>${
+      group.tabs.length > 1 ? `<nav class="subtabs">${group.tabs.map(subBtn).join('')}</nav>` : ''
     }`;
 
     let body = '';
@@ -1374,8 +1411,6 @@ export class Hud {
       </div>
       <p class="hint-line" data-live="stock-warn"></p>
       ${this.rivalCard()}
-      <h4>Часы работы</h4>
-      ${hoursBlock()}
       ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
       ${last ? tr`<button class="secondary" data-action="report">Итоги дня ${last.day}</button>` : ''}
       ${this.restartBlock()}`;
@@ -1390,8 +1425,16 @@ export class Hud {
       if (this.catalogOpen) this.modalHtml = this.modalSheet(L('Каталог'), `<div class="catalog-wrap">${catalog}</div>`, 'toggle-catalog');
     } else if (this.tab === 'stock') {
       body = this.stockTab();
+    } else if (this.tab === 'hours') {
+      body = tr`<h4>Часы работы</h4>
+      ${hoursBlock()}
+      ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}`;
     } else if (this.tab === 'guests') {
-      body = this.facesBlock() + this.marketingTab();
+      body = this.facesBlock();
+    } else if (this.tab === 'ads') {
+      body = this.adsTab();
+    } else if (this.tab === 'promo') {
+      body = this.promoTab();
     } else if (this.tab === 'growth') {
       body = this.growthTab();
     } else if (this.tab === 'hall') {
@@ -1399,10 +1442,7 @@ export class Hud {
     } else if (this.tab === 'stand') {
       body = standTab(this.sim, this.standPick);
     } else {
-      const ownerLine = cafe.ownerAway
-        ? tr`<small>Ты стоишь за стойкой в первой точке. Здесь работают только бариста: найми их на все часы работы.</small>`
-        : tr`<small>Когда бариста нет, за стойкой ты сам — бесплатно, но ${cafe.has('machine') ? '3' : '4'} мин на гостя и не больше ${ECONOMY.ownerHours} ч в день. С бариста — ${cafe.has('machine') ? '1,5' : '2'} мин, и обслуживают параллельно, а ты отдыхаешь.</small>
-      <p class="hint-line">Сегодня ты за стойкой: <b data-live="owner-hours"></b> из ${ECONOMY.ownerHours} ч</p>`;
+      const ownerLine = this.ownerCard();
       body = tr`
       ${ownerLine}
       ${staffWarnings(cafe).map((w) => warnLine(w)).join('')}
@@ -1478,8 +1518,8 @@ export class Hud {
       { reasons: ['expensive'], text: (n) => tr`${persons(n)} решили, что дорого`, tab: 'menu', action: L('Посмотреть цены') },
       { reasons: ['rival'], text: (n) => tr`${persons(n)} ушли к конкуренту`, tab: 'menu', action: L('Сравнить цены') },
       { reasons: ['no-item'], text: (n) => tr`${persons(n)} не нашли нужного в меню`, tab: 'menu', action: L('Изменить меню') },
-      { reasons: ['closed'], text: (n) => tr`${persons(n)} пришли, а было закрыто`, tab: 'overview', action: L('Часы работы') },
-      { reasons: ['unaware'], text: (n) => tr`${passers(n)} прошли мимо: не знают о тебе`, tab: 'guests', action: L('Реклама') },
+      { reasons: ['closed'], text: (n) => tr`${persons(n)} пришли, а было закрыто`, tab: 'hours', action: L('Часы работы') },
+      { reasons: ['unaware'], text: (n) => tr`${passers(n)} прошли мимо: не знают о тебе`, tab: 'ads', action: L('Реклама') },
     ];
     let best: { n: number; rule: (typeof rules)[number] } | null = null;
     for (const rule of rules) {
@@ -1668,6 +1708,48 @@ export class Hud {
     return `${pace} ${deep}`;
   }
 
+  /**
+   * Ты за стойкой. Без персонала — всё время работы (до ECONOMY.ownerHours), отдельные часы не нужны.
+   * С персоналом — когда никого нет, плюс свои часы вместе с ними (например, утренний пик)
+   */
+  private ownerCard(): string {
+    const cafe = this.sim.cafe;
+    if (cafe.ownerAway)
+      return tr`<small>Ты стоишь за стойкой в первой точке. Здесь работают только бариста: найми их на все часы работы.</small>`;
+    const pace = tr`${cafe.has('machine') ? '3' : '4'} мин на гостя`;
+    const alone = !cafe.staff.length;
+    // Если и так стоишь весь день (персонала нет или он не закрывает ни часа), свои часы не добавить
+    const busyAllDay = alone || [0, 1, 2, 3, 4, 5, 6].every((d) => !cafe.hoursOn(d) || uncoveredMinutes(cafe, d) >= ECONOMY.ownerHours * 60);
+    const s = cafe.ownerShift;
+    const hours = (list: number[], value: number, action: string) =>
+      `<select data-action="${action}" ${busyAllDay ? 'disabled' : ''} aria-label="${action.endsWith('from') ? L('с') : L('до')}">${list
+        .map((m) => `<option value="${m}" ${m === value ? 'selected' : ''}>${fmtMinute(m % MINUTES_PER_DAY)}${m >= MINUTES_PER_DAY ? L(' ночи') : ''}</option>`)
+        .join('')}</select>`;
+    const fromList = Array.from({ length: 18 }, (_, k) => hm(6) + k * 60);
+    const toList = Array.from({ length: 23 }, (_, k) => hm(7) + k * 60);
+    const days = WEEKDAY_SHORT.map(
+      (d, wd) =>
+        `<button class="chip ${s?.days[wd] ? 'on' : ''} ${wd >= 5 ? 'we' : ''}" data-action="owner-day" data-day="${wd}" aria-pressed="${!!s?.days[wd]}" ${busyAllDay ? 'disabled' : ''}>${d}</button>`,
+    ).join('');
+    const extra = busyAllDay
+      ? alone
+        ? tr`<small>Пока персонала нет, ты за стойкой всё время работы — отдельные часы не нужны.</small>`
+        : tr`<small>Ты и так стоишь за стойкой весь день — добавить часы некуда.</small>`
+      : s
+        ? tr`<small>Твои часы вместе с персоналом — в пик две стойки вместо одной:</small>
+          <div class="chips">${days}</div>
+          <div class="row hours staff-hours">${hours(fromList, s.from, 'owner-from')}<span>—</span>${hours(toList, s.to, 'owner-to')}
+          <button class="small ghost" data-action="owner-off">Убрать</button></div>`
+        : tr`<div class="row"><small class="grow">Встань за стойку вместе с персоналом в час пик — две стойки вместо одной.</small>
+          <button class="small" data-action="owner-on">Добавить часы</button></div>`;
+    return tr`<ul class="menu staff"><li class="staff-card owner">
+      <div class="row"><div class="grow"><b>Ты · владелец</b><small data-live="owner-status"></small></div></div>
+      <small>Бесплатно, ${pace}, не больше ${ECONOMY.ownerHours} ч в день. ${alone ? '' : L('По умолчанию — когда никого из персонала нет.')}</small>
+      <p class="hint-line">Сегодня за стойкой: <b data-live="owner-hours"></b> из ${ECONOMY.ownerHours} ч</p>
+      ${extra}
+    </li></ul>`;
+  }
+
   /** Бариста: статус, дни недели, для почасового — часы и разовый вызов */
   private staffRow(st: Barista, i: number, open: boolean): string {
     const cafe = this.sim.cafe;
@@ -1770,8 +1852,7 @@ export class Hud {
       .join('');
     return tr`<h4>Знакомые лица</h4>
       <small>Шесть жителей, за которыми видно, как к тебе привыкают. На карте — со звёздочкой, золотой у постоянных.</small>
-      <ul class="menu faces">${rows}</ul>
-      <h4>Маркетинг</h4>`;
+      <ul class="menu faces">${rows}</ul>`;
   }
 
   /** Вехи первой точки и улучшения, которые они открывают */
@@ -1922,7 +2003,15 @@ export class Hud {
       </div>`;
   }
 
-  private marketingTab(): string {
+  private adsTab(): string {
+    return this.marketingTab('ads');
+  }
+
+  private promoTab(): string {
+    return this.marketingTab('promo');
+  }
+
+  private marketingTab(part: 'ads' | 'promo'): string {
     const { marketing: mk } = this.sim;
     const total = this.sim.residents.length;
     const aware = this.sim.awareCount;
@@ -1938,7 +2027,7 @@ export class Hud {
       .join('');
     const channel = (title: string, note: string, control: string, icon: string) =>
       `<li>${namedIcon(icon)}<div class="grow"><b>${title}</b><small>${note}</small></div>${control}</li>`;
-    return tr`
+    const ads = tr`
       <div class="aware">
         <div class="row"><span class="grow">Знают о кафе</span><b data-live="aware"></b></div>
         <div class="meter"><i data-live-width="awarebar"></i></div>
@@ -1968,6 +2057,8 @@ export class Hud {
         )}
         ${channel(L('Сарафан'), tr`Постоянные гости сами рассказывают соседям и коллегам. Бесплатно`, L('<span class="badge on">работает</span>'), 'mk-word')}
       </ul>
+    `;
+    const promo = tr`
       <h4>Акции</h4>
       <ul class="menu">
         <li>${namedIcon('mk-happy')}<div class="grow"><b>Счастливые часы</b><small>Скидка на всё меню в выбранное время — чтобы заполнить пустые часы</small>
@@ -1983,7 +2074,9 @@ export class Hud {
           'mk-loyalty',
         )}
       </ul>
-      <p class="wages">Сегодня на маркетинг: <b data-live="mkt"></b></p>`;
+      `;
+    const spent = tr`<p class="wages">Сегодня на рекламу и акции: <b data-live="mkt"></b></p>`;
+    return (part === 'ads' ? ads : promo) + spent;
   }
 
   private restartBlock(): string {
