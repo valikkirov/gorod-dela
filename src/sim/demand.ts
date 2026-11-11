@@ -120,13 +120,15 @@ export function rollWant(
   weekend = false,
   /** Во сколько раз чаще желания «посидеть» (праздники) */
   festive = 1,
+  /** Во сколько раз чаще любые желания (31 декабря вечером все покупают к празднику, 1 января утром — никто) */
+  rush = 1,
 ): Want | null {
   for (const rule of RULES) {
     const chance = rule.chance[r.kind];
     if (chance === undefined || !rule.test(r, entry, prev)) continue;
     // В выходные есть время посидеть — «посидеть в кафе» случается чаще
     const free = (weekend && rule.want.mode === 'replace' ? 1.5 : 1) * (rule.want.mode === 'replace' ? festive : 1);
-    const mult = (WEATHER_WANT[weather][rule.want.kind] ?? 1) * free;
+    const mult = (WEATHER_WANT[weather][rule.want.kind] ?? 1) * free * rush;
     return rng.chance(Math.min(1, chance * mult)) ? rule.want : null;
   }
   return null;

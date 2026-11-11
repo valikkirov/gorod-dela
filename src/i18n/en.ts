@@ -1178,5 +1178,17 @@ export const EN: Record<string, string> = {
  "Меню → «Склад»: закажи впрок или поменяй, сколько держать": "Menu → “Stock”: order ahead or change how much to keep",
  "Твои часы за стойкой": "Your counter hours",
  "{0} твои часы с персоналом плюс время, когда ты один, — больше {1} ч: под конец дня за стойкой никого не останется": "{0} your hours with the staff plus the time you're alone add up to more than {1} h: by the end of the day nobody will be left at the counter",
- "Хотели зайти куда-нибудь, но о твоём кафе не знают. Помогут вывеска, листовки и соцсети — Гости → «Реклама»": "They wanted to go somewhere but don't know about your café. A sign, flyers and social media help — Guests → “Ads”"
+ "Хотели зайти куда-нибудь, но о твоём кафе не знают. Помогут вывеска, листовки и соцсети — Гости → «Реклама»": "They wanted to go somewhere but don't know about your café. A sign, flyers and social media help — Guests → “Ads”",
+ "<p class=\"first-week\">🎆 Сегодня 31 декабря: с 16:00 народ пойдёт посидеть и отметить. Запаси горячее и выпечку, работай допоздна.</p>": "<p class=\"first-week\">🎆 It's December 31: from 16:00 people will come in to sit and celebrate. Stock up on hot drinks and pastries, and stay open late.</p>",
+ "<p class=\"first-week\">🥂 1 января: до полудня город отсыпается, а к вечеру выходит гулять к ёлке. Открываться рано смысла мало.</p>": "<p class=\"first-week\">🥂 January 1: the city sleeps in until noon and comes out to the tree in the evening. There's little point in opening early.</p>",
+ "Новогодний корпоратив": "New Year office party",
+ "Бизнес-центр празднует и заказывает {0} порций «{1}» на завтра к 16:00 — за {2}, с надбавкой за срочность. Продукты под заказ привезут отдельно. Пока заказ готовится, стойка занята и новых гостей не обслуживают.": "The business centre is celebrating and orders {0} portions of “{1}” for tomorrow at 16:00 — for {2}, with a rush premium. Supplies for the order are delivered separately. While the order is being prepared, the counter is busy and new guests aren't served.",
+ "Хорошие деньги, но в предвечерний час стойка будет занята": "Good money, but the counter will be busy in the late afternoon",
+ "+{0} завтра, продукты −{1}": "+{0} tomorrow, supplies −{1}",
+ "Новогодняя ярмарка в сквере": "New Year fair in the square",
+ "Сегодня в сквере у ёлки ярмарка: гирлянды, каток, горячие напитки. Народ со всего района. Организаторы предлагают место для вашего домика.": "There's a fair by the tree in the square today: garlands, a skating rink, hot drinks. People from all over the district. The organisers offer a spot for your stall.",
+ "Полрайона узнает о вас, а с горячим в меню — ещё и купит. Проверь склад": "Half the district will learn about you, and with hot drinks on the menu they'll buy too. Check your stock",
+ "Поставить домик": "Set up a stall",
+ "{0}: все, кто придёт в сквер, узнают о вас, гостей сегодня заметно больше": "{0}: everyone who comes to the square will learn about you, noticeably more guests today",
+ "🎄 Корпоратив: {0} × {1}, +{2}. Стойка была занята {3} мин": "🎄 Office party: {0} × {1}, +{2}. The counter was busy for {3} min"
 };

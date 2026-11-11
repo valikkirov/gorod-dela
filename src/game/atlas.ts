@@ -28,6 +28,8 @@ import texRailWinterUrl from './art/tex-rail-winter.webp';
 import treeRoundWinterUrl from './art/prop-tree-round-winter.webp';
 import treeTallWinterUrl from './art/prop-tree-tall-winter.webp';
 import pondWinterUrl from './art/prop-pond-winter.webp';
+import buildingsWinterUrl from './art/buildings-winter.webp';
+import { BUILDING_WINTER_FRAMES } from './atlasWinterFrames';
 import type { ResidentKind } from '../sim/residents';
 
 /** Ёлка в сквере в единицах мира (PNG — 2×) */
@@ -169,8 +171,10 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
   vehicles: { url: vehiclesUrl, frames: VEHICLE_FRAMES },
 };
 
-/** Новогодний сезон: трава, плитка и лес — в снегу. Вызывать до загрузки сцены */
+/** Новогодний сезон: трава, плитка, лес и крыши — в снегу. Вызывать до загрузки сцены */
 export function useWinter(): void {
+  // Те же имена кадров, кадры выше на сугробы: здания стоят низом, встают на то же место
+  ATLASES.buildings = { url: buildingsWinterUrl, frames: BUILDING_WINTER_FRAMES };
   ATLASES['tex-grass'].url = texGrassWinterUrl;
   ATLASES['tex-sidewalk'].url = texSidewalkWinterUrl;
   ATLASES['tex-forest'].url = texForestWinterUrl;

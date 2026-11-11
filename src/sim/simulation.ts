@@ -17,7 +17,7 @@ import { FIRST_STEPS, STEP_GUESTS, STEP_REVENUE, type StepId } from './firstStep
 import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
 import { card, EVENTS, resultLine, supplierPrice, type EventId, type PendingEvent } from './events';
 import { PARK_SKIP, rollWeather, toSummer, toWinter, windFor, type Weather } from './weather';
-import { HOLIDAY } from './holiday';
+import { HOLIDAY, type HolidayDay } from './holiday';
 import {
   entrancesOf,
   nearestFront,
@@ -133,7 +133,7 @@ export type Effect =
   /** Праздник: гости охотнее заходят весь день */
   | { type: 'boost'; day: number; factor: number }
   /** Заказ офиса: в этот день и минуту забирают qty порций itemId */
-  | { type: 'order'; day: number; minute: number; itemId: string; qty: number; pay: number }
+  | { type: 'order'; day: number; minute: number; itemId: string; qty: number; pay: number; corporate?: boolean }
   /** Блогер: на этот день выйдет обзор (или не выйдет) */
   | { type: 'blogger'; day: number; success: boolean };
 
@@ -238,6 +238,30 @@ export class Simulation {
    * Включить или выключить сезон. Погода сегодня и завтра сразу становится зимней (или обратно) без броска
    * кубика — смена сезона не сдвигает остальную случайность.
    */
+  /** 31 декабря или 1 января по календарю игрока */
+  get holidayDay(): HolidayDay {
+    return this.main ? this.main.holidayDay : this.ownHolidayDay;
+  }
+  private ownHolidayDay: HolidayDay = null;
+
+  setHolidayDay(d: HolidayDay): void {
+    if (!this.main) this.ownHolidayDay = this.ownHoliday ? d : null;
+  }
+
+  /** Во сколько раз чаще хочется посидеть в кафе: в сезон */
+  private sitMood(): number {
+    return this.holiday ? HOLIDAY.sitWant : 1;
+  }
+
+  /** Во сколько раз чаще любые желания: вечер 31-го — все за праздничным, утро 1-го — город спит */
+  private holidayRush(minute: number): number {
+    if (!this.holiday) return 1;
+    const m = minute % MINUTES_PER_DAY;
+    if (this.holidayDay === 'eve' && m >= HOLIDAY.eveFrom) return HOLIDAY.eveWant;
+    if (this.holidayDay === 'newyear' && m < HOLIDAY.newYearUntil) return HOLIDAY.newYearWant;
+    return 1;
+  }
+
   setHoliday(on: boolean): void {
     if (this.main || this.ownHoliday === on) return;
     this.ownHoliday = on;
@@ -779,7 +803,7 @@ export class Simulation {
     if (r.visit) this.dropVisit(r, 'no-time');
     r.rivalVisit = null;
 
-    const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day), this.holiday ? HOLIDAY.sitWant : 1);
+    const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day), this.sitMood(), this.holidayRush(this.minute));
     if (want && this.decide(r, want, entry)) {
       this.goTo(r, this.shopId);
       return;
@@ -1425,7 +1449,10 @@ export class Simulation {
     const wd = weekday(day);
     const out: PendingEvent[] = [];
     if (cafe.menu.some((m) => m.kind === 'coffee')) out.push({ id: 'breakdown', day, spareMachine: cafe.has('machine') });
-    if (wd === 5) out.push({ id: 'festival', day });
+    // В новогодний сезон вместо летнего праздника — ярмарка у ёлки, по субботам и воскресеньям
+    if (this.holiday) {
+      if (wd >= 5) out.push({ id: 'fair', day });
+    } else if (wd === 5) out.push({ id: 'festival', day });
     const perishable = (['milk', 'bakery', 'kitchen'] as IngredientId[]).filter((id) =>
       cafe.menu.some((m) => Object.keys(recipeOf(m.id)).includes(id)),
     );
@@ -1435,6 +1462,18 @@ export class Simulation {
       const pay = Math.round((lunch.price * EVENTS.order.qty * (1 - EVENTS.order.discount)) / 10) * 10;
       const ingredientCost = Math.round(recipeCost(lunch.id) * EVENTS.order.qty);
       out.push({ id: 'office-order', day, itemId: lunch.id, itemName: lunch.name, pay, ingredientCost });
+    }
+    // Корпоратив в будни сезона: праздничное из меню, а если его нет — кофе или выпечка
+    if (this.holiday && wd <= 3) {
+      const item =
+        cafe.menu.find((m) => CATALOG.find((c) => c.id === m.id)?.seasonal) ??
+        cafe.menu.find((m) => m.kind === 'snack') ??
+        cafe.menu.find((m) => m.kind === 'coffee');
+      if (item) {
+        const qty = EVENTS.corporate.qty;
+        const pay = Math.round((item.price * qty * (1 + EVENTS.corporate.premium)) / 10) * 10;
+        out.push({ id: 'corporate', day, itemId: item.id, itemName: item.name, pay, qty, ingredientCost: Math.round(recipeCost(item.id) * qty) });
+      }
     }
     if (this.awareCount < this.residents.length * 0.9) out.push({ id: 'blogger', day });
     const shift = cafe.staff.find((b) => b.contract === 'shift' && b.schedule.days[wd]);
@@ -1469,8 +1508,9 @@ export class Simulation {
         this.spend(EVENTS.breakdown.laterCost);
         break;
       case 'festival:stall':
-        this.spend(EVENTS.festival.cost);
-        this.effects.push({ type: 'boost', day: e.day, factor: EVENTS.festival.boost });
+      case 'fair:stall':
+        this.spend(e.id === 'fair' ? EVENTS.fair.cost : EVENTS.festival.cost);
+        this.effects.push({ type: 'boost', day: e.day, factor: e.id === 'fair' ? EVENTS.fair.boost : EVENTS.festival.boost });
         // Все, кто сегодня собирается в сквер, видят столик
         for (const r of this.residents) if (r.schedule.some((s) => s.placeId === 'park')) this.learn(r, 'walk');
         break;
@@ -1487,6 +1527,12 @@ export class Simulation {
         t.purchases += e.ingredientCost!;
         t.orderCost = (t.orderCost ?? 0) + e.ingredientCost!;
         this.effects.push({ type: 'order', day: e.day + 1, minute: EVENTS.order.minute, itemId: e.itemId!, qty: EVENTS.order.qty, pay: e.pay! });
+        break;
+      case 'corporate:accept':
+        this.cash -= e.ingredientCost!;
+        t.purchases += e.ingredientCost!;
+        t.orderCost = (t.orderCost ?? 0) + e.ingredientCost!;
+        this.effects.push({ type: 'order', day: e.day + 1, minute: EVENTS.corporate.minute, itemId: e.itemId!, qty: e.qty!, pay: e.pay!, corporate: true });
         break;
       case 'blogger:treat':
         this.spend(EVENTS.blogger.cost);
@@ -1518,7 +1564,11 @@ export class Simulation {
       t.revenue += e.pay;
       t.sold[e.itemId] = (t.sold[e.itemId] ?? 0) + e.qty;
       cafe.countItem(e.itemId, e.pay, 0);
-      (t.events ??= []).push(tr`🏢 Заказ офиса: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`);
+      (t.events ??= []).push(
+        e.corporate
+          ? tr`🎄 Корпоратив: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`
+          : tr`🏢 Заказ офиса: ${e.qty}\u00a0× ${name}, +${formatMoney(e.pay)}. Стойка была занята ${prep}\u00a0мин`,
+      );
     }
   }
 

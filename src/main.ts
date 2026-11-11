@@ -1,6 +1,6 @@
 // Язык — первым: от него зависят тексты-константы в остальных модулях
 import './game/lang';
-import { isHolidayDate } from './sim/holiday';
+import { holidayDayOf, isHolidayDate } from './sim/holiday';
 import { useWinter } from './game/atlas';
 import Phaser from 'phaser';
 import '@fontsource/rubik/500.css';
@@ -60,12 +60,14 @@ const saveKey = saveKeyFor(challenge);
 const city =
   (params.has('seed') ? null : loadGame(saveKey)) ??
   new City(new Simulation(challenge ? CHALLENGE.seed : Number(params.get('seed') ?? 1)));
-// Новогодний сезон — по календарю игрока; ?season=ny|off — посмотреть без ожидания
+// Новогодний сезон — по календарю игрока; ?season=ny|eve|newyear|off — посмотреть без ожидания
 {
   const now = new Date();
   const q = params.get('season');
-  city.main.setHoliday(q === 'ny' || (q !== 'off' && isHolidayDate(now.getMonth() + 1, now.getDate())));
+  const test = q === 'ny' || q === 'eve' || q === 'newyear';
+  city.main.setHoliday(test || (q !== 'off' && isHolidayDate(now.getMonth() + 1, now.getDate())));
   if (city.main.holiday) useWinter();
+  city.main.setHolidayDay(q === 'eve' || q === 'newyear' ? q : holidayDayOf(now.getMonth() + 1, now.getDate()));
 }
 // ?delovoy — сразу открыть деловой квартал (для проверки)
 if (params.has('delovoy')) city.openDistrict();

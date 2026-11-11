@@ -80,3 +80,64 @@ describe('Новогодний сезон', () => {
     expect(sim.cafe.interior.layout.tree).toBe('tree');
   });
 });
+
+describe('Сезонные события и особые дни', () => {
+  it('в сезон вместо летнего праздника — ярмарка по выходным, в будни — корпоратив', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.setHoliday(true);
+    sim.addMenuItem('cocoa');
+    // день 6 — суббота
+    while (sim.today % 7 !== 6) sim.advance(MINUTES_PER_DAY);
+    const sat = sim.eligibleEvents().map((e) => e.id);
+    expect(sat).toContain('fair');
+    expect(sat).not.toContain('festival');
+    while (sim.today % 7 !== 2) sim.advance(MINUTES_PER_DAY);
+    const corp = sim.eligibleEvents().find((e) => e.id === 'corporate');
+    expect(corp?.itemId).toBe('cocoa');
+    expect(corp!.pay!).toBeGreaterThan(220 * 30);
+  });
+
+  it('корпоратив: на следующий день к 16:00 деньги в кассе', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.setHoliday(true);
+    sim.addMenuItem('cocoa');
+    while (sim.today % 7 !== 2) sim.advance(MINUTES_PER_DAY);
+    const corp = sim.eligibleEvents().find((e) => e.id === 'corporate')!;
+    sim.startEvent(corp);
+    expect(sim.chooseEvent('accept')).toBe(true);
+    sim.advance(2 * MINUTES_PER_DAY);
+    expect(sim.reports.some((r) => (r.events ?? []).some((l) => l.includes('Корпоратив')))).toBe(true);
+  });
+
+  it('вне сезона сезонных событий нет', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    for (let d = 0; d < 7; d++) {
+      expect(sim.eligibleEvents().some((e) => e.id === 'fair' || e.id === 'corporate')).toBe(false);
+      sim.advance(MINUTES_PER_DAY);
+    }
+  });
+
+  it('31 декабря вечером посидеть заходят чаще, 1 января утром — реже', () => {
+    const guests = (day: 'eve' | 'newyear' | null, from: number, to: number) => {
+      // Владелец стоит 12 ч: открываемся так, чтобы смотреть на часы, когда он за стойкой
+      let n = 0;
+      for (const seed of [1, 2, 3]) {
+        const sim = new Simulation(seed);
+        sim.openCafe();
+        for (const r of sim.residents) r.aware = true;
+        sim.setHoliday(true);
+        sim.setHolidayDay(day);
+        sim.setHours(from < 12 ? 6 * 60 : 12 * 60, from < 12 ? 18 * 60 : 24 * 60);
+        sim.advance(2 * MINUTES_PER_DAY);
+        const h = sim.reports.at(-1)!.servedHour ?? [];
+        for (let k = from; k < to; k++) n += h[k] ?? 0;
+      }
+      return n;
+    };
+    expect(guests('eve', 16, 24)).toBeGreaterThan(guests(null, 16, 24));
+    expect(guests('newyear', 6, 12)).toBeLessThan(guests(null, 6, 12));
+  }, 60_000);
+});

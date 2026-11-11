@@ -1400,7 +1400,7 @@ export class Hud {
     let body = '';
     if (this.tab === 'overview') {
       this.live['stock-warn'] = this.stockWarning();
-      body = this.firstStepsCard() + tr`
+      body = this.firstStepsCard() + this.holidayNote() + tr`
       ${this.cashWarning()}
       ${this.eventBanner()}
       ${this.insightBlock()}
@@ -1824,6 +1824,16 @@ export class Hud {
     const first = this.sim.reports.find((x) => x.opened);
     if (!first || !r.opened || r.profit >= 0 || r.day - first.day >= 7) return '';
     return tr`<p class="first-week">Первая неделя почти всегда в минусе: вывеска, реклама и стартовые закупки — это вложения в известность. Смотри не на итог, а растёт ли число гостей и тех, кто о тебе знает.</p>`;
+  }
+
+  /** 31 декабря и 1 января — особые дни: подсказка на обзоре */
+  private holidayNote(): string {
+    const d = this.sim.holidayDay;
+    if (d === 'eve')
+      return tr`<p class="first-week">🎆 Сегодня 31 декабря: с 16:00 народ пойдёт посидеть и отметить. Запаси горячее и выпечку, работай допоздна.</p>`;
+    if (d === 'newyear')
+      return tr`<p class="first-week">🥂 1 января: до полудня город отсыпается, а к вечеру выходит гулять к ёлке. Открываться рано смысла мало.</p>`;
+    return '';
   }
 
   /** Событие ждёт решения — напоминание на обзоре */

@@ -68,7 +68,51 @@ def props() -> None:
         im.save(ART / f'{name}-winter.webp', quality=90)
 
 
+# Здания в снегу: точные правки летних кадров (Ideogram 4.5) по картинке с полями 40 px на белом.
+# Фон убираем заливкой белого от краёв (у снега есть контур), сугробы на крыше выше летнего силуэта —
+# кадр вытягиваем вверх; здание ставится низом (origin 0.5, 1), так что зимний кадр встаёт на то же место.
+BUILDINGS = SRC / 'buildings'
+
+
+def snow_cut(name: str) -> Image.Image:
+    from scipy import ndimage
+    raw = np.asarray(Image.open(BUILDINGS / f'{name}.png').convert('RGB')).astype(int)
+    summer = Image.open(ROOT / 'art-src' / 'v2' / 'buildings' / f'{name}.png').convert('RGBA')
+    w, h = summer.size
+    white = (raw.min(axis=2) > 232) & ((raw.max(axis=2) - raw.min(axis=2)) < 14)
+    lab, _ = ndimage.label(white)
+    edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
+    bg = np.isin(lab, edge[edge > 0])
+    mask = (~bg).astype(float)
+    # Мягкий край в полпикселя, внутри летнего силуэта — его альфа (без дыр в белых фасадах)
+    mask = ndimage.gaussian_filter(mask, 0.6)
+    alpha = np.clip((mask - 0.5) * 2 + 0.5, 0, 1) * 255
+    a0 = np.zeros_like(alpha)
+    a0[PAD:PAD + h, PAD:PAD + w] = np.asarray(summer)[..., 3]
+    alpha = np.maximum(alpha, a0)
+    rows = np.where(alpha[:, PAD:PAD + w].max(axis=1) > 8)[0]
+    top = max(0, PAD - rows.min())
+    top += top % 2
+    rgba = np.dstack([raw, alpha]).astype(np.uint8)
+    return Image.fromarray(rgba).crop((PAD, PAD - top, PAD + w, PAD + h))
+
+
+def buildings() -> None:
+    import sys
+    sys.path.insert(0, str(ROOT / 'scripts'))
+    from pack_v2 import even, pack, ts
+    items = [(f.stem, even(snow_cut(f.stem))) for f in sorted(BUILDINGS.glob('building-*.png'))]
+    frames = pack(items, ART / 'buildings-winter.png')
+    head = '// Сгенерировано scripts/pack_winter.py — не править руками\n// Здания в снегу: те же имена кадров, что в BUILDING_FRAMES, кадр выше на высоту сугробов\n\n'
+    (ROOT / 'src' / 'game' / 'atlasWinterFrames.ts').write_text(head + ts('BUILDING_WINTER_FRAMES', frames))
+    im = Image.open(ART / 'buildings-winter.png')
+    im.save(ART / 'buildings-winter.webp', 'WEBP', quality=88, alpha_quality=100, method=6)
+    (ART / 'buildings-winter.png').unlink()
+    print('здания', len(items), im.size)
+
+
 if __name__ == '__main__':
+    buildings()
     props()
     textures()
     icons()

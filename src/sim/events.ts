@@ -6,7 +6,7 @@ import { ECONOMY, formatMoney } from './economy';
 import { ingredient, type IngredientId } from './stock';
 
 import { L, tr } from './i18n';
-export type EventId = 'breakdown' | 'festival' | 'supplier' | 'office-order' | 'blogger' | 'day-off';
+export type EventId = 'breakdown' | 'festival' | 'supplier' | 'office-order' | 'blogger' | 'day-off' | 'corporate' | 'fair';
 
 export const EVENTS = {
   /** С какого дня работы начинаются события */
@@ -23,6 +23,10 @@ export const EVENTS = {
   order: { qty: 20, discount: 0.1, minute: 11 * 60 },
   blogger: { cost: 1_000, success: 0.6, reach: 14 },
   dayOff: { extra: 0.5 },
+  /** Новогодний сезон. Корпоратив: офис заказывает праздничное к вечеру, платит без скидки и с надбавкой за срочность */
+  corporate: { qty: 30, premium: 0.1, minute: 16 * 60 },
+  /** Новогодняя ярмарка в сквере — как праздник района, но народу больше */
+  fair: { cost: 3_000, boost: 1.4 },
 } as const;
 
 /** Что известно о событии, когда оно случилось: подставляется в тексты и в последствия */
@@ -37,6 +41,8 @@ export interface PendingEvent {
   pay?: number;
   /** Заказ офиса: сколько продуктов докупим и сколько минут стойка будет занята */
   ingredientCost?: number;
+  /** Корпоратив: сколько порций (у заказа офиса — EVENTS.order.qty) */
+  qty?: number;
   /** Отгул: какой бариста */
   baristaId?: number;
   /** Есть ли вторая кофемашина: тогда поломка не останавливает кофе, а замедляет */
@@ -109,6 +115,34 @@ export function card(e: PendingEvent): EventCard {
             label: L('Поставить столик'),
             hint: tr`${money(f.cost)}: все, кто придёт в сквер, узнают о вас, гостей сегодня больше. Проверь склад`,
           },
+          { id: 'skip', label: L('Не участвовать'), hint: L('Бесплатно, обычный выходной') },
+        ],
+        fallback: 'skip',
+      };
+    }
+    case 'corporate': {
+      const c = EVENTS.corporate;
+      return {
+        icon: '🎄',
+        title: L('Новогодний корпоратив'),
+        text: tr`Бизнес-центр празднует и заказывает ${e.qty ?? c.qty} порций «${e.itemName}» на завтра к 16:00 — за ${money(e.pay!)}, с надбавкой за срочность. Продукты под заказ привезут отдельно. Пока заказ готовится, стойка занята и новых гостей не обслуживают.`,
+        stake: tr`Хорошие деньги, но в предвечерний час стойка будет занята`,
+        options: [
+          { id: 'accept', label: L('Взять заказ'), hint: tr`+${money(e.pay!)} завтра, продукты −${money(e.ingredientCost!)}` },
+          { id: 'decline', label: L('Отказаться'), hint: L('Ничего не меняется') },
+        ],
+        fallback: 'decline',
+      };
+    }
+    case 'fair': {
+      const f = EVENTS.fair;
+      return {
+        icon: '🎪',
+        title: L('Новогодняя ярмарка в сквере'),
+        text: tr`Сегодня в сквере у ёлки ярмарка: гирлянды, каток, горячие напитки. Народ со всего района. Организаторы предлагают место для вашего домика.`,
+        stake: tr`Полрайона узнает о вас, а с горячим в меню — ещё и купит. Проверь склад`,
+        options: [
+          { id: 'stall', label: L('Поставить домик'), hint: tr`${money(f.cost)}: все, кто придёт в сквер, узнают о вас, гостей сегодня заметно больше` },
           { id: 'skip', label: L('Не участвовать'), hint: L('Бесплатно, обычный выходной') },
         ],
         fallback: 'skip',
