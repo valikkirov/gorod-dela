@@ -994,7 +994,7 @@ export class Simulation {
     r.visit.stage = 'dining';
     r.visit.until = this.time + r.visit.want.dwell;
     // Сел в зале своего стиля — считаем, что пришёл и ради зала
-    if (r.visit.want.mode === 'replace' && hall && hall.styleFit(r.kind) > 0) this.cafe.today.styleGuests = (this.cafe.today.styleGuests ?? 0) + 1;
+    if (r.visit.want.mode === 'replace' && hall && hall.wholeFit(r.kind) > 0) this.cafe.today.styleGuests = (this.cafe.today.styleGuests ?? 0) + 1;
     this.bringCompany(r, itemId);
     this.extraOrder(r, itemId);
     this.pastryImpulse(r, itemId);

@@ -33,6 +33,7 @@ import { AWARE_LABEL, MARKETING, type AwareSource } from '../sim/marketing';
 import { ingredient, INGREDIENTS, orderPrice, recipeCost, recipeOf, type IngredientId } from '../sim/stock';
 import { cashDiagnosis, LOAN, LOAN_LABEL, LOAN_TERMS, paymentLeft, totalInterest, weeklyPayment, type LoanSource } from '../sim/loans';
 import { menuAddWarning, orderWarning, priceWarning, staffWarnings, uncoveredMinutes } from '../sim/warnings';
+import { chronicle, type Chronicle } from '../sim/chronicle';
 import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, summarize, type Period, type PeriodKind } from '../sim/periods';
 import { iconImg, namedIcon } from './icons';
 import { compositionOf } from '../sim/composition';
@@ -301,6 +302,8 @@ export class Hud {
   /** Почасовые бариста, у которых раскрыты часы по дням */
   private staffByDay = new Set<number>();
   private reportAt: number | null = null;
+  /** Последний прочитанный выпуск хроники (только в интерфейсе) */
+  private chronicleRead = 0;
   /** Сколько хочет взять в кредит — по источнику */
   private loanAmount: Partial<Record<LoanSource, number>> = {};
   /** Конструктор своего блюда: null — закрыт */
@@ -877,6 +880,15 @@ export class Hud {
         this.hoursByDay = false;
         break;
       }
+      case 'chronicle': {
+        const week = Number(item);
+        this.chronicleRead = Math.max(this.chronicleRead, week);
+        this.view = 'report';
+        this.reportPeriod = 'week';
+        this.reportAt = week;
+        this.panel.scrollTop = 0;
+        break;
+      }
       case 'report-period':
         this.reportPeriod = item as 'day' | PeriodKind;
         this.reportAt = null;
@@ -1400,7 +1412,7 @@ export class Hud {
     let body = '';
     if (this.tab === 'overview') {
       this.live['stock-warn'] = this.stockWarning();
-      body = this.firstStepsCard() + this.holidayNote() + tr`
+      body = this.firstStepsCard() + this.holidayNote() + this.chronicleCard() + tr`
       ${this.cashWarning()}
       ${this.eventBanner()}
       ${this.insightBlock()}
@@ -1824,6 +1836,37 @@ export class Hud {
     const first = this.sim.reports.find((x) => x.opened);
     if (!first || !r.opened || r.profit >= 0 || r.day - first.day >= 7) return '';
     return tr`<p class="first-week">Первая неделя почти всегда в минусе: вывеска, реклама и стартовые закупки — это вложения в известность. Смотри не на итог, а растёт ли число гостей и тех, кто о тебе знает.</p>`;
+  }
+
+  /** Хроника района за неделю: из отчётов, ничего не хранится */
+  private chronicleOf(week: number): Chronicle | null {
+    const sim = this.sim;
+    return chronicle(sim.reports, week, {
+      district: sim.district,
+      cafe: sim.cafe.title,
+      rival: sim.rival?.t.name ?? null,
+      item: (id) => sim.cafe.menu.find((m) => m.id === id)?.name ?? itemName(id),
+    });
+  }
+
+  private chronicleBlock(week: number): string {
+    const c = this.chronicleOf(week);
+    if (!c) return '';
+    const stories = c.stories.map((st) => `<li><span>${st.icon}</span><div><b>${st.title}</b><small>${st.text}</small></div></li>`).join('');
+    return tr`<div class="chronicle"><div class="chronicle-head"><b>${c.title}</b><small>неделя ${c.week}</small></div><ul>${stories}</ul></div>`;
+  }
+
+  /** Первые два дня новой недели на обзоре — свежий выпуск хроники, пока не прочитан */
+  private chronicleCard(): string {
+    const last = this.sim.reports.at(-1);
+    if (!last) return '';
+    const week = periodOf('week', last.day).index - (last.day % 7 === 0 ? 0 : 1);
+    if (week < 1 || week <= this.chronicleRead || this.sim.today - week * 7 > 2) return '';
+    const c = this.chronicleOf(week);
+    if (!c) return '';
+    return tr`<div class="chronicle teaser"><div class="chronicle-head"><b>📰 ${c.title}</b><small>вышел свежий номер</small></div>
+        <p>${c.stories[0].icon} ${c.stories[0].title}</p>
+        <button class="secondary small" data-action="chronicle" data-item="${week}">Читать</button></div>`;
   }
 
   /** 31 декабря и 1 января — особые дни: подсказка на обзоре */
@@ -2454,6 +2497,7 @@ export class Hud {
       ${this.periodBar()}
       ${this.resultBlock(p.kind === 'week' ? L('Итог недели') : L('Итог месяца'), s.profit, compareLine(s, prev))}
       ${kpis}
+      ${p.kind === 'week' ? this.chronicleBlock(p.index) : ''}
       <h4>${p.kind === 'week' ? tr`Итог по дням` : tr`По неделям`}</h4>
       ${bars}
       ${daily}
@@ -2641,9 +2685,11 @@ export class Hud {
     if (!this.sim.hasHall) return '';
     const hall = this.sim.cafe.interior;
     const id = hall.style;
-    if (!id) return '';
+    const fit = hall.styleFit(r.kind);
+    if (!id) return fit > 0 ? tr`<div>Зал отчасти по душе: есть вещи в его вкусе</div>` : '';
     const name = hallStyle(id).name;
-    return hall.styleFit(r.kind) > 0 ? tr`<div>Зал по душе: ${name}</div>` : tr`<div>Зал «${name}» — не по вкусу</div>`;
+    if (fit > 0 && fit === hall.wholeFit(r.kind)) return tr`<div>Зал по душе: ${name}</div>`;
+    return fit > 0 ? tr`<div>Зал «${name}» отчасти по душе</div>` : tr`<div>Зал «${name}» — не по вкусу</div>`;
   }
 
   /** Характер, вкус и память визитов: по ним игрок подбирает меню под своих гостей */

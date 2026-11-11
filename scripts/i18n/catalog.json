@@ -405,7 +405,7 @@
    "at": "src/game/hall.ts:305"
   },
   {
-   "key": "<p class=\"hint-line\">Стиля пока нет. Стиль засчитывается с {0} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим.</p>",
+   "key": "<p class=\"hint-line\">Стиля пока нет. Стиль засчитывается с {0} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим. Смешанный зал тоже работает, но слабее: каждая вещь нравится своим понемногу.</p>",
    "at": "src/game/hall.ts:306"
   },
   {
@@ -430,1883 +430,1899 @@
   },
   {
    "key": "Ночь",
-   "at": "src/game/hud.ts:91"
+   "at": "src/game/hud.ts:92"
   },
   {
    "key": "Почти все спят. Ночью работать дорого: +20 % к зарплате.",
-   "at": "src/game/hud.ts:91"
+   "at": "src/game/hud.ts:92"
   },
   {
    "key": "Город просыпается",
-   "at": "src/game/hud.ts:93"
+   "at": "src/game/hud.ts:94"
   },
   {
    "key": "Первые жители идут к метро.",
-   "at": "src/game/hud.ts:93"
+   "at": "src/game/hud.ts:94"
   },
   {
    "key": "Выходной",
-   "at": "src/game/hud.ts:95"
+   "at": "src/game/hud.ts:96"
   },
   {
    "key": "Офисы закрыты, у метро тише. Жители гуляют и не спешат.",
-   "at": "src/game/hud.ts:95"
+   "at": "src/game/hud.ts:96"
   },
   {
    "key": "Утренний поток",
-   "at": "src/game/hud.ts:97"
+   "at": "src/game/hud.ts:98"
   },
   {
    "key": "Офисные и студенты спешат: очередь их отпугивает.",
-   "at": "src/game/hud.ts:97"
+   "at": "src/game/hud.ts:98"
   },
   {
    "key": "Затишье",
-   "at": "src/game/hud.ts:99"
+   "at": "src/game/hud.ts:100"
   },
   {
    "key": "На улице пенсионеры и фрилансеры, им не к спеху.",
-   "at": "src/game/hud.ts:99"
+   "at": "src/game/hud.ts:100"
   },
   {
    "key": "Обед",
-   "at": "src/game/hud.ts:101"
+   "at": "src/game/hud.ts:102"
   },
   {
    "key": "Офисы выходят поесть: нужна еда, а не только кофе.",
-   "at": "src/game/hud.ts:101"
+   "at": "src/game/hud.ts:102"
   },
   {
    "key": "После обеда",
-   "at": "src/game/hud.ts:103"
+   "at": "src/game/hud.ts:104"
   },
   {
    "key": "Студенты возвращаются, молодёжь гуляет в сквере.",
-   "at": "src/game/hud.ts:103"
+   "at": "src/game/hud.ts:104"
   },
   {
    "key": "Вечер",
-   "at": "src/game/hud.ts:105"
+   "at": "src/game/hud.ts:106"
   },
   {
    "key": "Все идут домой, молодёжь — гулять и в бар.",
-   "at": "src/game/hud.ts:105"
+   "at": "src/game/hud.ts:106"
   },
   {
    "key": "Поздний вечер",
-   "at": "src/game/hud.ts:106"
+   "at": "src/game/hud.ts:107"
   },
   {
    "key": "Улица пустеет: остаются ночные смены и молодёжь.",
-   "at": "src/game/hud.ts:106"
+   "at": "src/game/hud.ts:107"
   },
   {
    "key": "за {0} дн. этой недели: {1}",
-   "at": "src/game/hud.ts:114"
-  },
-  {
-   "key": "за неделю: {0}",
-   "at": "src/game/hud.ts:114"
-  },
-  {
-   "key": "<div><b>Деловой квартал</b> — за железной дорогой, туда ходит метро. Откроется, когда прибыль будет от {0} в неделю две недели подряд.</div>\n    <div>Подряд: {1} из {2} · {3}</div>",
    "at": "src/game/hud.ts:115"
   },
   {
+   "key": "за неделю: {0}",
+   "at": "src/game/hud.ts:115"
+  },
+  {
+   "key": "<div><b>Деловой квартал</b> — за железной дорогой, туда ходит метро. Откроется, когда прибыль будет от {0} в неделю две недели подряд.</div>\n    <div>Подряд: {1} из {2} · {3}</div>",
+   "at": "src/game/hud.ts:116"
+  },
+  {
    "key": "два",
-   "at": "src/game/hud.ts:141"
+   "at": "src/game/hud.ts:142"
   },
   {
    "key": "три",
-   "at": "src/game/hud.ts:141"
+   "at": "src/game/hud.ts:142"
   },
   {
    "key": "четыре",
-   "at": "src/game/hud.ts:141"
+   "at": "src/game/hud.ts:142"
   },
   {
    "key": " · 💨 ветрено",
-   "at": "src/game/hud.ts:151"
+   "at": "src/game/hud.ts:152"
   },
   {
    "key": "за кофе",
-   "at": "src/game/hud.ts:154"
-  },
-  {
-   "key": "пообедать",
    "at": "src/game/hud.ts:155"
   },
   {
-   "key": "на чай",
+   "key": "пообедать",
    "at": "src/game/hud.ts:156"
   },
   {
-   "key": "перекусить",
+   "key": "на чай",
    "at": "src/game/hud.ts:157"
   },
   {
-   "key": "выпить",
+   "key": "перекусить",
    "at": "src/game/hud.ts:158"
   },
   {
-   "key": "было закрыто",
-   "at": "src/game/hud.ts:171"
+   "key": "выпить",
+   "at": "src/game/hud.ts:159"
   },
   {
-   "key": "не было нужного в меню",
+   "key": "было закрыто",
    "at": "src/game/hud.ts:172"
   },
   {
-   "key": "долго ждать заказа",
-   "at": "src/game/hud.ts:176"
+   "key": "не было нужного в меню",
+   "at": "src/game/hud.ts:173"
   },
   {
-   "key": "закончились продукты",
+   "key": "долго ждать заказа",
    "at": "src/game/hud.ts:177"
   },
   {
-   "key": "выбрали конкурента",
+   "key": "закончились продукты",
    "at": "src/game/hud.ts:178"
   },
   {
-   "key": "не по вкусу",
+   "key": "выбрали конкурента",
    "at": "src/game/hud.ts:179"
   },
   {
-   "key": "некому было обслужить",
+   "key": "не по вкусу",
    "at": "src/game/hud.ts:180"
   },
   {
-   "key": "Хотели зайти, но кафе ещё не работает",
-   "at": "src/game/hud.ts:202"
+   "key": "некому было обслужить",
+   "at": "src/game/hud.ts:181"
   },
   {
-   "key": "Хотели зайти, когда было закрыто — подумай о часах работы",
+   "key": "Хотели зайти, но кафе ещё не работает",
    "at": "src/game/hud.ts:203"
   },
   {
-   "key": "Цена выше, чем готовы платить",
+   "key": "Хотели зайти, когда было закрыто — подумай о часах работы",
    "at": "src/game/hud.ts:204"
   },
   {
-   "key": "Кафе не по пути — делать крюк не захотели",
+   "key": "Цена выше, чем готовы платить",
    "at": "src/game/hud.ts:205"
   },
   {
-   "key": "Не нашли нужного в меню",
+   "key": "Кафе не по пути — делать крюк не захотели",
    "at": "src/game/hud.ts:206"
   },
   {
-   "key": "Не стали стоять в очереди — нужен бариста",
+   "key": "Не нашли нужного в меню",
    "at": "src/game/hud.ts:207"
   },
   {
-   "key": "Не дождались заказа и ушли",
+   "key": "Не стали стоять в очереди — нужен бариста",
    "at": "src/game/hud.ts:208"
   },
   {
-   "key": "Хотели зайти куда-нибудь, но о твоём кафе не знают. Помогут вывеска, листовки и соцсети — вкладка «Гости»",
+   "key": "Не дождались заказа и ушли",
    "at": "src/game/hud.ts:209"
   },
   {
-   "key": "Позиция закончилась на складе. Гость ушёл недовольным — закажи больше или подними автозаказ",
+   "key": "Хотели зайти куда-нибудь, но о твоём кафе не знают. Помогут вывеска, листовки и соцсети — вкладка «Гости»",
    "at": "src/game/hud.ts:210"
   },
   {
-   "key": "Цена и дорога устраивали, но не каждый день хочется в кафе. Постоянные гости заходят чаще",
+   "key": "Позиция закончилась на складе. Гость ушёл недовольным — закажи больше или подними автозаказ",
    "at": "src/game/hud.ts:211"
   },
   {
-   "key": "Готовы были зайти, но выбрали конкурента: у него дешевле, ближе по пути или нужная позиция",
+   "key": "Цена и дорога устраивали, но не каждый день хочется в кафе. Постоянные гости заходят чаще",
    "at": "src/game/hud.ts:212"
   },
   {
-   "key": "Цена и дорога устраивали, но в меню не нашлось ничего на их вкус. Посмотри, что любят твои гости, в их карточках",
+   "key": "Готовы были зайти, но выбрали конкурента: у него дешевле, ближе по пути или нужная позиция",
    "at": "src/game/hud.ts:213"
   },
   {
-   "key": "Точка открыта, но за стойкой никого: ты отстоял свои {0} ч, а бариста не было. Найми бариста на эти часы или сократи часы работы",
+   "key": "Цена и дорога устраивали, но в меню не нашлось ничего на их вкус. Посмотри, что любят твои гости, в их карточках",
    "at": "src/game/hud.ts:214"
   },
   {
-   "key": "кофе",
-   "at": "src/game/hud.ts:218"
+   "key": "Точка открыта, но за стойкой никого: ты отстоял свои {0} ч, а бариста не было. Найми бариста на эти часы или сократи часы работы",
+   "at": "src/game/hud.ts:215"
   },
   {
-   "key": "обед",
+   "key": "кофе",
    "at": "src/game/hud.ts:219"
   },
   {
-   "key": "чай",
+   "key": "обед",
    "at": "src/game/hud.ts:220"
   },
   {
-   "key": "перекус",
+   "key": "чай",
    "at": "src/game/hud.ts:221"
   },
   {
-   "key": "пиво или сидр",
+   "key": "перекус",
    "at": "src/game/hud.ts:222"
   },
   {
+   "key": "пиво или сидр",
+   "at": "src/game/hud.ts:223"
+  },
+  {
    "key": "<small class=\"comp\">Состав: {0}</small>",
-   "at": "src/game/hud.ts:240"
+   "at": "src/game/hud.ts:241"
   },
   {
    "key": "зерно",
-   "at": "src/game/hud.ts:246"
-  },
-  {
-   "key": "молоко",
    "at": "src/game/hud.ts:247"
   },
   {
-   "key": "выпечку",
+   "key": "молоко",
    "at": "src/game/hud.ts:248"
   },
   {
-   "key": "продукты для кухни",
+   "key": "выпечку",
    "at": "src/game/hud.ts:249"
   },
   {
-   "key": "чай и лимонад",
+   "key": "продукты для кухни",
    "at": "src/game/hud.ts:250"
   },
   {
-   "key": "пиво и сидр",
+   "key": "чай и лимонад",
    "at": "src/game/hud.ts:251"
   },
   {
-   "key": "сиропы",
+   "key": "пиво и сидр",
    "at": "src/game/hud.ts:252"
   },
   {
-   "key": "шоколад",
+   "key": "сиропы",
    "at": "src/game/hud.ts:253"
   },
   {
-   "key": "мёд",
+   "key": "шоколад",
    "at": "src/game/hud.ts:254"
   },
   {
-   "key": "специи",
+   "key": "мёд",
    "at": "src/game/hud.ts:255"
   },
   {
-   "key": "ягоды",
+   "key": "специи",
    "at": "src/game/hud.ts:256"
   },
   {
-   "key": "сыр",
+   "key": "ягоды",
    "at": "src/game/hud.ts:257"
   },
   {
-   "key": "ветчину",
+   "key": "сыр",
    "at": "src/game/hud.ts:258"
   },
   {
+   "key": "ветчину",
+   "at": "src/game/hud.ts:259"
+  },
+  {
    "key": "дня",
-   "at": "src/game/hud.ts:267"
+   "at": "src/game/hud.ts:268"
   },
   {
    "key": "день",
-   "at": "src/game/hud.ts:267"
+   "at": "src/game/hud.ts:268"
   },
   {
    "key": "дней",
-   "at": "src/game/hud.ts:267"
+   "at": "src/game/hud.ts:268"
   },
   {
    "key": "Скорость: ×1, ×2, ×4",
-   "at": "src/game/hud.ts:347"
+   "at": "src/game/hud.ts:350"
   },
   {
    "key": "🌙 Всё закрыто до утра · <b>Промотать ⏭</b>",
-   "at": "src/game/hud.ts:356"
+   "at": "src/game/hud.ts:359"
   },
   {
    "key": "Промотать до 6:00 утра",
-   "at": "src/game/hud.ts:366"
+   "at": "src/game/hud.ts:369"
   },
   {
    "key": "Промотать до утра",
-   "at": "src/game/hud.ts:367"
+   "at": "src/game/hud.ts:370"
   },
   {
    "key": "Деловой квартал",
-   "at": "src/game/hud.ts:430"
+   "at": "src/game/hud.ts:433"
   },
   {
    "key": "Кленовая",
-   "at": "src/game/hud.ts:430"
+   "at": "src/game/hud.ts:433"
   },
   {
    "key": "<small>Деловой квартал</small><b>🔒 {0} из {1} нед.</b>",
-   "at": "src/game/hud.ts:434"
+   "at": "src/game/hud.ts:437"
   },
   {
    "key": "\n      <div class=\"sheet event-card\" role=\"dialog\" aria-label=\"Деловой квартал открыт\">\n        <div class=\"event-icon\">🏙️</div>\n        <b>Деловой квартал открыт</b>\n        <p>Две недели подряд прибыль от {0} в неделю — первая точка встала на ноги. За железной дорогой деловой квартал: бизнес-центры, коворкинг и институт, около 160 офисных. Там сдаётся помещение под бистро с обедами.</p>\n        <p class=\"event-stake\">Ты стоишь за стойкой в первой точке, во второй нужен бариста. Касса общая.</p>\n        <div class=\"event-options\">\n          <button class=\"event-option\" data-choice=\"go\"><span>Поехать на метро</span><small>Посмотреть квартал и бистро</small></button>\n        </div>\n        <div class=\"actions\"><small>Переход — кнопкой над картой или через метро</small><button class=\"link\" data-choice=\"later\">Позже</button></div>\n      </div>",
-   "at": "src/game/hud.ts:449"
+   "at": "src/game/hud.ts:452"
   },
   {
    "key": "Продолжить",
-   "at": "src/game/hud.ts:481"
+   "at": "src/game/hud.ts:484"
   },
   {
    "key": "Пауза",
-   "at": "src/game/hud.ts:481"
+   "at": "src/game/hud.ts:484"
   },
   {
    "key": "Скорость ×{0}, нажми, чтобы сменить",
-   "at": "src/game/hud.ts:487"
+   "at": "src/game/hud.ts:490"
   },
   {
    "key": "Первые шаги пройдены!",
-   "at": "src/game/hud.ts:552"
+   "at": "src/game/hud.ts:555"
   },
   {
    "key": "Дальше — вехи во вкладке «Развитие».",
-   "at": "src/game/hud.ts:552"
+   "at": "src/game/hud.ts:555"
   },
   {
    "key": "Первые шаги · {0} из {1}",
-   "at": "src/game/hud.ts:558"
+   "at": "src/game/hud.ts:561"
   },
   {
    "key": "День {0}",
-   "at": "src/game/hud.ts:598"
+   "at": "src/game/hud.ts:601"
   },
   {
    "key": "День {0} из {1}",
-   "at": "src/game/hud.ts:598"
+   "at": "src/game/hud.ts:601"
   },
   {
    "key": "День {0} · итог записан",
-   "at": "src/game/hud.ts:598"
+   "at": "src/game/hud.ts:601"
   },
   {
    "key": "<small>В кассе</small><b>{0}</b>",
-   "at": "src/game/hud.ts:602"
+   "at": "src/game/hud.ts:605"
   },
   {
    "key": "<li class=\"premises\">\n      <img class=\"premises-pic\" src=\"{0}\" alt=\"\" width=\"300\" height=\"100\" />\n      <div class=\"row\"><b class=\"grow\">{1}</b><span class=\"badge\">аренда {2}/мес</span></div>\n      <small>{3}. Коммуналка — за часы работы, налог 6 % с выручки.</small>\n      <button class=\"primary\" data-action=\"open-cafe\" data-item=\"{4}\" {5}>Открыть · {6}</button>\n    </li>",
-   "at": "src/game/hud.ts:1108"
-  },
-  {
-   "key": "\n      <div class=\"card-head\">\n        <i class=\"place-dot place-{0}\"></i>\n        <div><b>{1}</b><small>{2}</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button>\n      </div>{3}",
    "at": "src/game/hud.ts:1120"
   },
   {
+   "key": "\n      <div class=\"card-head\">\n        <i class=\"place-dot place-{0}\"></i>\n        <div><b>{1}</b><small>{2}</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button>\n      </div>{3}",
+   "at": "src/game/hud.ts:1132"
+  },
+  {
    "key": "<small>и ещё {0}</small>",
-   "at": "src/game/hud.ts:1134"
+   "at": "src/game/hud.ts:1146"
   },
   {
    "key": "<div>О твоём кафе знают {0} из {1} {2}</div>",
-   "at": "src/game/hud.ts:1139"
-  },
-  {
-   "key": "{0}\n          <div class=\"facts\"><div>Гостей сегодня: {1} · выручка {2}</div></div>\n          {3}\n          <button class=\"primary\" data-action=\"back\">К управлению кафе</button>",
-   "at": "src/game/hud.ts:1149"
-  },
-  {
-   "key": "Сейчас внутри",
    "at": "src/game/hud.ts:1151"
   },
   {
+   "key": "{0}\n          <div class=\"facts\"><div>Гостей сегодня: {1} · выручка {2}</div></div>\n          {3}\n          <button class=\"primary\" data-action=\"back\">К управлению кафе</button>",
+   "at": "src/game/hud.ts:1161"
+  },
+  {
+   "key": "Сейчас внутри",
+   "at": "src/game/hud.ts:1163"
+  },
+  {
    "key": "{0}\n          <div class=\"facts\"><div>{1}</div><div>Часы: {2}–{3}</div><div>Цены: {4}</div></div>\n          {5}",
-   "at": "src/game/hud.ts:1156"
+   "at": "src/game/hud.ts:1168"
   },
   {
    "key": "конкурент",
-   "at": "src/game/hud.ts:1156"
+   "at": "src/game/hud.ts:1168"
   },
   {
    "key": "конкурент откроется через {0} дн.",
-   "at": "src/game/hud.ts:1156"
+   "at": "src/game/hud.ts:1168"
   },
   {
    "key": "Сейчас у него",
-   "at": "src/game/hud.ts:1162"
+   "at": "src/game/hud.ts:1174"
   },
   {
    "key": "{0}\n          <div class=\"facts\"><div>Помещение уже арендовала сеть «Кофе на бегу». Откроется через несколько дней после твоего бистро.</div></div>",
-   "at": "src/game/hud.ts:1165"
+   "at": "src/game/hud.ts:1177"
   },
   {
    "key": "не сдаётся",
-   "at": "src/game/hud.ts:1165"
+   "at": "src/game/hud.ts:1177"
   },
   {
    "key": "свободно",
-   "at": "src/game/hud.ts:1168"
+   "at": "src/game/hud.ts:1180"
   },
   {
    "key": "сдаётся",
-   "at": "src/game/hud.ts:1168"
+   "at": "src/game/hud.ts:1180"
   },
   {
    "key": "<div class=\"facts\"><div>Помещение пустует.</div></div>",
-   "at": "src/game/hud.ts:1169"
-  },
-  {
-   "key": "{0}\n        <div class=\"facts\"><div>Живут: {1} · дома сейчас: {2}</div>{3}</div>\n        {4}",
-   "at": "src/game/hud.ts:1174"
-  },
-  {
-   "key": "жилой дом",
-   "at": "src/game/hud.ts:1174"
-  },
-  {
-   "key": "жильцов",
-   "at": "src/game/hud.ts:1175"
-  },
-  {
-   "key": "Сейчас дома",
-   "at": "src/game/hud.ts:1176"
-  },
-  {
-   "key": "{0}\n        <div class=\"facts\"><div>Работают: {1} · сейчас на месте: {2}</div>{3}</div>\n        {4}",
-   "at": "src/game/hud.ts:1180"
-  },
-  {
-   "key": "офис",
-   "at": "src/game/hud.ts:1180"
-  },
-  {
-   "key": "сотрудников",
    "at": "src/game/hud.ts:1181"
   },
   {
+   "key": "{0}\n        <div class=\"facts\"><div>Живут: {1} · дома сейчас: {2}</div>{3}</div>\n        {4}",
+   "at": "src/game/hud.ts:1186"
+  },
+  {
+   "key": "жилой дом",
+   "at": "src/game/hud.ts:1186"
+  },
+  {
+   "key": "жильцов",
+   "at": "src/game/hud.ts:1187"
+  },
+  {
+   "key": "Сейчас дома",
+   "at": "src/game/hud.ts:1188"
+  },
+  {
+   "key": "{0}\n        <div class=\"facts\"><div>Работают: {1} · сейчас на месте: {2}</div>{3}</div>\n        {4}",
+   "at": "src/game/hud.ts:1192"
+  },
+  {
+   "key": "офис",
+   "at": "src/game/hud.ts:1192"
+  },
+  {
+   "key": "сотрудников",
+   "at": "src/game/hud.ts:1193"
+  },
+  {
    "key": "Сейчас в офисе",
-   "at": "src/game/hud.ts:1182"
+   "at": "src/game/hud.ts:1194"
   },
   {
    "key": "{0}\n        <div class=\"facts\"><div>Выход на Садовую пока закрыт. Все пассажиры выходят на Кленовую, к киоску.</div></div>",
-   "at": "src/game/hud.ts:1185"
-  },
-  {
-   "key": "закрыт",
-   "at": "src/game/hud.ts:1185"
-  },
-  {
-   "key": "{0}\n        <div class=\"facts\"><div>Приезжают на улицу на метро: {1}</div>{2}</div>\n        {3}",
-   "at": "src/game/hud.ts:1190"
-  },
-  {
-   "key": "выход из метро",
-   "at": "src/game/hud.ts:1190"
-  },
-  {
-   "key": "из них",
-   "at": "src/game/hud.ts:1191"
-  },
-  {
-   "key": "{0}\n        <div class=\"facts\"><div>Учатся: {1} · сейчас на уроках: {2}</div>{3}</div>\n        {4}",
-   "at": "src/game/hud.ts:1196"
-  },
-  {
-   "key": "школа на Садовой",
-   "at": "src/game/hud.ts:1196"
-  },
-  {
-   "key": "учеников",
    "at": "src/game/hud.ts:1197"
   },
   {
+   "key": "закрыт",
+   "at": "src/game/hud.ts:1197"
+  },
+  {
+   "key": "{0}\n        <div class=\"facts\"><div>Приезжают на улицу на метро: {1}</div>{2}</div>\n        {3}",
+   "at": "src/game/hud.ts:1202"
+  },
+  {
+   "key": "выход из метро",
+   "at": "src/game/hud.ts:1202"
+  },
+  {
+   "key": "из них",
+   "at": "src/game/hud.ts:1203"
+  },
+  {
+   "key": "{0}\n        <div class=\"facts\"><div>Учатся: {1} · сейчас на уроках: {2}</div>{3}</div>\n        {4}",
+   "at": "src/game/hud.ts:1208"
+  },
+  {
+   "key": "школа на Садовой",
+   "at": "src/game/hud.ts:1208"
+  },
+  {
+   "key": "учеников",
+   "at": "src/game/hud.ts:1209"
+  },
+  {
    "key": "Сейчас в школе",
-   "at": "src/game/hud.ts:1198"
+   "at": "src/game/hud.ts:1210"
   },
   {
    "key": "{0}\n        <div class=\"facts\"><div>Второе помещение на жилой улице. Откроется для аренды позже — когда кафе на Кленовой встанет на ноги.</div></div>",
-   "at": "src/game/hud.ts:1201"
+   "at": "src/game/hud.ts:1213"
   },
   {
    "key": "магазин",
-   "at": "src/game/hud.ts:1204"
+   "at": "src/game/hud.ts:1216"
   },
   {
    "key": "здесь гуляют и отдыхают",
-   "at": "src/game/hud.ts:1204"
+   "at": "src/game/hud.ts:1216"
   },
   {
    "key": "остановка автобуса",
-   "at": "src/game/hud.ts:1204"
+   "at": "src/game/hud.ts:1216"
   },
   {
    "key": "Сейчас гуляют",
-   "at": "src/game/hud.ts:1206"
+   "at": "src/game/hud.ts:1218"
   },
   {
    "key": "Сейчас здесь",
-   "at": "src/game/hud.ts:1206"
+   "at": "src/game/hud.ts:1218"
   },
   {
    "key": "<button class=\"primary\" data-action=\"go-district\" data-item=\"klenovaya\">Вернуться на Кленовую</button>",
-   "at": "src/game/hud.ts:1211"
-  },
-  {
-   "key": "<button class=\"primary\" data-action=\"go-district\" data-item=\"delovoy\">Поехать в Деловой квартал</button>",
-   "at": "src/game/hud.ts:1212"
-  },
-  {
-   "key": "\n        <div class=\"row head\"><b>Деловой квартал</b><span class=\"badge\">Вторая точка</span></div>\n        <p class=\"demand\">Сегодня зайти хотели: <b data-live=\"wanted\"></b>. Здесь работают и учатся: утром кофе, в обед очередь за едой, после 19:00 и в выходные пусто.</p>\n        <ul class=\"menu premises-list\">{0}</ul>\n        <small>Ты стоишь за стойкой в первой точке. Во второй нужен бариста — найми его сразу после открытия. Касса общая.</small>",
    "at": "src/game/hud.ts:1223"
   },
   {
+   "key": "<button class=\"primary\" data-action=\"go-district\" data-item=\"delovoy\">Поехать в Деловой квартал</button>",
+   "at": "src/game/hud.ts:1224"
+  },
+  {
+   "key": "\n        <div class=\"row head\"><b>Деловой квартал</b><span class=\"badge\">Вторая точка</span></div>\n        <p class=\"demand\">Сегодня зайти хотели: <b data-live=\"wanted\"></b>. Здесь работают и учатся: утром кофе, в обед очередь за едой, после 19:00 и в выходные пусто.</p>\n        <ul class=\"menu premises-list\">{0}</ul>\n        <small>Ты стоишь за стойкой в первой точке. Во второй нужен бариста — найми его сразу после открытия. Касса общая.</small>",
+   "at": "src/game/hud.ts:1235"
+  },
+  {
    "key": "\n        <div class=\"row head\"><b>Свободные помещения</b><span class=\"badge\">Сдаются</span></div>\n        <p class=\"demand\">Сегодня зайти хотели: <b data-live=\"wanted\"></b>. Посмотри, кто и когда, — нажми на жителя.</p>\n        {0}\n        <ul class=\"menu premises-list\">{1}{2}</ul>\n        <small>Формат начинается с места: у метро — поток пассажиров, в кафе с залом гости сидят и дозаказывают.</small>\n        {3}",
-   "at": "src/game/hud.ts:1229"
+   "at": "src/game/hud.ts:1241"
   },
   {
    "key": "кафе закрыто",
-   "at": "src/game/hud.ts:1247"
-  },
-  {
-   "key": "за стойкой вместе с персоналом",
-   "at": "src/game/hud.ts:1250"
-  },
-  {
-   "key": "за стойкой",
-   "at": "src/game/hud.ts:1251"
-  },
-  {
-   "key": "отработал своё на сегодня",
-   "at": "src/game/hud.ts:1253"
-  },
-  {
-   "key": "отдыхаешь",
-   "at": "src/game/hud.ts:1254"
-  },
-  {
-   "key": " · нет в наличии",
    "at": "src/game/hud.ts:1259"
   },
   {
+   "key": "за стойкой вместе с персоналом",
+   "at": "src/game/hud.ts:1262"
+  },
+  {
+   "key": "за стойкой",
+   "at": "src/game/hud.ts:1263"
+  },
+  {
+   "key": "отработал своё на сегодня",
+   "at": "src/game/hud.ts:1265"
+  },
+  {
+   "key": "отдыхаешь",
+   "at": "src/game/hud.ts:1266"
+  },
+  {
+   "key": " · нет в наличии",
+   "at": "src/game/hud.ts:1271"
+  },
+  {
    "key": "\n        <li class=\"item{0}\">\n          <button class=\"item-head\" data-action=\"item-toggle\" data-item=\"{1}\" aria-expanded=\"{2}\">\n            <span class=\"tile\">{3}</span>\n            <span class=\"info\"><b>{4}</b>\n              <small>Продано <span data-live=\"sold-{5}\"></span> · себест. {6}<span class=\"oos\" data-live=\"oos-{7}\"></span></small></span>\n            <span class=\"price\">{8}</span>\n            <span class=\"chev\" aria-hidden=\"true\">{9}</span>\n          </button>\n          {10}\n        </li>",
-   "at": "src/game/hud.ts:1264"
+   "at": "src/game/hud.ts:1276"
   },
   {
    "key": "<div class=\"item-body\">\n            <div class=\"price-row\"><b>Цена продажи</b>\n              <div class=\"stepper\">\n                <button data-action=\"price-down\" data-item=\"{0}\" aria-label=\"Дешевле\">−</button>\n                <span>{1}</span>\n                <button data-action=\"price-up\" data-item=\"{2}\" aria-label=\"Дороже\">+</button>\n              </div></div>\n            <p class=\"margin{3}\"><span>Маржа с {4}: <b>{5}{6}</b></span><span>Шаг цены {7}</span></p>\n            <small class=\"comp\">{8}по вкусу {9}</small>\n            {10}{11}\n            <div class=\"item-actions\"><button class=\"link\" data-action=\"remove-item\" data-item=\"{12}\" {13}>Убрать из меню</button></div>\n          </div>",
-   "at": "src/game/hud.ts:1275"
+   "at": "src/game/hud.ts:1287"
   },
   {
    "key": "чашки",
-   "at": "src/game/hud.ts:1282"
+   "at": "src/game/hud.ts:1294"
   },
   {
    "key": "продажи",
-   "at": "src/game/hud.ts:1282"
+   "at": "src/game/hud.ts:1294"
   },
   {
    "key": "<li>{0}<div class=\"grow\"><b>{1}</b>{2}\n                  <small>{3}от {4} · себестоимость {5}</small></div>\n                  {6}{7}{8}</li>",
-   "at": "src/game/hud.ts:1303"
+   "at": "src/game/hud.ts:1315"
   },
   {
    "key": " <span class=\"badge season\">🎄 сезон</span>",
-   "at": "src/game/hud.ts:1303"
+   "at": "src/game/hud.ts:1315"
   },
   {
    "key": "<span class=\"badge on\">в меню</span>",
-   "at": "src/game/hud.ts:1307"
+   "at": "src/game/hud.ts:1319"
   },
   {
    "key": "<span class=\"badge\">не здесь</span>",
-   "at": "src/game/hud.ts:1309"
+   "at": "src/game/hud.ts:1321"
   },
   {
    "key": "<span class=\"badge warn\">нужно оборудование</span>",
-   "at": "src/game/hud.ts:1311"
+   "at": "src/game/hud.ts:1323"
   },
   {
    "key": "<button class=\"small\" data-action=\"add-item\" data-item=\"{0}\" {1}>Добавить</button>",
-   "at": "src/game/hud.ts:1312"
+   "at": "src/game/hud.ts:1324"
   },
   {
    "key": "<small class=\"note\">ИП может продавать только пиво и сидр. Вино и крепкое — с лицензией ООО, позже</small>",
-   "at": "src/game/hud.ts:1317"
+   "at": "src/game/hud.ts:1329"
   },
   {
    "key": "<p class=\"equip on\"><b>{0}</b> <span class=\"badge on\">установлено</span></p>",
-   "at": "src/game/hud.ts:1325"
+   "at": "src/game/hud.ts:1337"
   },
   {
    "key": "<p class=\"equip\"><span class=\"grow\">Нужна покупка: <b>{0}</b>. Свет и вода +{1} ₽ за час работы</span>\n                      <button class=\"small\" data-action=\"buy-equipment\" data-item=\"{2}\" {3}>{4}</button></p>",
-   "at": "src/game/hud.ts:1326"
+   "at": "src/game/hud.ts:1338"
   },
   {
    "key": "{0} ночи",
-   "at": "src/game/hud.ts:1341"
+   "at": "src/game/hud.ts:1353"
   },
   {
    "key": "<option value=\"{0}\" {1}>круглосуточно</option>",
-   "at": "src/game/hud.ts:1344"
+   "at": "src/game/hud.ts:1356"
   },
   {
    "key": "<div class=\"row hours\">\n          <select data-action=\"open-at\" aria-label=\"Открытие\">{0}</select>\n          <span>—</span>\n          <select data-action=\"close-at\" aria-label=\"Закрытие\">{1}</select>\n        </div>\n        <button class=\"link\" data-action=\"hours-by-day\">Свои часы и выходные по дням недели</button>",
-   "at": "src/game/hud.ts:1350"
+   "at": "src/game/hud.ts:1362"
   },
   {
    "key": "<select data-action=\"day-open\" data-item=\"{0}\" aria-label=\"{1}, открытие\">\n            <option value=\"{2}\" {3}>выходной</option>{4}</select>",
-   "at": "src/game/hud.ts:1359"
+   "at": "src/game/hud.ts:1371"
   },
   {
    "key": "<span>—</span><select data-action=\"day-close\" data-item=\"{0}\" aria-label=\"{1}, закрытие\">{2}</select>",
-   "at": "src/game/hud.ts:1361"
+   "at": "src/game/hud.ts:1373"
   },
   {
    "key": "<ul class=\"week-hours\">{0}</ul>\n        <button class=\"link\" data-action=\"hours-same\">Одинаково каждый день — как {1}</button>",
-   "at": "src/game/hud.ts:1365"
+   "at": "src/game/hud.ts:1377"
   },
   {
    "key": "Обзор",
-   "at": "src/game/hud.ts:1374"
+   "at": "src/game/hud.ts:1386"
   },
   {
    "key": "Меню",
-   "at": "src/game/hud.ts:1375"
+   "at": "src/game/hud.ts:1387"
   },
   {
    "key": "Меню и цены",
-   "at": "src/game/hud.ts:1375"
+   "at": "src/game/hud.ts:1387"
   },
   {
    "key": "Склад",
-   "at": "src/game/hud.ts:1375"
+   "at": "src/game/hud.ts:1387"
   },
   {
    "key": "Команда",
-   "at": "src/game/hud.ts:1376"
+   "at": "src/game/hud.ts:1388"
   },
   {
    "key": "Персонал",
-   "at": "src/game/hud.ts:1376"
+   "at": "src/game/hud.ts:1388"
   },
   {
    "key": "Часы работы",
-   "at": "src/game/hud.ts:1376"
+   "at": "src/game/hud.ts:1388"
   },
   {
    "key": "Гости",
-   "at": "src/game/hud.ts:1377"
+   "at": "src/game/hud.ts:1389"
   },
   {
    "key": "Знакомые",
-   "at": "src/game/hud.ts:1377"
+   "at": "src/game/hud.ts:1389"
   },
   {
    "key": "Реклама",
-   "at": "src/game/hud.ts:1377"
+   "at": "src/game/hud.ts:1389"
   },
   {
    "key": "Акции",
-   "at": "src/game/hud.ts:1377"
+   "at": "src/game/hud.ts:1389"
   },
   {
    "key": "Развитие",
-   "at": "src/game/hud.ts:1379"
+   "at": "src/game/hud.ts:1391"
   },
   {
    "key": "Зал",
-   "at": "src/game/hud.ts:1381"
+   "at": "src/game/hud.ts:1393"
   },
   {
    "key": "Стойка",
-   "at": "src/game/hud.ts:1382"
+   "at": "src/game/hud.ts:1394"
   },
   {
    "key": "Вехи и улучшения",
-   "at": "src/game/hud.ts:1383"
+   "at": "src/game/hud.ts:1395"
   },
   {
    "key": "\n      {0}\n      {1}\n      {2}\n      <div class=\"kpis\">\n        <div><small>Гостей сегодня</small><b data-live=\"guests\"></b></div>\n        <div><small>Выручка</small><b data-live=\"revenue\"></b></div>\n        <div><small>Внутри сейчас</small><b data-live=\"queue\"></b></div>\n      </div>\n      <p class=\"hint-line\" data-live=\"stock-warn\"></p>\n      {3}\n      {4}\n      {5}\n      {6}",
-   "at": "src/game/hud.ts:1403"
-  },
-  {
-   "key": "<button class=\"secondary\" data-action=\"report\">Итоги дня {0}</button>",
    "at": "src/game/hud.ts:1415"
   },
   {
+   "key": "<button class=\"secondary\" data-action=\"report\">Итоги дня {0}</button>",
+   "at": "src/game/hud.ts:1427"
+  },
+  {
    "key": "\n      <div class=\"menu-head\"><h4>Меню и цены</h4>\n        <button class=\"small\" data-action=\"toggle-catalog\">{0}</button></div>\n      <p class=\"hint-line\">{1} из {2} позиций{3} · нажми позицию, чтобы поменять цену</p>\n      <p class=\"hint-line\">{4}</p>\n      <ul class=\"menu items\">{5}</ul>\n      {6}",
-   "at": "src/game/hud.ts:1418"
+   "at": "src/game/hud.ts:1430"
   },
   {
    "key": "+ Добавить",
-   "at": "src/game/hud.ts:1420"
+   "at": "src/game/hud.ts:1432"
   },
   {
    "key": " — мест нет, сначала убери позицию",
-   "at": "src/game/hud.ts:1421"
+   "at": "src/game/hud.ts:1433"
   },
   {
    "key": "Каталог",
-   "at": "src/game/hud.ts:1425"
+   "at": "src/game/hud.ts:1437"
   },
   {
    "key": "<h4>Часы работы</h4>\n      {0}\n      {1}",
-   "at": "src/game/hud.ts:1429"
+   "at": "src/game/hud.ts:1441"
   },
   {
    "key": "\n      {0}\n      {1}\n      <ul class=\"menu staff\">{2}</ul>\n      {3}\n      <p class=\"wages\">Сегодня на зарплату: <b data-live=\"wages\"></b> <small>ночью (22:00–6:00) +20 %</small></p>",
-   "at": "src/game/hud.ts:1446"
+   "at": "src/game/hud.ts:1458"
   },
   {
    "key": "<div class=\"hire\">\n        <button class=\"small\" data-action=\"hire-shift\">На смену · {0}</button>\n        <button class=\"small\" data-action=\"hire-hourly\">Почасово · {1}/ч</button>\n      </div>\n      <small>Смена — до {2} часов с открытия, платишь всю сумму в дни по графику. Почасовой работает в окне графика — сузь его до пиков.</small>",
-   "at": "src/game/hud.ts:1452"
+   "at": "src/game/hud.ts:1464"
   },
   {
    "key": "<div class=\"rename\">\n          <input data-action=\"rename-input\" maxlength=\"{0}\" value=\"{1}\" aria-label=\"Название заведения\" enterkeyhint=\"done\" />\n          <button class=\"small\" data-action=\"rename-save\">Готово</button>\n          <button class=\"icon\" data-action=\"rename-cancel\" aria-label=\"Отмена\">✕</button>\n        </div>",
-   "at": "src/game/hud.ts:1483"
+   "at": "src/game/hud.ts:1495"
   },
   {
    "key": "<div class=\"biz-name\"><b>{0}</b><button class=\"icon\" data-action=\"rename\" aria-label=\"Переименовать\" title=\"Переименовать\">✎</button></div>",
-   "at": "src/game/hud.ts:1488"
+   "at": "src/game/hud.ts:1500"
   },
   {
    "key": "<header class=\"biz\">\n      <small class=\"eyebrow\">Твоё заведение</small>\n      {0}\n      <div class=\"biz-line\"><span class=\"biz-status {1}\" data-live=\"status\"></span></div>\n      <div class=\"biz-line\" title=\"Выручка минус проданные продукты по себестоимости, зарплаты, налог, аренда и коммуналка за день\">Сегодня пока <b data-live=\"biz-result\"></b> · <span data-live=\"biz-guests\"></span></div>\n      <button class=\"link only-peek\" data-action=\"expand\">Открыть управление</button>\n    </header>",
-   "at": "src/game/hud.ts:1489"
+   "at": "src/game/hud.ts:1501"
   },
   {
    "key": "С {0} до {1}",
-   "at": "src/game/hud.ts:1510"
-  },
-  {
-   "key": "{0} ушли из-за очереди",
-   "at": "src/game/hud.ts:1516"
-  },
-  {
-   "key": "Настроить смены",
-   "at": "src/game/hud.ts:1516"
-  },
-  {
-   "key": "{0} не получили заказ: кончились продукты",
-   "at": "src/game/hud.ts:1517"
-  },
-  {
-   "key": "Открыть склад",
-   "at": "src/game/hud.ts:1517"
-  },
-  {
-   "key": "{0} решили, что дорого",
-   "at": "src/game/hud.ts:1518"
-  },
-  {
-   "key": "Посмотреть цены",
-   "at": "src/game/hud.ts:1518"
-  },
-  {
-   "key": "{0} ушли к конкуренту",
-   "at": "src/game/hud.ts:1519"
-  },
-  {
-   "key": "Сравнить цены",
-   "at": "src/game/hud.ts:1519"
-  },
-  {
-   "key": "{0} не нашли нужного в меню",
-   "at": "src/game/hud.ts:1520"
-  },
-  {
-   "key": "Изменить меню",
-   "at": "src/game/hud.ts:1520"
-  },
-  {
-   "key": "{0} пришли, а было закрыто",
-   "at": "src/game/hud.ts:1521"
-  },
-  {
-   "key": "{0} прошли мимо: не знают о тебе",
    "at": "src/game/hud.ts:1522"
   },
   {
+   "key": "{0} ушли из-за очереди",
+   "at": "src/game/hud.ts:1528"
+  },
+  {
+   "key": "Настроить смены",
+   "at": "src/game/hud.ts:1528"
+  },
+  {
+   "key": "{0} не получили заказ: кончились продукты",
+   "at": "src/game/hud.ts:1529"
+  },
+  {
+   "key": "Открыть склад",
+   "at": "src/game/hud.ts:1529"
+  },
+  {
+   "key": "{0} решили, что дорого",
+   "at": "src/game/hud.ts:1530"
+  },
+  {
+   "key": "Посмотреть цены",
+   "at": "src/game/hud.ts:1530"
+  },
+  {
+   "key": "{0} ушли к конкуренту",
+   "at": "src/game/hud.ts:1531"
+  },
+  {
+   "key": "Сравнить цены",
+   "at": "src/game/hud.ts:1531"
+  },
+  {
+   "key": "{0} не нашли нужного в меню",
+   "at": "src/game/hud.ts:1532"
+  },
+  {
+   "key": "Изменить меню",
+   "at": "src/game/hud.ts:1532"
+  },
+  {
+   "key": "{0} пришли, а было закрыто",
+   "at": "src/game/hud.ts:1533"
+  },
+  {
+   "key": "{0} прошли мимо: не знают о тебе",
+   "at": "src/game/hud.ts:1534"
+  },
+  {
    "key": "обслужено {0} {1}, без заметных потерь.",
-   "at": "src/game/hud.ts:1543"
+   "at": "src/game/hud.ts:1555"
   },
   {
    "key": "гостей не было. Посмотри, кто сейчас на улице и куда идёт.",
-   "at": "src/game/hud.ts:1544"
+   "at": "src/game/hud.ts:1556"
   },
   {
    "key": "<section class=\"insight-now\"><h4>Что происходит</h4><p><b data-live=\"insight-time\"></b> <span data-live=\"insight\"></span></p>{0}</section>",
-   "at": "src/game/hud.ts:1549"
+   "at": "src/game/hud.ts:1561"
   },
   {
    "key": "в киоске у метро",
-   "at": "src/game/hud.ts:1559"
+   "at": "src/game/hud.ts:1571"
   },
   {
    "key": "в кафе напротив",
-   "at": "src/game/hud.ts:1559"
+   "at": "src/game/hud.ts:1571"
   },
   {
    "key": "<div class=\"rival soon\"><b>Через {0} дн. {1} откроется {2}</b><small>{3}. Цены ниже твоих — подумай, чем ты будешь отличаться.</small></div>",
-   "at": "src/game/hud.ts:1562"
+   "at": "src/game/hud.ts:1574"
   },
   {
    "key": "<span class=\"badge neg\">акция −{0} % до конца недели</span>",
-   "at": "src/game/hud.ts:1566"
+   "at": "src/game/hud.ts:1578"
   },
   {
    "key": "<small>Следующая акция через {0} дн.</small>",
-   "at": "src/game/hud.ts:1567"
+   "at": "src/game/hud.ts:1579"
   },
   {
    "key": "<div class=\"rival\"><div class=\"row\"><b class=\"grow\">Конкурент: {0}</b>{1}</div>\n      <small>{2}. {3}–{4}.</small>\n      <small>{5}</small>\n      <small>Сегодня у него гостей: <b data-live=\"rival-today\"></b>{6}</small></div>",
-   "at": "src/game/hud.ts:1569"
+   "at": "src/game/hud.ts:1581"
   },
   {
    "key": "<li><div class=\"grow\"><b>{0}</b>\n            <small>{1}себестоимость {2} · по вкусу {3} жителям</small></div>\n          {4}\n          <button class=\"icon\" data-action=\"dish-delete\" data-item=\"{5}\" aria-label=\"Забыть блюдо\">✕</button></li>",
-   "at": "src/game/hud.ts:1584"
+   "at": "src/game/hud.ts:1596"
   },
   {
    "key": "<button class=\"small\" data-action=\"add-item\" data-item=\"{0}\" {1}>Вернуть</button>",
-   "at": "src/game/hud.ts:1589"
+   "at": "src/game/hud.ts:1601"
   },
   {
    "key": "<h4>Свои блюда · {0} из {1}</h4>",
-   "at": "src/game/hud.ts:1594"
+   "at": "src/game/hud.ts:1606"
   },
   {
    "key": "<p class=\"hint-line\">Собери блюдо под вкус своих гостей: основа и до двух добавок. Вкус блюда видно сразу, а в карточках жителей — что любят они.</p>",
-   "at": "src/game/hud.ts:1595"
-  },
-  {
-   "key": "Придумать блюдо",
-   "at": "src/game/hud.ts:1598"
-  },
-  {
-   "key": "Своих блюд уже {0} — забудь одно, чтобы придумать новое",
-   "at": "src/game/hud.ts:1598"
-  },
-  {
-   "key": "Закрыть",
    "at": "src/game/hud.ts:1607"
   },
   {
+   "key": "Придумать блюдо",
+   "at": "src/game/hud.ts:1610"
+  },
+  {
+   "key": "Своих блюд уже {0} — забудь одно, чтобы придумать новое",
+   "at": "src/game/hud.ts:1610"
+  },
+  {
+   "key": "Закрыть",
+   "at": "src/game/hud.ts:1619"
+  },
+  {
    "key": "Такое блюдо уже есть",
-   "at": "src/game/hud.ts:1646"
+   "at": "src/game/hud.ts:1658"
   },
   {
    "key": "Нужна покупка: {0}",
-   "at": "src/game/hud.ts:1648"
+   "at": "src/game/hud.ts:1660"
   },
   {
    "key": "В меню нет места — убери позицию",
-   "at": "src/game/hud.ts:1650"
+   "at": "src/game/hud.ts:1662"
   },
   {
    "key": "\n        <small>Добавки · до {0}</small>\n        <div class=\"chips\">{1}</div>\n        <div class=\"profile\">{2}</div>\n        <p class=\"hint-line\">По вкусу <b>{3}</b> жителям из {4}{5}.</p>\n        <small>Себестоимость {6}{7}</small>\n        <input class=\"dish-name\" data-action=\"dish-name\" maxlength=\"{8}\" value=\"{9}\" aria-label=\"Название блюда\" enterkeyhint=\"done\" />\n        <div class=\"row\">\n          <span class=\"grow\">Цена</span>\n          <div class=\"stepper\">\n            <button data-action=\"dish-price-down\" aria-label=\"Дешевле\">−</button>\n            <span>{10}</span>\n            <button data-action=\"dish-price-up\" aria-label=\"Дороже\">+</button>\n          </div>\n        </div>\n        {11}\n        <button class=\"primary\" data-action=\"dish-create\" {12}>{13}</button>",
-   "at": "src/game/hud.ts:1652"
+   "at": "src/game/hud.ts:1664"
   },
   {
    "key": ", больше всего {0}",
-   "at": "src/game/hud.ts:1656"
-  },
-  {
-   "key": " · готовится на {0} мин дольше",
-   "at": "src/game/hud.ts:1657"
-  },
-  {
-   "key": "<small>{0} — на складе нет. Закажу по 15 порций, привезут утром</small>",
-   "at": "src/game/hud.ts:1667"
-  },
-  {
-   "key": "Добавить в меню",
    "at": "src/game/hud.ts:1668"
   },
   {
+   "key": " · готовится на {0} мин дольше",
+   "at": "src/game/hud.ts:1669"
+  },
+  {
+   "key": "<small>{0} — на складе нет. Закажу по 15 порций, привезут утром</small>",
+   "at": "src/game/hud.ts:1679"
+  },
+  {
+   "key": "Добавить в меню",
+   "at": "src/game/hud.ts:1680"
+  },
+  {
    "key": "<div class=\"dish-builder\">\n        <small>Основа</small>\n        <div class=\"chips\">{0}</div>\n        {1}\n        <button class=\"secondary\" data-action=\"dish-close\">Отмена</button>\n      </div>",
-   "at": "src/game/hud.ts:1670"
+   "at": "src/game/hud.ts:1682"
   },
   {
    "key": "категория",
-   "at": "src/game/hud.ts:1701"
+   "at": "src/game/hud.ts:1713"
   },
   {
    "key": "категории",
-   "at": "src/game/hud.ts:1701"
+   "at": "src/game/hud.ts:1713"
   },
   {
    "key": "категорий",
-   "at": "src/game/hud.ts:1701"
+   "at": "src/game/hud.ts:1713"
   },
   {
    "key": "Где в категории 3+ позиции, за ней заходят охотнее (+{0} %) — есть из чего выбрать.",
-   "at": "src/game/hud.ts:1703"
+   "at": "src/game/hud.ts:1715"
   },
   {
    "key": "{0} {1} в меню: стойка работает медленнее на {2} % — каждая категория сверх трёх добавляет 15 %.",
-   "at": "src/game/hud.ts:1706"
-  },
-  {
-   "key": "{0} {1} в меню. Больше трёх — и стойка начнёт работать медленнее.",
-   "at": "src/game/hud.ts:1707"
-  },
-  {
-   "key": "<small>Ты стоишь за стойкой в первой точке. Здесь работают только бариста: найми их на все часы работы.</small>",
    "at": "src/game/hud.ts:1718"
   },
   {
-   "key": "{0} мин на гостя",
+   "key": "{0} {1} в меню. Больше трёх — и стойка начнёт работать медленнее.",
    "at": "src/game/hud.ts:1719"
   },
   {
+   "key": "<small>Ты стоишь за стойкой в первой точке. Здесь работают только бариста: найми их на все часы работы.</small>",
+   "at": "src/game/hud.ts:1730"
+  },
+  {
+   "key": "{0} мин на гостя",
+   "at": "src/game/hud.ts:1731"
+  },
+  {
    "key": "с",
-   "at": "src/game/hud.ts:1725"
-  },
-  {
-   "key": "до",
-   "at": "src/game/hud.ts:1725"
-  },
-  {
-   "key": " ночи",
-   "at": "src/game/hud.ts:1726"
-  },
-  {
-   "key": "<small>Пока персонала нет, ты за стойкой всё время работы — отдельные часы не нужны.</small>",
-   "at": "src/game/hud.ts:1736"
-  },
-  {
-   "key": "<small>Ты и так стоишь за стойкой весь день — добавить часы некуда.</small>",
    "at": "src/game/hud.ts:1737"
   },
   {
+   "key": "до",
+   "at": "src/game/hud.ts:1737"
+  },
+  {
+   "key": " ночи",
+   "at": "src/game/hud.ts:1738"
+  },
+  {
+   "key": "<small>Пока персонала нет, ты за стойкой всё время работы — отдельные часы не нужны.</small>",
+   "at": "src/game/hud.ts:1748"
+  },
+  {
+   "key": "<small>Ты и так стоишь за стойкой весь день — добавить часы некуда.</small>",
+   "at": "src/game/hud.ts:1749"
+  },
+  {
    "key": "<small>Твои часы вместе с персоналом — в пик две стойки вместо одной:</small>\n          <div class=\"chips\">{0}</div>\n          <div class=\"row hours staff-hours\">{1}<span>—</span>{2}\n          <button class=\"small ghost\" data-action=\"owner-off\">Убрать</button></div>",
-   "at": "src/game/hud.ts:1739"
+   "at": "src/game/hud.ts:1751"
   },
   {
    "key": "<div class=\"row\"><small class=\"grow\">Встань за стойку вместе с персоналом в час пик — две стойки вместо одной.</small>\n          <button class=\"small\" data-action=\"owner-on\">Добавить часы</button></div>",
-   "at": "src/game/hud.ts:1743"
+   "at": "src/game/hud.ts:1755"
   },
   {
    "key": "<ul class=\"menu staff\"><li class=\"staff-card owner\">\n      <div class=\"row\"><div class=\"grow\"><b>Ты · владелец</b><small data-live=\"owner-status\"></small></div></div>\n      <small>Бесплатно, {0}, не больше {1} ч в день. {2}</small>\n      <p class=\"hint-line\">Сегодня за стойкой: <b data-live=\"owner-hours\"></b> из {3} ч</p>\n      {4}\n    </li></ul>",
-   "at": "src/game/hud.ts:1745"
+   "at": "src/game/hud.ts:1757"
   },
   {
    "key": "По умолчанию — когда никого из персонала нет.",
-   "at": "src/game/hud.ts:1747"
+   "at": "src/game/hud.ts:1759"
   },
   {
    "key": "выйдет, когда кафе откроется",
-   "at": "src/game/hud.ts:1763"
-  },
-  {
-   "key": "отпущен до конца дня",
-   "at": "src/game/hud.ts:1765"
-  },
-  {
-   "key": "по графику {0}–{1}",
-   "at": "src/game/hud.ts:1768"
-  },
-  {
-   "key": "сегодня выходной",
-   "at": "src/game/hud.ts:1768"
-  },
-  {
-   "key": "смена окончена",
    "at": "src/game/hud.ts:1775"
   },
   {
-   "key": "на смене ещё {0} ч {1} мин",
+   "key": "отпущен до конца дня",
    "at": "src/game/hud.ts:1777"
   },
   {
+   "key": "по графику {0}–{1}",
+   "at": "src/game/hud.ts:1780"
+  },
+  {
+   "key": "сегодня выходной",
+   "at": "src/game/hud.ts:1780"
+  },
+  {
+   "key": "смена окончена",
+   "at": "src/game/hud.ts:1787"
+  },
+  {
+   "key": "на смене ещё {0} ч {1} мин",
+   "at": "src/game/hud.ts:1789"
+  },
+  {
    "key": "выйдет к открытию",
-   "at": "src/game/hud.ts:1778"
+   "at": "src/game/hud.ts:1790"
   },
   {
    "key": "<ul class=\"week-hours staff-days\">{0}</ul>\n          <button class=\"link\" data-action=\"staff-same\" data-item=\"{1}\">Одинаково каждый день</button>",
-   "at": "src/game/hud.ts:1796"
+   "at": "src/game/hud.ts:1808"
   },
   {
    "key": "<button class=\"link\" data-action=\"staff-by-day\" data-item=\"{0}\">Свои часы по дням</button>",
-   "at": "src/game/hud.ts:1805"
+   "at": "src/game/hud.ts:1817"
   },
   {
    "key": "{0}<div class=\"row hours staff-hours\">{1}<span>—</span>{2}</div>\n           {3}\n           <div class=\"row\"><small class=\"grow\">Разовый вызов — только на сегодня, график не меняется</small>\n           <button class=\"small {4}\" data-action=\"duty\" data-item=\"{5}\">{6}</button></div>",
-   "at": "src/game/hud.ts:1808"
+   "at": "src/game/hud.ts:1820"
   },
   {
    "key": "<small>Обычные часы</small>",
-   "at": "src/game/hud.ts:1808"
+   "at": "src/game/hud.ts:1820"
   },
   {
    "key": "Отпустить сейчас",
-   "at": "src/game/hud.ts:1811"
+   "at": "src/game/hud.ts:1823"
   },
   {
    "key": "Вызвать сейчас",
-   "at": "src/game/hud.ts:1811"
+   "at": "src/game/hud.ts:1823"
   },
   {
    "key": "<li class=\"staff-card\">\n      <div class=\"row\"><div class=\"grow\"><b>Бариста {0} · {1}</b>\n        <small data-live=\"staff-{2}\"></small></div>\n        <button class=\"icon\" data-action=\"fire\" data-item=\"{3}\" aria-label=\"Уволить\">✕</button></div>\n      <div class=\"chips\">{4}</div>\n      {5}\n    </li>",
-   "at": "src/game/hud.ts:1813"
+   "at": "src/game/hud.ts:1825"
   },
   {
    "key": "на смене",
-   "at": "src/game/hud.ts:1814"
-  },
-  {
-   "key": "почасово",
-   "at": "src/game/hud.ts:1814"
-  },
-  {
-   "key": "<p class=\"first-week\">Первая неделя почти всегда в минусе: вывеска, реклама и стартовые закупки — это вложения в известность. Смотри не на итог, а растёт ли число гостей и тех, кто о тебе знает.</p>",
    "at": "src/game/hud.ts:1826"
   },
   {
-   "key": "<p class=\"first-week\">🎆 Сегодня 31 декабря: с 16:00 народ пойдёт посидеть и отметить. Запаси горячее и выпечку, работай допоздна.</p>",
-   "at": "src/game/hud.ts:1833"
+   "key": "почасово",
+   "at": "src/game/hud.ts:1826"
   },
   {
-   "key": "<p class=\"first-week\">🥂 1 января: до полудня город отсыпается, а к вечеру выходит гулять к ёлке. Открываться рано смысла мало.</p>",
-   "at": "src/game/hud.ts:1835"
+   "key": "<p class=\"first-week\">Первая неделя почти всегда в минусе: вывеска, реклама и стартовые закупки — это вложения в известность. Смотри не на итог, а растёт ли число гостей и тех, кто о тебе знает.</p>",
+   "at": "src/game/hud.ts:1838"
   },
   {
-   "key": "<div class=\"event-banner\"><span>{0}</span><div class=\"grow\"><b>{1}</b><small>Ждёт решения до конца дня</small></div>\n      <button class=\"small\" data-action=\"event\">Решить</button></div>",
-   "at": "src/game/hud.ts:1844"
-  },
-  {
-   "key": "<li class=\"face\" data-action=\"face\" data-item=\"{0}\">\n          {1}\n          <div class=\"grow\"><b>{2}</b><small>{3} · любит: {4}</small></div>\n          <span class=\"badge {5}\">{6}</span>\n        </li>",
+   "key": "<div class=\"chronicle\"><div class=\"chronicle-head\"><b>{0}</b><small>неделя {1}</small></div><ul>{2}</ul></div>",
    "at": "src/game/hud.ts:1856"
   },
   {
+   "key": "<div class=\"chronicle teaser\"><div class=\"chronicle-head\"><b>📰 {0}</b><small>вышел свежий номер</small></div>\n        <p>{1} {2}</p>\n        <button class=\"secondary small\" data-action=\"chronicle\" data-item=\"{3}\">Читать</button></div>",
+   "at": "src/game/hud.ts:1867"
+  },
+  {
+   "key": "<p class=\"first-week\">🎆 Сегодня 31 декабря: с 16:00 народ пойдёт посидеть и отметить. Запаси горячее и выпечку, работай допоздна.</p>",
+   "at": "src/game/hud.ts:1876"
+  },
+  {
+   "key": "<p class=\"first-week\">🥂 1 января: до полудня город отсыпается, а к вечеру выходит гулять к ёлке. Открываться рано смысла мало.</p>",
+   "at": "src/game/hud.ts:1878"
+  },
+  {
+   "key": "<div class=\"event-banner\"><span>{0}</span><div class=\"grow\"><b>{1}</b><small>Ждёт решения до конца дня</small></div>\n      <button class=\"small\" data-action=\"event\">Решить</button></div>",
+   "at": "src/game/hud.ts:1887"
+  },
+  {
+   "key": "<li class=\"face\" data-action=\"face\" data-item=\"{0}\">\n          {1}\n          <div class=\"grow\"><b>{2}</b><small>{3} · любит: {4}</small></div>\n          <span class=\"badge {5}\">{6}</span>\n        </li>",
+   "at": "src/game/hud.ts:1899"
+  },
+  {
    "key": "<h4>Знакомые лица</h4>\n      <small>Шесть жителей, за которыми видно, как к тебе привыкают. На карте — со звёздочкой, золотой у постоянных.</small>\n      <ul class=\"menu faces\">{0}</ul>",
-   "at": "src/game/hud.ts:1863"
+   "at": "src/game/hud.ts:1906"
   },
   {
    "key": "<span class=\"badge on\">день {0}</span>",
-   "at": "src/game/hud.ts:1886"
+   "at": "src/game/hud.ts:1929"
   },
   {
    "key": "{0} из {1}",
-   "at": "src/game/hud.ts:1888"
+   "at": "src/game/hud.ts:1931"
   },
   {
    "key": " · открывает: {0}",
-   "at": "src/game/hud.ts:1896"
+   "at": "src/game/hud.ts:1939"
   },
   {
    "key": "<span class=\"badge on\">установлено</span>",
-   "at": "src/game/hud.ts:1905"
+   "at": "src/game/hud.ts:1948"
   },
   {
    "key": "<small class=\"lock\">Откроется после вехи «{0}»</small>",
-   "at": "src/game/hud.ts:1910"
+   "at": "src/game/hud.ts:1953"
   },
   {
    "key": "Купить за {0}",
-   "at": "src/game/hud.ts:1912"
+   "at": "src/game/hud.ts:1955"
   },
   {
    "key": "\n      <h4>Вехи первой точки · {0} из {1}</h4>\n      <ul class=\"menu milestones\">{2}</ul>\n      <h4>Улучшения</h4>\n      {3}\n      {4}",
-   "at": "src/game/hud.ts:1917"
+   "at": "src/game/hud.ts:1960"
   },
   {
    "key": "<small>Улучшения киоска — во вкладке «Стойка»: там видно, где что стоит.</small>\n             <button class=\"secondary\" data-action=\"tab\" data-item=\"stand\">Открыть стойку</button>",
-   "at": "src/game/hud.ts:1923"
+   "at": "src/game/hud.ts:1966"
   },
   {
    "key": "<small>Покупаются один раз и меняют возможности заведения. Это вложение: в прибыль дня не входит, но из кассы уходит.</small>\n      <ul class=\"menu upgrades\">{0}</ul>",
-   "at": "src/game/hud.ts:1925"
+   "at": "src/game/hud.ts:1968"
   },
   {
    "key": "<h4 id=\"loan\">Кредит</h4><small>Помощь, чтобы пережить трудную неделю или вложиться в рост. Один кредит за раз, проценты — расход дня.</small>",
-   "at": "src/game/hud.ts:1935"
-  },
-  {
-   "key": "{0}<div class=\"loan on\">\n          <div class=\"row\"><b class=\"grow\">{1} · {2}</b><span class=\"badge\">{3} из {4} нед.</span></div>\n          <small>Осталось вернуть {5}. Следующий платёж {6} (из них проценты {7}) — в конце дня {8}.{9}</small>\n          <button class=\"small\" data-action=\"loan-repay\" {10}>{11}</button>\n        </div>",
-   "at": "src/game/hud.ts:1940"
-  },
-  {
-   "key": " Просрочек: {0} — каждая добавляет штраф к долгу.",
-   "at": "src/game/hud.ts:1943"
-  },
-  {
-   "key": "На досрочное погашение нужно {0}",
-   "at": "src/game/hud.ts:1945"
-  },
-  {
-   "key": "Погасить досрочно · {0}",
-   "at": "src/game/hud.ts:1945"
-  },
-  {
-   "key": "{0} дн.",
-   "at": "src/game/hud.ts:1949"
-  },
-  {
-   "key": "Точка работает меньше трёх дней — пока не видно, хватит ли прибыли на платежи.",
-   "at": "src/game/hud.ts:1952"
-  },
-  {
-   "key": "За последние {0} точка заработала <b>{1}</b>{2}",
-   "at": "src/game/hud.ts:1954"
-  },
-  {
-   "key": ", а {0} ушло во вложения. Кредит поможет пережить разрыв, пока они окупаются.",
-   "at": "src/game/hud.ts:1955"
-  },
-  {
-   "key": " — платить есть из чего.",
-   "at": "src/game/hud.ts:1955"
-  },
-  {
-   "key": "За последние {0} точка сама в минусе: <b>{1}</b>. Кредит отложит закрытие, но не исправит его — сначала посмотри в отчёте, почему гости не заходят.",
-   "at": "src/game/hud.ts:1957"
-  },
-  {
-   "key": "{0} нед., {1} % в неделю",
-   "at": "src/game/hud.ts:1963"
-  },
-  {
-   "key": "Сумма зависит от истории: недели в плюсе, вехи, платежи вовремя.",
-   "at": "src/game/hud.ts:1964"
-  },
-  {
-   "key": "Даёт сразу и всем, но дорого. Не больше {0} раз за игру, просрочка — штраф 10 % долга.",
-   "at": "src/game/hud.ts:1964"
-  },
-  {
-   "key": "<small>При прибыли как за последнюю неделю после платежа останется {0} в неделю.</small>",
-   "at": "src/game/hud.ts:1976"
-  },
-  {
-   "key": "Платёж {0} в неделю больше недельной прибыли ({1}) — платить придётся из кассы",
-   "at": "src/game/hud.ts:1977"
-  },
-  {
-   "key": "<li class=\"loan\"><div class=\"row\"><b class=\"grow\">{0}</b><span class=\"badge\">{1}</span></div>\n            <small>{2} Сейчас дадут до {3}.</small>\n            <div class=\"row\"><span class=\"grow\">Сумма</span><div class=\"stepper\">\n              <button data-action=\"loan-down\" data-item=\"{4}\" aria-label=\"Меньше\">−</button><span>{5}</span>\n              <button data-action=\"loan-up\" data-item=\"{6}\" aria-label=\"Больше\">+</button></div></div>\n            <small>Вернёшь {7}: {8} {9} по {10}, переплата {11}.</small>\n            {12}\n            <button class=\"small\" data-action=\"loan-take\" data-item=\"{13}\">Взять {14}</button></li>",
    "at": "src/game/hud.ts:1978"
   },
   {
-   "key": "платежа",
+   "key": "{0}<div class=\"loan on\">\n          <div class=\"row\"><b class=\"grow\">{1} · {2}</b><span class=\"badge\">{3} из {4} нед.</span></div>\n          <small>Осталось вернуть {5}. Следующий платёж {6} (из них проценты {7}) — в конце дня {8}.{9}</small>\n          <button class=\"small\" data-action=\"loan-repay\" {10}>{11}</button>\n        </div>",
    "at": "src/game/hud.ts:1983"
   },
   {
-   "key": "платежей",
-   "at": "src/game/hud.ts:1983"
+   "key": " Просрочек: {0} — каждая добавляет штраф к долгу.",
+   "at": "src/game/hud.ts:1986"
   },
   {
-   "key": "сегодня",
-   "at": "src/game/hud.ts:1999"
+   "key": "На досрочное погашение нужно {0}",
+   "at": "src/game/hud.ts:1988"
   },
   {
-   "key": "день {0}",
-   "at": "src/game/hud.ts:1999"
+   "key": "Погасить досрочно · {0}",
+   "at": "src/game/hud.ts:1988"
   },
   {
-   "key": "не {0}: {1}",
-   "at": "src/game/hud.ts:2002"
+   "key": "{0} дн.",
+   "at": "src/game/hud.ts:1992"
   },
   {
-   "key": "зашла",
-   "at": "src/game/hud.ts:2002"
+   "key": "Точка работает меньше трёх дней — пока не видно, хватит ли прибыли на платежи.",
+   "at": "src/game/hud.ts:1995"
   },
   {
-   "key": "зашёл",
-   "at": "src/game/hud.ts:2002"
+   "key": "За последние {0} точка заработала <b>{1}</b>{2}",
+   "at": "src/game/hud.ts:1997"
   },
   {
-   "key": "<div class=\"face-card\">\n        <div class=\"row\"><b class=\"grow\">★ {0}</b><span class=\"badge {1}\">{2}</span></div>\n        <small>Обычно берёт {3}, любимое — {4}.{5}</small>\n        {6}\n      </div>",
+   "key": ", а {0} ушло во вложения. Кредит поможет пережить разрыв, пока они окупаются.",
+   "at": "src/game/hud.ts:1998"
+  },
+  {
+   "key": " — платить есть из чего.",
+   "at": "src/game/hud.ts:1998"
+  },
+  {
+   "key": "За последние {0} точка сама в минусе: <b>{1}</b>. Кредит отложит закрытие, но не исправит его — сначала посмотри в отчёте, почему гости не заходят.",
+   "at": "src/game/hud.ts:2000"
+  },
+  {
+   "key": "{0} нед., {1} % в неделю",
+   "at": "src/game/hud.ts:2006"
+  },
+  {
+   "key": "Сумма зависит от истории: недели в плюсе, вехи, платежи вовремя.",
    "at": "src/game/hud.ts:2007"
   },
   {
-   "key": " Перестал{0} заходить: {1}.",
-   "at": "src/game/hud.ts:2010"
+   "key": "Даёт сразу и всем, но дорого. Не больше {0} раз за игру, просрочка — штраф 10 % долга.",
+   "at": "src/game/hud.ts:2007"
   },
   {
-   "key": "Ещё ни разу не {0} зайти",
-   "at": "src/game/hud.ts:2012"
+   "key": "<small>При прибыли как за последнюю неделю после платежа останется {0} в неделю.</small>",
+   "at": "src/game/hud.ts:2019"
   },
   {
-   "key": "хотела",
-   "at": "src/game/hud.ts:2012"
+   "key": "Платёж {0} в неделю больше недельной прибыли ({1}) — платить придётся из кассы",
+   "at": "src/game/hud.ts:2020"
   },
   {
-   "key": "хотел",
-   "at": "src/game/hud.ts:2012"
+   "key": "<li class=\"loan\"><div class=\"row\"><b class=\"grow\">{0}</b><span class=\"badge\">{1}</span></div>\n            <small>{2} Сейчас дадут до {3}.</small>\n            <div class=\"row\"><span class=\"grow\">Сумма</span><div class=\"stepper\">\n              <button data-action=\"loan-down\" data-item=\"{4}\" aria-label=\"Меньше\">−</button><span>{5}</span>\n              <button data-action=\"loan-up\" data-item=\"{6}\" aria-label=\"Больше\">+</button></div></div>\n            <small>Вернёшь {7}: {8} {9} по {10}, переплата {11}.</small>\n            {12}\n            <button class=\"small\" data-action=\"loan-take\" data-item=\"{13}\">Взять {14}</button></li>",
+   "at": "src/game/hud.ts:2021"
   },
   {
-   "key": "О кафе пока не знает",
-   "at": "src/game/hud.ts:2012"
+   "key": "платежа",
+   "at": "src/game/hud.ts:2026"
   },
   {
-   "key": "выкл.",
-   "at": "src/game/hud.ts:2036"
+   "key": "платежей",
+   "at": "src/game/hud.ts:2026"
   },
   {
-   "key": "\n      <div class=\"aware\">\n        <div class=\"row\"><span class=\"grow\">Знают о кафе</span><b data-live=\"aware\"></b></div>\n        <div class=\"meter\"><i data-live-width=\"awarebar\"></i></div>\n        <small>Кто не знает, тот не зайдёт, даже если очень хочет кофе.</small>\n      </div>\n      <h4>Как узнают</h4>\n      <ul class=\"menu\">\n        {0}\n        {1}\n        {2}\n        {3}\n      </ul>\n    ",
-   "at": "src/game/hud.ts:2040"
+   "key": "сегодня",
+   "at": "src/game/hud.ts:2042"
   },
   {
-   "key": "Вывеска",
-   "at": "src/game/hud.ts:2049"
+   "key": "день {0}",
+   "at": "src/game/hud.ts:2042"
   },
   {
-   "key": "Прохожие замечают кафе втрое чаще. Разово {0}",
+   "key": "не {0}: {1}",
+   "at": "src/game/hud.ts:2045"
+  },
+  {
+   "key": "зашла",
+   "at": "src/game/hud.ts:2045"
+  },
+  {
+   "key": "зашёл",
+   "at": "src/game/hud.ts:2045"
+  },
+  {
+   "key": "<div class=\"face-card\">\n        <div class=\"row\"><b class=\"grow\">★ {0}</b><span class=\"badge {1}\">{2}</span></div>\n        <small>Обычно берёт {3}, любимое — {4}.{5}</small>\n        {6}\n      </div>",
    "at": "src/game/hud.ts:2050"
   },
   {
-   "key": "<span class=\"badge on\">висит</span>",
-   "at": "src/game/hud.ts:2051"
+   "key": " Перестал{0} заходить: {1}.",
+   "at": "src/game/hud.ts:2053"
   },
   {
-   "key": "<button class=\"small\" data-action=\"sign\">Повесить</button>",
-   "at": "src/game/hud.ts:2051"
-  },
-  {
-   "key": "Листовки у метро",
+   "key": "Ещё ни разу не {0} зайти",
    "at": "src/game/hud.ts:2055"
   },
   {
+   "key": "хотела",
+   "at": "src/game/hud.ts:2055"
+  },
+  {
+   "key": "хотел",
+   "at": "src/game/hud.ts:2055"
+  },
+  {
+   "key": "О кафе пока не знает",
+   "at": "src/game/hud.ts:2055"
+  },
+  {
+   "key": "выкл.",
+   "at": "src/game/hud.ts:2079"
+  },
+  {
+   "key": "\n      <div class=\"aware\">\n        <div class=\"row\"><span class=\"grow\">Знают о кафе</span><b data-live=\"aware\"></b></div>\n        <div class=\"meter\"><i data-live-width=\"awarebar\"></i></div>\n        <small>Кто не знает, тот не зайдёт, даже если очень хочет кофе.</small>\n      </div>\n      <h4>Как узнают</h4>\n      <ul class=\"menu\">\n        {0}\n        {1}\n        {2}\n        {3}\n      </ul>\n    ",
+   "at": "src/game/hud.ts:2083"
+  },
+  {
+   "key": "Вывеска",
+   "at": "src/game/hud.ts:2092"
+  },
+  {
+   "key": "Прохожие замечают кафе втрое чаще. Разово {0}",
+   "at": "src/game/hud.ts:2093"
+  },
+  {
+   "key": "<span class=\"badge on\">висит</span>",
+   "at": "src/game/hud.ts:2094"
+  },
+  {
+   "key": "<button class=\"small\" data-action=\"sign\">Повесить</button>",
+   "at": "src/game/hud.ts:2094"
+  },
+  {
+   "key": "Листовки у метро",
+   "at": "src/game/hud.ts:2098"
+  },
+  {
    "key": "Утром и вечером — узнают офисные. {0} в день",
-   "at": "src/game/hud.ts:2056"
+   "at": "src/game/hud.ts:2099"
   },
   {
    "key": "Остановить",
-   "at": "src/game/hud.ts:2057"
+   "at": "src/game/hud.ts:2100"
   },
   {
    "key": "Раздавать",
-   "at": "src/game/hud.ts:2057"
+   "at": "src/game/hud.ts:2100"
   },
   {
    "key": "Соцсети",
-   "at": "src/game/hud.ts:2061"
+   "at": "src/game/hud.ts:2104"
   },
   {
    "key": "Узнают молодёжь и студенты. {0} за {1} дней",
-   "at": "src/game/hud.ts:2062"
-  },
-  {
-   "key": "<span class=\"badge on\">ещё {0} дн.</span>",
-   "at": "src/game/hud.ts:2064"
-  },
-  {
-   "key": "<button class=\"small\" data-action=\"social\">Запустить</button>",
-   "at": "src/game/hud.ts:2065"
-  },
-  {
-   "key": "Сарафан",
-   "at": "src/game/hud.ts:2068"
-  },
-  {
-   "key": "Постоянные гости сами рассказывают соседям и коллегам. Бесплатно",
-   "at": "src/game/hud.ts:2068"
-  },
-  {
-   "key": "<span class=\"badge on\">работает</span>",
-   "at": "src/game/hud.ts:2068"
-  },
-  {
-   "key": "\n      <h4>Акции</h4>\n      <ul class=\"menu\">\n        <li>{0}<div class=\"grow\"><b>Счастливые часы</b><small>Скидка на всё меню в выбранное время — чтобы заполнить пустые часы</small>\n          <div class=\"row hours happy\">\n            <select data-action=\"happy-from\" aria-label=\"С\">{1}</select><span>—</span>\n            <select data-action=\"happy-to\" aria-label=\"До\">{2}</select>\n            <select data-action=\"happy-disc\" aria-label=\"Скидка\">{3}</select>\n          </div></div></li>\n        {4}\n      </ul>\n      ",
-   "at": "src/game/hud.ts:2071"
-  },
-  {
-   "key": "Карта лояльности",
-   "at": "src/game/hud.ts:2081"
-  },
-  {
-   "key": "Каждый {0}-й кофе в подарок. Постоянные возвращаются чаще и охотнее рассказывают о тебе",
-   "at": "src/game/hud.ts:2082"
-  },
-  {
-   "key": "Выключить",
-   "at": "src/game/hud.ts:2083"
-  },
-  {
-   "key": "Включить",
-   "at": "src/game/hud.ts:2083"
-  },
-  {
-   "key": "<p class=\"wages\">Сегодня на рекламу и акции: <b data-live=\"mkt\"></b></p>",
-   "at": "src/game/hud.ts:2088"
-  },
-  {
-   "key": "<div class=\"restart\"><small>Кафе, деньги и весь прогресс сотрутся.</small>\n          <div class=\"hire\"><button class=\"small\" data-action=\"restart-ask\">Отмена</button>\n          <button class=\"small danger\" data-action=\"restart\">Да, начать заново</button></div></div>",
    "at": "src/game/hud.ts:2105"
   },
   {
-   "key": "<div class=\"links\">\n           <button class=\"link\" data-action=\"tutorial\">Как играть</button>\n           <button class=\"link\" data-action=\"restart-ask\">Начать заново</button>\n         </div>\n         <small class=\"saved\">Игра сохраняется автоматически</small>",
-   "at": "src/game/hud.ts:2109"
+   "key": "<span class=\"badge on\">ещё {0} дн.</span>",
+   "at": "src/game/hud.ts:2107"
   },
   {
-   "key": "<div class=\"links\">\n           <button class=\"link\" data-action=\"feedback\">Предложить идею</button>\n           <button class=\"link\" data-action=\"tutorial\">Как играть</button>\n           <button class=\"link\" data-action=\"restart-ask\">Начать заново</button>\n         </div>\n         {0}\n         {1}\n         <small class=\"saved\">Игра сохраняется автоматически в этом браузере</small>",
+   "key": "<button class=\"small\" data-action=\"social\">Запустить</button>",
+   "at": "src/game/hud.ts:2108"
+  },
+  {
+   "key": "Сарафан",
+   "at": "src/game/hud.ts:2111"
+  },
+  {
+   "key": "Постоянные гости сами рассказывают соседям и коллегам. Бесплатно",
+   "at": "src/game/hud.ts:2111"
+  },
+  {
+   "key": "<span class=\"badge on\">работает</span>",
+   "at": "src/game/hud.ts:2111"
+  },
+  {
+   "key": "\n      <h4>Акции</h4>\n      <ul class=\"menu\">\n        <li>{0}<div class=\"grow\"><b>Счастливые часы</b><small>Скидка на всё меню в выбранное время — чтобы заполнить пустые часы</small>\n          <div class=\"row hours happy\">\n            <select data-action=\"happy-from\" aria-label=\"С\">{1}</select><span>—</span>\n            <select data-action=\"happy-to\" aria-label=\"До\">{2}</select>\n            <select data-action=\"happy-disc\" aria-label=\"Скидка\">{3}</select>\n          </div></div></li>\n        {4}\n      </ul>\n      ",
    "at": "src/game/hud.ts:2114"
   },
   {
-   "key": "<div class=\"links\">{0}<button class=\"link\" data-action=\"normal-game\">К обычной игре</button></div>",
-   "at": "src/game/hud.ts:2122"
+   "key": "Карта лояльности",
+   "at": "src/game/hud.ts:2124"
   },
   {
-   "key": "<button class=\"link\" data-action=\"challenge-result\">Мой итог испытания</button>",
-   "at": "src/game/hud.ts:2122"
+   "key": "Каждый {0}-й кофе в подарок. Постоянные возвращаются чаще и охотнее рассказывают о тебе",
+   "at": "src/game/hud.ts:2125"
   },
   {
-   "key": "<div class=\"links\"><button class=\"link\" data-action=\"transfer\">Перенести игру на другое устройство</button></div>",
-   "at": "src/game/hud.ts:2130"
+   "key": "Выключить",
+   "at": "src/game/hud.ts:2126"
   },
   {
-   "key": "<div class=\"restart transfer\">\n        <small>Скачай файл с игрой и открой его на другом устройстве или по новому адресу игры — кафе, деньги и жители будут на месте.</small>\n        <div class=\"hire\">\n          <button class=\"small\" data-action=\"save-export\">Скачать файл</button>\n          <label class=\"small button-like\">Загрузить файл<input type=\"file\" accept=\".json,application/json\" data-action=\"save-import\" hidden /></label>\n          <button class=\"small ghost\" data-action=\"transfer\">Закрыть</button>\n        </div>\n        <small class=\"transfer-note\">Загрузка заменит текущую игру в этом браузере.</small>\n        {0}\n      </div>",
+   "key": "Включить",
+   "at": "src/game/hud.ts:2126"
+  },
+  {
+   "key": "<p class=\"wages\">Сегодня на рекламу и акции: <b data-live=\"mkt\"></b></p>",
    "at": "src/game/hud.ts:2131"
   },
   {
+   "key": "<div class=\"restart\"><small>Кафе, деньги и весь прогресс сотрутся.</small>\n          <div class=\"hire\"><button class=\"small\" data-action=\"restart-ask\">Отмена</button>\n          <button class=\"small danger\" data-action=\"restart\">Да, начать заново</button></div></div>",
+   "at": "src/game/hud.ts:2148"
+  },
+  {
+   "key": "<div class=\"links\">\n           <button class=\"link\" data-action=\"tutorial\">Как играть</button>\n           <button class=\"link\" data-action=\"restart-ask\">Начать заново</button>\n         </div>\n         <small class=\"saved\">Игра сохраняется автоматически</small>",
+   "at": "src/game/hud.ts:2152"
+  },
+  {
+   "key": "<div class=\"links\">\n           <button class=\"link\" data-action=\"feedback\">Предложить идею</button>\n           <button class=\"link\" data-action=\"tutorial\">Как играть</button>\n           <button class=\"link\" data-action=\"restart-ask\">Начать заново</button>\n         </div>\n         {0}\n         {1}\n         <small class=\"saved\">Игра сохраняется автоматически в этом браузере</small>",
+   "at": "src/game/hud.ts:2157"
+  },
+  {
+   "key": "<div class=\"links\">{0}<button class=\"link\" data-action=\"normal-game\">К обычной игре</button></div>",
+   "at": "src/game/hud.ts:2165"
+  },
+  {
+   "key": "<button class=\"link\" data-action=\"challenge-result\">Мой итог испытания</button>",
+   "at": "src/game/hud.ts:2165"
+  },
+  {
+   "key": "<div class=\"links\"><button class=\"link\" data-action=\"transfer\">Перенести игру на другое устройство</button></div>",
+   "at": "src/game/hud.ts:2173"
+  },
+  {
+   "key": "<div class=\"restart transfer\">\n        <small>Скачай файл с игрой и открой его на другом устройстве или по новому адресу игры — кафе, деньги и жители будут на месте.</small>\n        <div class=\"hire\">\n          <button class=\"small\" data-action=\"save-export\">Скачать файл</button>\n          <label class=\"small button-like\">Загрузить файл<input type=\"file\" accept=\".json,application/json\" data-action=\"save-import\" hidden /></label>\n          <button class=\"small ghost\" data-action=\"transfer\">Закрыть</button>\n        </div>\n        <small class=\"transfer-note\">Загрузка заменит текущую игру в этом браузере.</small>\n        {0}\n      </div>",
+   "at": "src/game/hud.ts:2174"
+  },
+  {
    "key": "<div class=\"event-banner\"><span>🏆</span><div class=\"grow\"><b>{0}</b>\n      <small>У всех тот же город: те же жители, погода и события. Итог — касса в конце {1}-го дня.</small></div></div>",
-   "at": "src/game/hud.ts:2146"
+   "at": "src/game/hud.ts:2189"
   },
   {
    "key": "⚠ Нет в наличии: {0}. Закажи на складе",
-   "at": "src/game/hud.ts:2154"
+   "at": "src/game/hud.ts:2197"
   },
   {
    "key": "Склад в порядке",
-   "at": "src/game/hud.ts:2155"
-  },
-  {
-   "key": "нет — {0} привезут к 6:00",
-   "at": "src/game/hud.ts:2175"
-  },
-  {
-   "key": "нет — кончилось: {0}",
-   "at": "src/game/hud.ts:2176"
-  },
-  {
-   "key": "упирается в {0}",
-   "at": "src/game/hud.ts:2177"
-  },
-  {
-   "key": "испортится сегодня: {0}",
-   "at": "src/game/hud.ts:2192"
-  },
-  {
-   "key": "едет к 6:00: {0}",
-   "at": "src/game/hud.ts:2192"
-  },
-  {
-   "key": "<div class=\"stepper mini\">\n          <button data-action=\"keep-down\" data-item=\"{0}\" data-weekend=\"{1}\" data-step=\"{2}\" aria-label=\"Меньше\">−</button>\n          <span>{3}</span>\n          <button data-action=\"keep-up\" data-item=\"{4}\" data-weekend=\"{5}\" data-step=\"{6}\" aria-label=\"Больше\">+</button>\n        </div>",
    "at": "src/game/hud.ts:2198"
   },
   {
-   "key": "не портится",
-   "at": "src/game/hud.ts:2204"
-  },
-  {
-   "key": "хранится {0} дн.",
-   "at": "src/game/hud.ts:2204"
-  },
-  {
-   "key": "не нужно для меню",
-   "at": "src/game/hud.ts:2208"
-  },
-  {
-   "key": "не расходовалось",
-   "at": "src/game/hud.ts:2211"
-  },
-  {
-   "key": "расход пока неизвестен",
-   "at": "src/game/hud.ts:2212"
-  },
-  {
-   "key": "<b class=\"bad\">хватит меньше чем на день</b>",
-   "at": "src/game/hud.ts:2214"
-  },
-  {
-   "key": "хватит на <b>{0}</b>",
-   "at": "src/game/hud.ts:2215"
-  },
-  {
-   "key": " · уходит {0} в день",
-   "at": "src/game/hud.ts:2217"
-  },
-  {
-   "key": "меньше 1",
-   "at": "src/game/hud.ts:2217"
-  },
-  {
-   "key": "<li class=\"{0}{1}\">\n        <div class=\"row\">{2}<div class=\"grow\"><b>{3}</b>\n          <small>{4}{5}</small></div>\n          <div class=\"qty\"><b data-live=\"st-{6}\"></b><small>порц.</small></div></div>\n        {7}\n        <small class=\"exp\" data-live=\"stx-{8}\"></small>\n        <small>{9} · {10} за порцию</small>\n        <div class=\"row keep\"><small>Держать: будни</small>{11}<small>вых.</small>{12}</div>\n        {13}\n        <div class=\"row orders\">\n          {14}\n          <button class=\"icon\" data-action=\"cancel-order\" data-item=\"{15}\" aria-label=\"Отменить заказ\">✕</button>\n        </div>\n      </li>",
+   "key": "нет — {0} привезут к 6:00",
    "at": "src/game/hud.ts:2218"
   },
   {
-   "key": "<div class=\"goes\"><small>идёт в</small>{0}</div>",
-   "at": "src/game/hud.ts:2222"
+   "key": "нет — кончилось: {0}",
+   "at": "src/game/hud.ts:2219"
   },
   {
-   "key": "\n      <h4>Можно приготовить</h4>\n      <small>Сколько порций выйдет, если готовить только эту позицию: ингредиенты у позиций общие, поэтому числа не складываются.</small>\n      <ul class=\"menu cookable\">{0}</ul>\n      <h4>Ингредиенты</h4>\n      <small>«Хватит на» — с тем, что едет, при расходе последних {1} рабочих дней. Поставщик привозит заказ в 6:00. Опт: от 100 порций −10 %, от 300 — −20 %.\n        Скоропорт в конце срока списывается. Автозаказ каждую ночь добирает склад до уровня «держать» —\n        отдельно на будни и выходные.</small>\n      <ul class=\"menu stock\">{2}</ul>",
+   "key": "упирается в {0}",
+   "at": "src/game/hud.ts:2220"
+  },
+  {
+   "key": "испортится сегодня: {0}",
    "at": "src/game/hud.ts:2235"
   },
   {
-   "key": "Касса в минусе {0}-й день. Если на {1}-й день не выйти в плюс — банкротство.",
+   "key": "едет к 6:00: {0}",
+   "at": "src/game/hud.ts:2235"
+  },
+  {
+   "key": "<div class=\"stepper mini\">\n          <button data-action=\"keep-down\" data-item=\"{0}\" data-weekend=\"{1}\" data-step=\"{2}\" aria-label=\"Меньше\">−</button>\n          <span>{3}</span>\n          <button data-action=\"keep-up\" data-item=\"{4}\" data-weekend=\"{5}\" data-step=\"{6}\" aria-label=\"Больше\">+</button>\n        </div>",
+   "at": "src/game/hud.ts:2241"
+  },
+  {
+   "key": "не портится",
+   "at": "src/game/hud.ts:2247"
+  },
+  {
+   "key": "хранится {0} дн.",
+   "at": "src/game/hud.ts:2247"
+  },
+  {
+   "key": "не нужно для меню",
+   "at": "src/game/hud.ts:2251"
+  },
+  {
+   "key": "не расходовалось",
+   "at": "src/game/hud.ts:2254"
+  },
+  {
+   "key": "расход пока неизвестен",
    "at": "src/game/hud.ts:2255"
   },
   {
-   "key": "Касса в минусе. Если к концу дня не выйти в плюс, пойдёт отсчёт: {0} дня подряд — банкротство.",
-   "at": "src/game/hud.ts:2256"
+   "key": "<b class=\"bad\">хватит меньше чем на день</b>",
+   "at": "src/game/hud.ts:2257"
   },
   {
-   "key": "Денег хватит примерно на {0} дн. постоянных расходов — {1} в день.",
+   "key": "хватит на <b>{0}</b>",
    "at": "src/game/hud.ts:2258"
   },
   {
-   "key": "<button class=\"small\" data-action=\"goto-tab\" data-item=\"growth\">Кредит</button>",
+   "key": " · уходит {0} в день",
+   "at": "src/game/hud.ts:2260"
+  },
+  {
+   "key": "меньше 1",
+   "at": "src/game/hud.ts:2260"
+  },
+  {
+   "key": "<li class=\"{0}{1}\">\n        <div class=\"row\">{2}<div class=\"grow\"><b>{3}</b>\n          <small>{4}{5}</small></div>\n          <div class=\"qty\"><b data-live=\"st-{6}\"></b><small>порц.</small></div></div>\n        {7}\n        <small class=\"exp\" data-live=\"stx-{8}\"></small>\n        <small>{9} · {10} за порцию</small>\n        <div class=\"row keep\"><small>Держать: будни</small>{11}<small>вых.</small>{12}</div>\n        {13}\n        <div class=\"row orders\">\n          {14}\n          <button class=\"icon\" data-action=\"cancel-order\" data-item=\"{15}\" aria-label=\"Отменить заказ\">✕</button>\n        </div>\n      </li>",
    "at": "src/game/hud.ts:2261"
   },
   {
-   "key": "<button class=\"small\" data-action=\"flyers\">Остановить листовки</button>",
-   "at": "src/game/hud.ts:2262"
-  },
-  {
-   "key": "<button class=\"small\" data-action=\"goto-tab\" data-item=\"staff\">Персонал</button>",
-   "at": "src/game/hud.ts:2263"
-  },
-  {
-   "key": "<button class=\"small\" data-action=\"goto-tab\" data-item=\"stock\">Снизить запасы</button>",
-   "at": "src/game/hud.ts:2264"
-  },
-  {
-   "key": "<button class=\"small\" data-action=\"goto-tab\" data-item=\"overview\">Часы работы</button>",
+   "key": "<div class=\"goes\"><small>идёт в</small>{0}</div>",
    "at": "src/game/hud.ts:2265"
   },
   {
+   "key": "\n      <h4>Можно приготовить</h4>\n      <small>Сколько порций выйдет, если готовить только эту позицию: ингредиенты у позиций общие, поэтому числа не складываются.</small>\n      <ul class=\"menu cookable\">{0}</ul>\n      <h4>Ингредиенты</h4>\n      <small>«Хватит на» — с тем, что едет, при расходе последних {1} рабочих дней. Поставщик привозит заказ в 6:00. Опт: от 100 порций −10 %, от 300 — −20 %.\n        Скоропорт в конце срока списывается. Автозаказ каждую ночь добирает склад до уровня «держать» —\n        отдельно на будни и выходные.</small>\n      <ul class=\"menu stock\">{2}</ul>",
+   "at": "src/game/hud.ts:2278"
+  },
+  {
+   "key": "Касса в минусе {0}-й день. Если на {1}-й день не выйти в плюс — банкротство.",
+   "at": "src/game/hud.ts:2298"
+  },
+  {
+   "key": "Касса в минусе. Если к концу дня не выйти в плюс, пойдёт отсчёт: {0} дня подряд — банкротство.",
+   "at": "src/game/hud.ts:2299"
+  },
+  {
+   "key": "Денег хватит примерно на {0} дн. постоянных расходов — {1} в день.",
+   "at": "src/game/hud.ts:2301"
+  },
+  {
+   "key": "<button class=\"small\" data-action=\"goto-tab\" data-item=\"growth\">Кредит</button>",
+   "at": "src/game/hud.ts:2304"
+  },
+  {
+   "key": "<button class=\"small\" data-action=\"flyers\">Остановить листовки</button>",
+   "at": "src/game/hud.ts:2305"
+  },
+  {
+   "key": "<button class=\"small\" data-action=\"goto-tab\" data-item=\"staff\">Персонал</button>",
+   "at": "src/game/hud.ts:2306"
+  },
+  {
+   "key": "<button class=\"small\" data-action=\"goto-tab\" data-item=\"stock\">Снизить запасы</button>",
+   "at": "src/game/hud.ts:2307"
+  },
+  {
+   "key": "<button class=\"small\" data-action=\"goto-tab\" data-item=\"overview\">Часы работы</button>",
+   "at": "src/game/hud.ts:2308"
+  },
+  {
    "key": "<div class=\"cash-warn\"><b>{0}</b>\n      <small>Что можно сделать: меньше часов в пустое время, отпустить бариста, не держать лишний запас, остановить платную рекламу. Пережить трудную неделю поможет кредит — вкладка «Развитие».</small>\n      <div class=\"hire\">{1}</div></div>",
-   "at": "src/game/hud.ts:2266"
+   "at": "src/game/hud.ts:2309"
   },
   {
    "key": "{0}:00 — гостей {1}, ушли {2}",
-   "at": "src/game/hud.ts:2291"
+   "at": "src/game/hud.ts:2334"
   },
   {
    "key": "обслужены",
-   "at": "src/game/hud.ts:2298"
+   "at": "src/game/hud.ts:2341"
   },
   {
    "key": "ушли",
-   "at": "src/game/hud.ts:2298"
+   "at": "src/game/hud.ts:2341"
   },
   {
    "key": "хотели зайти",
-   "at": "src/game/hud.ts:2298"
+   "at": "src/game/hud.ts:2341"
   },
   {
    "key": "Круглосуточно",
-   "at": "src/game/hud.ts:2311"
+   "at": "src/game/hud.ts:2354"
   },
   {
    "key": "Открыто до {0}",
-   "at": "src/game/hud.ts:2311"
+   "at": "src/game/hud.ts:2354"
   },
   {
    "key": "Закрыто",
-   "at": "src/game/hud.ts:2313"
+   "at": "src/game/hud.ts:2356"
   },
   {
    "key": "Закрыто до {0}",
-   "at": "src/game/hud.ts:2315"
+   "at": "src/game/hud.ts:2358"
   },
   {
    "key": "завтра",
-   "at": "src/game/hud.ts:2316"
+   "at": "src/game/hud.ts:2359"
   },
   {
    "key": "в {0}",
-   "at": "src/game/hud.ts:2316"
+   "at": "src/game/hud.ts:2359"
   },
   {
    "key": "{0}, откроемся {1} в {2}",
-   "at": "src/game/hud.ts:2317"
+   "at": "src/game/hud.ts:2360"
   },
   {
    "key": "День",
-   "at": "src/game/hud.ts:2344"
+   "at": "src/game/hud.ts:2387"
   },
   {
    "key": "Неделя",
-   "at": "src/game/hud.ts:2344"
+   "at": "src/game/hud.ts:2387"
   },
   {
    "key": "Месяц",
-   "at": "src/game/hud.ts:2344"
+   "at": "src/game/hud.ts:2387"
   },
   {
    "key": "<div class=\"period-bar\">\n        <button class=\"icon\" data-action=\"report-prev\" aria-label=\"Раньше\" {0}>‹</button>\n        <div class=\"chips\">{1}</div>\n        <button class=\"icon\" data-action=\"report-next\" aria-label=\"Позже\" {2}>›</button>\n      </div>",
-   "at": "src/game/hud.ts:2347"
+   "at": "src/game/hud.ts:2390"
   },
   {
    "key": "Неделя {0}",
-   "at": "src/game/hud.ts:2372"
+   "at": "src/game/hud.ts:2415"
   },
   {
    "key": "Месяц {0}",
-   "at": "src/game/hud.ts:2372"
+   "at": "src/game/hud.ts:2415"
   },
   {
    "key": "<div class=\"card-head\"><div><b>{0}</b><small>{1}–{2} день{3} · {4} гостей из {5}, кто хотел зайти</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button></div>",
-   "at": "src/game/hud.ts:2374"
+   "at": "src/game/hud.ts:2417"
   },
   {
    "key": " · идёт",
-   "at": "src/game/hud.ts:2375"
+   "at": "src/game/hud.ts:2418"
   },
   {
    "key": "{0}{1}<p class=\"hint-line\">В этот период точка ещё не работала.</p>",
-   "at": "src/game/hud.ts:2378"
+   "at": "src/game/hud.ts:2421"
   },
   {
    "key": "<div class=\"kpis\">\n        <div><small>Гостей</small><b>{0}</b></div>\n        <div><small>Выручка</small><b>{1}</b></div>\n        {2}\n      </div>",
-   "at": "src/game/hud.ts:2381"
+   "at": "src/game/hud.ts:2424"
   },
   {
    "key": "<div><small>Средний чек</small><b>{0}</b></div>",
-   "at": "src/game/hud.ts:2384"
-  },
-  {
-   "key": "{0}{1}к",
-   "at": "src/game/hud.ts:2388"
-  },
-  {
-   "key": "{0} нед.",
-   "at": "src/game/hud.ts:2394"
-  },
-  {
-   "key": "<div class=\"split\"><div class=\"spark\">{0}</div><small>Итог каждого дня: над чертой — в плюсе, под ней — в минусе{1}.</small></div>",
-   "at": "src/game/hud.ts:2407"
-  },
-  {
-   "key": ". Самый большой день ({0}) не влез в шкалу",
-   "at": "src/game/hud.ts:2413"
-  },
-  {
-   "key": "Прибыль",
-   "at": "src/game/hud.ts:2420"
-  },
-  {
-   "key": "<div class=\"split\"><small>Из каждых 100 ₽ выручки</small>\n        <div class=\"split-bar\">{0}</div>\n        <ul>{1}</ul>\n        {2}\n      </div>",
-   "at": "src/game/hud.ts:2422"
-  },
-  {
-   "key": "<small class=\"neg\">Расходы больше выручки: итог −{0}</small>",
    "at": "src/game/hud.ts:2427"
   },
   {
-   "key": "<li>{0}<div class=\"grow\"><div class=\"row\"><b class=\"grow\">{1}</b><b class=\"pos\">{2}</b></div>\n          <i class=\"meter\"><i style=\"width:{3}%\"></i></i>\n          <small>продано {4} · выручка {5}</small></div></li>",
-   "at": "src/game/hud.ts:2434"
+   "key": "{0}{1}к",
+   "at": "src/game/hud.ts:2431"
   },
   {
-   "key": "{0}\n      {1}\n      {2}\n      {3}\n      <h4>{4}</h4>\n      {5}\n      {6}\n      <h4>Куда ушли деньги</h4>\n      {7}\n      {8}\n      {9}\n      <h4>Гости: от желания до покупки</h4><ul class=\"funnel\">{10}</ul>\n      {11}",
-   "at": "src/game/hud.ts:2453"
+   "key": "{0} нед.",
+   "at": "src/game/hud.ts:2437"
   },
   {
-   "key": "Итог недели",
-   "at": "src/game/hud.ts:2455"
+   "key": "<div class=\"split\"><div class=\"spark\">{0}</div><small>Итог каждого дня: над чертой — в плюсе, под ней — в минусе{1}.</small></div>",
+   "at": "src/game/hud.ts:2450"
   },
   {
-   "key": "Итог месяца",
-   "at": "src/game/hud.ts:2455"
+   "key": ". Самый большой день ({0}) не влез в шкалу",
+   "at": "src/game/hud.ts:2456"
   },
   {
-   "key": "Итог по дням",
-   "at": "src/game/hud.ts:2457"
-  },
-  {
-   "key": "По неделям",
-   "at": "src/game/hud.ts:2457"
-  },
-  {
-   "key": "<h4>Главное</h4><ul class=\"observations\">{0}</ul>",
-   "at": "src/game/hud.ts:2462"
-  },
-  {
-   "key": "<h4>Что приносит деньги</h4><ul class=\"items-margin\">{0}</ul><small>Зелёное — маржа: выручка минус себестоимость</small>",
+   "key": "Прибыль",
    "at": "src/game/hud.ts:2463"
   },
   {
-   "key": "<h4>Почему не зашли</h4><ul class=\"reason-bars\">{0}</ul>",
+   "key": "<div class=\"split\"><small>Из каждых 100 ₽ выручки</small>\n        <div class=\"split-bar\">{0}</div>\n        <ul>{1}</ul>\n        {2}\n      </div>",
    "at": "src/game/hud.ts:2465"
   },
   {
+   "key": "<small class=\"neg\">Расходы больше выручки: итог −{0}</small>",
+   "at": "src/game/hud.ts:2470"
+  },
+  {
+   "key": "<li>{0}<div class=\"grow\"><div class=\"row\"><b class=\"grow\">{1}</b><b class=\"pos\">{2}</b></div>\n          <i class=\"meter\"><i style=\"width:{3}%\"></i></i>\n          <small>продано {4} · выручка {5}</small></div></li>",
+   "at": "src/game/hud.ts:2477"
+  },
+  {
+   "key": "{0}\n      {1}\n      {2}\n      {3}\n      {4}\n      <h4>{5}</h4>\n      {6}\n      {7}\n      <h4>Куда ушли деньги</h4>\n      {8}\n      {9}\n      {10}\n      <h4>Гости: от желания до покупки</h4><ul class=\"funnel\">{11}</ul>\n      {12}",
+   "at": "src/game/hud.ts:2496"
+  },
+  {
+   "key": "Итог недели",
+   "at": "src/game/hud.ts:2498"
+  },
+  {
+   "key": "Итог месяца",
+   "at": "src/game/hud.ts:2498"
+  },
+  {
+   "key": "Итог по дням",
+   "at": "src/game/hud.ts:2501"
+  },
+  {
+   "key": "По неделям",
+   "at": "src/game/hud.ts:2501"
+  },
+  {
+   "key": "<h4>Главное</h4><ul class=\"observations\">{0}</ul>",
+   "at": "src/game/hud.ts:2506"
+  },
+  {
+   "key": "<h4>Что приносит деньги</h4><ul class=\"items-margin\">{0}</ul><small>Зелёное — маржа: выручка минус себестоимость</small>",
+   "at": "src/game/hud.ts:2507"
+  },
+  {
+   "key": "<h4>Почему не зашли</h4><ul class=\"reason-bars\">{0}</ul>",
+   "at": "src/game/hud.ts:2509"
+  },
+  {
    "key": "<small>нужно: {0}</small>",
-   "at": "src/game/hud.ts:2481"
-  },
-  {
-   "key": "<div class=\"forecast\"><small>Завтра · {0}</small>\n          <b>{1} {2}</b>\n          <span>{3}{4}</span></div>",
-   "at": "src/game/hud.ts:2505"
-  },
-  {
-   "key": ". Выходной: офисные не придут, зато больше гуляют",
-   "at": "src/game/hud.ts:2508"
-  },
-  {
-   "key": "\n      <div class=\"card-head\"><div><b>Итоги дня {0}</b><small>{1}{2} · {3} гостей из {4}, кто хотел зайти</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button></div>\n      {5}\n      {6}\n      {7}\n      <div class=\"insight\">\n        {8}\n        {9}\n        {10}\n      </div>\n      {11}\n      {12}\n      {13}\n      {14}\n      {15}\n      {16}\n      {17}\n      {18}\n      {19}\n      {20}\n      {21}\n      {22}\n      {23}\n      {24}\n      {25}\n      {26}",
-   "at": "src/game/hud.ts:2512"
-  },
-  {
-   "key": "Итог дня",
-   "at": "src/game/hud.ts:2519"
-  },
-  {
-   "key": "<div class=\"milestone-hit\">Веха: <b>{0}</b>{1}</div>",
    "at": "src/game/hud.ts:2525"
   },
   {
-   "key": " · <button class=\"link\" data-action=\"goto-tab\" data-item=\"growth\">открыто улучшение</button>",
-   "at": "src/game/hud.ts:2527"
-  },
-  {
-   "key": "<h4>События дня</h4><ul class=\"news\">{0}</ul>",
-   "at": "src/game/hud.ts:2530"
-  },
-  {
-   "key": "<h4>Знакомые лица</h4><ul class=\"news\">{0}</ul>",
-   "at": "src/game/hud.ts:2531"
-  },
-  {
-   "key": "<p class=\"rival-line\">У конкурента сегодня гостей: <b>{0}</b>{1}{2}</p>",
-   "at": "src/game/hud.ts:2533"
-  },
-  {
-   "key": " (шла акция)",
-   "at": "src/game/hud.ts:2533"
-  },
-  {
-   "key": " · ушли к нему от тебя: <b>{0}</b>",
-   "at": "src/game/hud.ts:2533"
-  },
-  {
-   "key": "<h4>Стоит проверить</h4><ul class=\"observations\">{0}</ul>",
-   "at": "src/game/hud.ts:2535"
-  },
-  {
-   "key": "<h4>Изменения за день</h4><ul class=\"changes\">{0}</ul>",
-   "at": "src/game/hud.ts:2536"
-  },
-  {
-   "key": "<h4>Деньги</h4><table class=\"pnl\">\n        {0}\n        {1}\n        {2}\n        {3}\n        {4}\n        {5}\n        {6}\n        {7}\n        {8}\n        {9}\n        {10}\n        {11}\n        {12}\n        {13}\n        {14}\n        {15}\n      </table>\n      <small>Себестоимость проданного: {16}{17}{18}{19}{20}</small>",
-   "at": "src/game/hud.ts:2540"
-  },
-  {
-   "key": "Выручка",
-   "at": "src/game/hud.ts:2541"
-  },
-  {
-   "key": "Расход на продукты",
-   "at": "src/game/hud.ts:2542"
-  },
-  {
-   "key": "Аренда",
-   "at": "src/game/hud.ts:2543"
-  },
-  {
-   "key": "Коммуналка",
-   "at": "src/game/hud.ts:2544"
-  },
-  {
-   "key": "Зарплата",
-   "at": "src/game/hud.ts:2545"
-  },
-  {
-   "key": "Налог 6 %",
-   "at": "src/game/hud.ts:2546"
-  },
-  {
-   "key": "Маркетинг",
-   "at": "src/game/hud.ts:2547"
-  },
-  {
-   "key": "События",
-   "at": "src/game/hud.ts:2548"
-  },
-  {
-   "key": "Проценты по${NB}кредиту",
+   "key": "<div class=\"forecast\"><small>Завтра · {0}</small>\n          <b>{1} {2}</b>\n          <span>{3}{4}</span></div>",
    "at": "src/game/hud.ts:2549"
   },
   {
-   "key": "Закуплено на склад",
-   "at": "src/game/hud.ts:2551"
-  },
-  {
-   "key": "Вложено в улучшения",
+   "key": ". Выходной: офисные не придут, зато больше гуляют",
    "at": "src/game/hud.ts:2552"
   },
   {
-   "key": "Взят кредит",
-   "at": "src/game/hud.ts:2553"
-  },
-  {
-   "key": "Возврат долга",
-   "at": "src/game/hud.ts:2554"
-  },
-  {
-   "key": "Штраф за${NB}просрочку (к${NB}долгу)",
-   "at": "src/game/hud.ts:2555"
-  },
-  {
-   "key": "В кассе",
+   "key": "\n      <div class=\"card-head\"><div><b>Итоги дня {0}</b><small>{1}{2} · {3} гостей из {4}, кто хотел зайти</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button></div>\n      {5}\n      {6}\n      {7}\n      <div class=\"insight\">\n        {8}\n        {9}\n        {10}\n      </div>\n      {11}\n      {12}\n      {13}\n      {14}\n      {15}\n      {16}\n      {17}\n      {18}\n      {19}\n      {20}\n      {21}\n      {22}\n      {23}\n      {24}\n      {25}\n      {26}",
    "at": "src/game/hud.ts:2556"
   },
   {
-   "key": " · дозаказов: {0}",
-   "at": "src/game/hud.ts:2558"
-  },
-  {
-   "key": " · пришли с постоянными: {0}",
-   "at": "src/game/hud.ts:2558"
-  },
-  {
-   "key": " · сели ради стиля зала: {0}",
-   "at": "src/game/hud.ts:2558"
-  },
-  {
-   "key": " · списано (испортилось): {0} — {1}",
-   "at": "src/game/hud.ts:2559"
-  },
-  {
-   "key": "Кто не зашёл",
+   "key": "Итог дня",
    "at": "src/game/hud.ts:2563"
   },
   {
-   "key": "Кто хотел зайти",
-   "at": "src/game/hud.ts:2563"
+   "key": "<div class=\"milestone-hit\">Веха: <b>{0}</b>{1}</div>",
+   "at": "src/game/hud.ts:2569"
   },
   {
-   "key": "<h4>Не зашли — почему</h4><ul class=\"reasons\">{0}</ul>",
-   "at": "src/game/hud.ts:2564"
+   "key": " · <button class=\"link\" data-action=\"goto-tab\" data-item=\"growth\">открыто улучшение</button>",
+   "at": "src/game/hud.ts:2571"
   },
   {
-   "key": "<h4>Узнали о кафе: +{0} · всего {1} из {2}</h4><ul class=\"sold\">{3}</ul>",
-   "at": "src/game/hud.ts:2565"
+   "key": "<h4>События дня</h4><ul class=\"news\">{0}</ul>",
+   "at": "src/game/hud.ts:2574"
   },
   {
-   "key": "<small>По карте лояльности подарено кофе на {0}</small>",
-   "at": "src/game/hud.ts:2566"
+   "key": "<h4>Знакомые лица</h4><ul class=\"news\">{0}</ul>",
+   "at": "src/game/hud.ts:2575"
   },
   {
-   "key": "<h4>Искали, но не нашли в меню</h4><ul class=\"sold\">{0}</ul>",
-   "at": "src/game/hud.ts:2567"
+   "key": "<p class=\"rival-line\">У конкурента сегодня гостей: <b>{0}</b>{1}{2}</p>",
+   "at": "src/game/hud.ts:2577"
   },
   {
-   "key": "<h4>Продажи</h4><ul class=\"sold\">{0}</ul>",
-   "at": "src/game/hud.ts:2568"
+   "key": " (шла акция)",
+   "at": "src/game/hud.ts:2577"
   },
   {
-   "key": "\n      <div class=\"row head\"><b>Банкротство</b><span class=\"badge neg\">День {0}</span></div>\n      <p>Касса была в минусе {1} дня подряд. Кафе закрыто, имущество ушло в счёт долгов.</p>\n      <p>Это не конец: посмотри итоги дней — кто не заходил и почему — и попробуй снова.</p>\n      <button class=\"primary\" data-action=\"restart\">Начать заново</button>",
-   "at": "src/game/hud.ts:2573"
+   "key": " · ушли к нему от тебя: <b>{0}</b>",
+   "at": "src/game/hud.ts:2577"
   },
   {
-   "key": "Идёт в кафе",
+   "key": "<h4>Стоит проверить</h4><ul class=\"observations\">{0}</ul>",
+   "at": "src/game/hud.ts:2579"
+  },
+  {
+   "key": "<h4>Изменения за день</h4><ul class=\"changes\">{0}</ul>",
+   "at": "src/game/hud.ts:2580"
+  },
+  {
+   "key": "<h4>Деньги</h4><table class=\"pnl\">\n        {0}\n        {1}\n        {2}\n        {3}\n        {4}\n        {5}\n        {6}\n        {7}\n        {8}\n        {9}\n        {10}\n        {11}\n        {12}\n        {13}\n        {14}\n        {15}\n      </table>\n      <small>Себестоимость проданного: {16}{17}{18}{19}{20}</small>",
+   "at": "src/game/hud.ts:2584"
+  },
+  {
+   "key": "Выручка",
+   "at": "src/game/hud.ts:2585"
+  },
+  {
+   "key": "Расход на продукты",
    "at": "src/game/hud.ts:2586"
   },
   {
-   "key": "Ждёт заказ в кафе",
+   "key": "Аренда",
+   "at": "src/game/hud.ts:2587"
+  },
+  {
+   "key": "Коммуналка",
    "at": "src/game/hud.ts:2588"
   },
   {
-   "key": "Сидит в кафе",
+   "key": "Зарплата",
    "at": "src/game/hud.ts:2589"
   },
   {
-   "key": "{0} · в пути → {1}",
+   "key": "Налог 6 %",
+   "at": "src/game/hud.ts:2590"
+  },
+  {
+   "key": "Маркетинг",
    "at": "src/game/hud.ts:2591"
   },
   {
-   "key": "Приезжает на метро",
+   "key": "События",
+   "at": "src/game/hud.ts:2592"
+  },
+  {
+   "key": "Проценты по${NB}кредиту",
    "at": "src/game/hud.ts:2593"
   },
   {
-   "key": "Живёт: {0}",
-   "at": "src/game/hud.ts:2593"
+   "key": "Закуплено на склад",
+   "at": "src/game/hud.ts:2595"
   },
   {
-   "key": "Учится",
+   "key": "Вложено в улучшения",
+   "at": "src/game/hud.ts:2596"
+  },
+  {
+   "key": "Взят кредит",
    "at": "src/game/hud.ts:2597"
   },
   {
-   "key": "Работает",
-   "at": "src/game/hud.ts:2597"
-  },
-  {
-   "key": "за пределами улицы",
+   "key": "Возврат долга",
    "at": "src/game/hud.ts:2598"
   },
   {
-   "key": "{0} до {1}",
-   "at": "src/game/hud.ts:2601"
+   "key": "Штраф за${NB}просрочку (к${NB}долгу)",
+   "at": "src/game/hud.ts:2599"
   },
   {
-   "key": "Сегодня",
+   "key": "В кассе",
+   "at": "src/game/hud.ts:2600"
+  },
+  {
+   "key": " · дозаказов: {0}",
+   "at": "src/game/hud.ts:2602"
+  },
+  {
+   "key": " · пришли с постоянными: {0}",
+   "at": "src/game/hud.ts:2602"
+  },
+  {
+   "key": " · сели ради стиля зала: {0}",
+   "at": "src/game/hud.ts:2602"
+  },
+  {
+   "key": " · списано (испортилось): {0} — {1}",
+   "at": "src/game/hud.ts:2603"
+  },
+  {
+   "key": "Кто не зашёл",
+   "at": "src/game/hud.ts:2607"
+  },
+  {
+   "key": "Кто хотел зайти",
+   "at": "src/game/hud.ts:2607"
+  },
+  {
+   "key": "<h4>Не зашли — почему</h4><ul class=\"reasons\">{0}</ul>",
+   "at": "src/game/hud.ts:2608"
+  },
+  {
+   "key": "<h4>Узнали о кафе: +{0} · всего {1} из {2}</h4><ul class=\"sold\">{3}</ul>",
    "at": "src/game/hud.ts:2609"
   },
   {
-   "key": "Зашла",
+   "key": "<small>По карте лояльности подарено кофе на {0}</small>",
+   "at": "src/game/hud.ts:2610"
+  },
+  {
+   "key": "<h4>Искали, но не нашли в меню</h4><ul class=\"sold\">{0}</ul>",
    "at": "src/game/hud.ts:2611"
   },
   {
-   "key": "Зашёл",
-   "at": "src/game/hud.ts:2611"
-  },
-  {
-   "key": "<div class=\"decision no\"><small>{0} · {1} {2}</small>Не {3}: {4}{5}</div>",
+   "key": "<h4>Продажи</h4><ul class=\"sold\">{0}</ul>",
    "at": "src/game/hud.ts:2612"
   },
   {
-   "key": " — {0} {1}, {2} до {3}",
-   "at": "src/game/hud.ts:2613"
+   "key": "\n      <div class=\"row head\"><b>Банкротство</b><span class=\"badge neg\">День {0}</span></div>\n      <p>Касса была в минусе {1} дня подряд. Кафе закрыто, имущество ушло в счёт долгов.</p>\n      <p>Это не конец: посмотри итоги дней — кто не заходил и почему — и попробуй снова.</p>\n      <button class=\"primary\" data-action=\"restart\">Начать заново</button>",
+   "at": "src/game/hud.ts:2617"
   },
   {
-   "key": "готова",
-   "at": "src/game/hud.ts:2613"
+   "key": "Идёт в кафе",
+   "at": "src/game/hud.ts:2630"
   },
   {
-   "key": "готов",
-   "at": "src/game/hud.ts:2613"
+   "key": "Ждёт заказ в кафе",
+   "at": "src/game/hud.ts:2632"
   },
   {
-   "key": "\n      <div class=\"card-head\">\n        {0}\n        <div><b>{1}</b><small>{2}</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button>\n      </div>\n      <div class=\"status\">{3}</div>\n      {4}\n      {5}\n      <div class=\"facts\"><div>{6}</div>{7}<div>{8}</div>{9}<div>{10} платить: {11}</div></div>\n      {12}\n      <ul class=\"schedule\">{13}</ul>",
-   "at": "src/game/hud.ts:2625"
+   "key": "Сидит в кафе",
+   "at": "src/game/hud.ts:2633"
   },
   {
-   "key": "Знает о твоём кафе",
-   "at": "src/game/hud.ts:2634"
+   "key": "{0} · в пути → {1}",
+   "at": "src/game/hud.ts:2635"
   },
   {
-   "key": "<b class=\"oos\">Не знает о твоём кафе</b>",
-   "at": "src/game/hud.ts:2634"
+   "key": "Приезжает на метро",
+   "at": "src/game/hud.ts:2637"
   },
   {
-   "key": "Готова",
-   "at": "src/game/hud.ts:2634"
+   "key": "Живёт: {0}",
+   "at": "src/game/hud.ts:2637"
   },
   {
-   "key": "Готов",
-   "at": "src/game/hud.ts:2634"
+   "key": "Учится",
+   "at": "src/game/hud.ts:2641"
   },
   {
-   "key": "<div>Зал по душе: {0}</div>",
-   "at": "src/game/hud.ts:2646"
+   "key": "Работает",
+   "at": "src/game/hud.ts:2641"
   },
   {
-   "key": "<div>Зал «{0}» — не по вкусу</div>",
-   "at": "src/game/hud.ts:2646"
+   "key": "за пределами улицы",
+   "at": "src/game/hud.ts:2642"
   },
   {
-   "key": "любит {0}",
+   "key": "{0} до {1}",
+   "at": "src/game/hud.ts:2645"
+  },
+  {
+   "key": "Сегодня",
+   "at": "src/game/hud.ts:2653"
+  },
+  {
+   "key": "Зашла",
+   "at": "src/game/hud.ts:2655"
+  },
+  {
+   "key": "Зашёл",
+   "at": "src/game/hud.ts:2655"
+  },
+  {
+   "key": "<div class=\"decision no\"><small>{0} · {1} {2}</small>Не {3}: {4}{5}</div>",
    "at": "src/game/hud.ts:2656"
   },
   {
-   "key": "не любит {0}",
+   "key": " — {0} {1}, {2} до {3}",
    "at": "src/game/hud.ts:2657"
   },
   {
+   "key": "готова",
+   "at": "src/game/hud.ts:2657"
+  },
+  {
+   "key": "готов",
+   "at": "src/game/hud.ts:2657"
+  },
+  {
+   "key": "\n      <div class=\"card-head\">\n        {0}\n        <div><b>{1}</b><small>{2}</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button>\n      </div>\n      <div class=\"status\">{3}</div>\n      {4}\n      {5}\n      <div class=\"facts\"><div>{6}</div>{7}<div>{8}</div>{9}<div>{10} платить: {11}</div></div>\n      {12}\n      <ul class=\"schedule\">{13}</ul>",
+   "at": "src/game/hud.ts:2669"
+  },
+  {
+   "key": "Знает о твоём кафе",
+   "at": "src/game/hud.ts:2678"
+  },
+  {
+   "key": "<b class=\"oos\">Не знает о твоём кафе</b>",
+   "at": "src/game/hud.ts:2678"
+  },
+  {
+   "key": "Готова",
+   "at": "src/game/hud.ts:2678"
+  },
+  {
+   "key": "Готов",
+   "at": "src/game/hud.ts:2678"
+  },
+  {
+   "key": "<div>Зал отчасти по душе: есть вещи в его вкусе</div>",
+   "at": "src/game/hud.ts:2689"
+  },
+  {
+   "key": "<div>Зал по душе: {0}</div>",
+   "at": "src/game/hud.ts:2691"
+  },
+  {
+   "key": "<div>Зал «{0}» отчасти по душе</div>",
+   "at": "src/game/hud.ts:2692"
+  },
+  {
+   "key": "<div>Зал «{0}» — не по вкусу</div>",
+   "at": "src/game/hud.ts:2692"
+  },
+  {
+   "key": "любит {0}",
+   "at": "src/game/hud.ts:2702"
+  },
+  {
+   "key": "не любит {0}",
+   "at": "src/game/hud.ts:2703"
+  },
+  {
    "key": "ест всё",
-   "at": "src/game/hud.ts:2658"
+   "at": "src/game/hud.ts:2704"
   },
   {
    "key": "<li class=\"{0}\"><span>День {1}</span>{2}{3}</li>",
-   "at": "src/game/hud.ts:2663"
+   "at": "src/game/hud.ts:2709"
   },
   {
    "key": "<div class=\"character\">\n        {0}\n        <div class=\"taste\"><span>Вкус:</span> {1}</div>\n        {2}\n      </div>",
-   "at": "src/game/hud.ts:2666"
+   "at": "src/game/hud.ts:2712"
   },
   {
    "key": "<div class=\"taste\"><span>Помнит о твоём кафе:</span></div><ul class=\"memory\">{0}</ul>",
-   "at": "src/game/hud.ts:2669"
+   "at": "src/game/hud.ts:2715"
   },
   {
    "key": "Это не файл игры",
@@ -3017,6 +3033,174 @@
    "at": "src/sim/character.ts:184"
   },
   {
+   "key": "Новости Кленовой",
+   "at": "src/sim/chronicle.ts:37"
+  },
+  {
+   "key": "Вести Делового квартала",
+   "at": "src/sim/chronicle.ts:38"
+  },
+  {
+   "key": "Очередь отпугивает прохожих",
+   "at": "src/sim/chronicle.ts:45"
+  },
+  {
+   "key": "{0} жители заглядывали и уходили, не дождавшись.",
+   "at": "src/sim/chronicle.ts:46"
+  },
+  {
+   "key": "{0} жители заглядывали и уходили, не дождавшись. Тяжелее всего — около {1}:00.",
+   "at": "src/sim/chronicle.ts:46"
+  },
+  {
+   "key": "«Дороговато»",
+   "at": "src/sim/chronicle.ts:48"
+  },
+  {
+   "key": "{0} жители смотрели на ценник и шли мимо.",
+   "at": "src/sim/chronicle.ts:48"
+  },
+  {
+   "key": "Поцеловали замок",
+   "at": "src/sim/chronicle.ts:51"
+  },
+  {
+   "key": "{0} приходили, а кафе закрыто.",
+   "at": "src/sim/chronicle.ts:52"
+  },
+  {
+   "key": "{0} приходили, а кафе закрыто. Чаще всего — около {1}:00.",
+   "at": "src/sim/chronicle.ts:52"
+  },
+  {
+   "key": "Пустые полки",
+   "at": "src/sim/chronicle.ts:54"
+  },
+  {
+   "key": "{0} гостю не хватило продуктов на заказ.",
+   "at": "src/sim/chronicle.ts:54"
+  },
+  {
+   "key": "Уходят к соседям",
+   "at": "src/sim/chronicle.ts:55"
+  },
+  {
+   "key": "{0} жители выбрали конкурента.",
+   "at": "src/sim/chronicle.ts:55"
+  },
+  {
+   "key": "Искали в меню — не нашли",
+   "at": "src/sim/chronicle.ts:56"
+  },
+  {
+   "key": "{0} гости не нашли то, за чем пришли.",
+   "at": "src/sim/chronicle.ts:56"
+  },
+  {
+   "key": "{0} за стойкой никого не было.",
+   "at": "src/sim/chronicle.ts:57"
+  },
+  {
+   "key": "раз",
+   "at": "src/sim/chronicle.ts:67"
+  },
+  {
+   "key": "раза",
+   "at": "src/sim/chronicle.ts:67"
+  },
+  {
+   "key": " (не успели решить)",
+   "at": "src/sim/chronicle.ts:71"
+  },
+  {
+   "key": "Знакомые лица",
+   "at": "src/sim/chronicle.ts:103"
+  },
+  {
+   "key": "Случай недели",
+   "at": "src/sim/chronicle.ts:108"
+  },
+  {
+   "key": "{0} — место встречи",
+   "at": "src/sim/chronicle.ts:126"
+  },
+  {
+   "key": "За неделю постоянные гости {0} приводили с собой знакомых.",
+   "at": "src/sim/chronicle.ts:127"
+  },
+  {
+   "key": "О кафе говорят",
+   "at": "src/sim/chronicle.ts:136"
+  },
+  {
+   "key": "Число жителей, которые знают о кафе, выросло на {0}: теперь их {1}.",
+   "at": "src/sim/chronicle.ts:138"
+  },
+  {
+   "key": "За первую неделю о кафе узнали {0} жителей района.",
+   "at": "src/sim/chronicle.ts:139"
+  },
+  {
+   "key": "Акция у {0}",
+   "at": "src/sim/chronicle.ts:147"
+  },
+  {
+   "key": "{0} из 7 дней конкурент снижал цены. За неделю у него было {1} гостей, у вас — {2}.",
+   "at": "src/sim/chronicle.ts:148"
+  },
+  {
+   "key": "Новый хит — {0}",
+   "at": "src/sim/chronicle.ts:159"
+  },
+  {
+   "key": "Хит недели — {0}",
+   "at": "src/sim/chronicle.ts:159"
+  },
+  {
+   "key": "{0} за неделю, обогнали «{1}».",
+   "at": "src/sim/chronicle.ts:160"
+  },
+  {
+   "key": "{0} за неделю — больше всего в меню.",
+   "at": "src/sim/chronicle.ts:160"
+  },
+  {
+   "key": "утренний кофе по дороге к метро",
+   "at": "src/sim/chronicle.ts:167"
+  },
+  {
+   "key": "обеденный перерыв",
+   "at": "src/sim/chronicle.ts:167"
+  },
+  {
+   "key": "вечерние посиделки",
+   "at": "src/sim/chronicle.ts:167"
+  },
+  {
+   "key": "Самый людный час — {0}:00",
+   "at": "src/sim/chronicle.ts:168"
+  },
+  {
+   "key": "Больше всего гостей приходит около {0}:00: {1}.",
+   "at": "src/sim/chronicle.ts:168"
+  },
+  {
+   "key": "Зимняя неделя",
+   "at": "src/sim/chronicle.ts:174"
+  },
+  {
+   "key": "{0} из 7 дней — снег или мороз: на улице меньше прохожих.",
+   "at": "src/sim/chronicle.ts:174"
+  },
+  {
+   "key": "Дождливая неделя",
+   "at": "src/sim/chronicle.ts:175"
+  },
+  {
+   "key": "{0} из 7 дней шёл дождь: на улице меньше прохожих.",
+   "at": "src/sim/chronicle.ts:175"
+  },
+  {
    "key": "понедельник",
    "at": "src/sim/clock.ts:26"
   },
@@ -3577,10 +3761,6 @@
    "at": "src/sim/events.ts:207"
   },
   {
-   "key": " (не успели решить)",
-   "at": "src/sim/events.ts:219"
-  },
-  {
    "key": "Обслужи 10 гостей",
    "at": "src/sim/firstSteps.ts:14"
   },
@@ -3638,155 +3818,155 @@
   },
   {
    "key": "Столик на двоих",
-   "at": "src/sim/interior.ts:71"
-  },
-  {
-   "key": "Стол на четверых",
-   "at": "src/sim/interior.ts:72"
-  },
-  {
-   "key": "Мягкий диван",
-   "at": "src/sim/interior.ts:73"
-  },
-  {
-   "key": "Стойка у окна с розетками",
-   "at": "src/sim/interior.ts:74"
-  },
-  {
-   "key": "Книжный шкаф",
-   "at": "src/sim/interior.ts:75"
-  },
-  {
-   "key": "Полка с настолками",
-   "at": "src/sim/interior.ts:76"
-  },
-  {
-   "key": "Большая монстера",
    "at": "src/sim/interior.ts:77"
   },
   {
-   "key": "Цветок в горшке",
+   "key": "Стол на четверых",
    "at": "src/sim/interior.ts:78"
   },
   {
-   "key": "Торшер",
+   "key": "Мягкий диван",
    "at": "src/sim/interior.ts:79"
   },
   {
-   "key": "Картина",
+   "key": "Стойка у окна с розетками",
    "at": "src/sim/interior.ts:80"
   },
   {
-   "key": "Часы",
+   "key": "Книжный шкаф",
    "at": "src/sim/interior.ts:81"
   },
   {
-   "key": "Коврик",
+   "key": "Полка с настолками",
    "at": "src/sim/interior.ts:82"
   },
   {
-   "key": "Обои в мелкий цветок",
+   "key": "Большая монстера",
+   "at": "src/sim/interior.ts:83"
+  },
+  {
+   "key": "Цветок в горшке",
    "at": "src/sim/interior.ts:84"
   },
   {
-   "key": "Красный кирпич",
+   "key": "Торшер",
    "at": "src/sim/interior.ts:85"
   },
   {
-   "key": "Белая штукатурка",
+   "key": "Картина",
    "at": "src/sim/interior.ts:86"
   },
   {
-   "key": "Зелёные панели с молдингами",
+   "key": "Часы",
    "at": "src/sim/interior.ts:87"
   },
   {
-   "key": "Тёплый паркет",
+   "key": "Коврик",
    "at": "src/sim/interior.ts:88"
   },
   {
-   "key": "Бетонный пол",
-   "at": "src/sim/interior.ts:89"
-  },
-  {
-   "key": "Светлый дуб",
+   "key": "Обои в мелкий цветок",
    "at": "src/sim/interior.ts:90"
   },
   {
-   "key": "Шахматная плитка",
+   "key": "Красный кирпич",
    "at": "src/sim/interior.ts:91"
   },
   {
-   "key": "Неоновая надпись",
+   "key": "Белая штукатурка",
+   "at": "src/sim/interior.ts:92"
+  },
+  {
+   "key": "Зелёные панели с молдингами",
    "at": "src/sim/interior.ts:93"
   },
   {
-   "key": "Лампы-лампочки над столами",
+   "key": "Тёплый паркет",
    "at": "src/sim/interior.ts:94"
   },
   {
-   "key": "Белый стеллаж с посудой",
+   "key": "Бетонный пол",
    "at": "src/sim/interior.ts:95"
   },
   {
-   "key": "Бумажный абажур",
+   "key": "Светлый дуб",
    "at": "src/sim/interior.ts:96"
   },
   {
-   "key": "Зеркало в раме",
+   "key": "Шахматная плитка",
    "at": "src/sim/interior.ts:97"
   },
   {
-   "key": "Люстра",
-   "at": "src/sim/interior.ts:98"
-  },
-  {
-   "key": "Полка с самоваром",
+   "key": "Неоновая надпись",
    "at": "src/sim/interior.ts:99"
   },
   {
-   "key": "Ёлка с игрушками",
+   "key": "Лампы-лампочки над столами",
    "at": "src/sim/interior.ts:100"
   },
   {
-   "key": "Гирлянда на окне",
+   "key": "Белый стеллаж с посудой",
    "at": "src/sim/interior.ts:101"
   },
   {
-   "key": "Кот на подоконнике",
+   "key": "Бумажный абажур",
    "at": "src/sim/interior.ts:102"
   },
   {
+   "key": "Зеркало в раме",
+   "at": "src/sim/interior.ts:103"
+  },
+  {
+   "key": "Люстра",
+   "at": "src/sim/interior.ts:104"
+  },
+  {
+   "key": "Полка с самоваром",
+   "at": "src/sim/interior.ts:105"
+  },
+  {
+   "key": "Ёлка с игрушками",
+   "at": "src/sim/interior.ts:106"
+  },
+  {
+   "key": "Гирлянда на окне",
+   "at": "src/sim/interior.ts:107"
+  },
+  {
+   "key": "Кот на подоконнике",
+   "at": "src/sim/interior.ts:108"
+  },
+  {
    "key": "Стандарт",
-   "at": "src/sim/interior.ts:166"
-  },
-  {
-   "key": "Два столика. Входит в открытие",
-   "at": "src/sim/interior.ts:167"
-  },
-  {
-   "key": "Уют",
    "at": "src/sim/interior.ts:172"
   },
   {
-   "key": "Диван, картина, цветы и коврик",
+   "key": "Два столика. Входит в открытие",
    "at": "src/sim/interior.ts:173"
   },
   {
-   "key": "Комфорт",
+   "key": "Уют",
    "at": "src/sim/interior.ts:178"
   },
   {
-   "key": "Больше мест, стойка с розетками для ноутбуков",
+   "key": "Диван, картина, цветы и коврик",
    "at": "src/sim/interior.ts:179"
   },
   {
+   "key": "Комфорт",
+   "at": "src/sim/interior.ts:184"
+  },
+  {
+   "key": "Больше мест, стойка с розетками для ноутбуков",
+   "at": "src/sim/interior.ts:185"
+  },
+  {
    "key": "Премиум",
-   "at": "src/sim/interior.ts:194"
+   "at": "src/sim/interior.ts:200"
   },
   {
    "key": "Полный зал: книжный шкаф, диван, стойка и все столы",
-   "at": "src/sim/interior.ts:195"
+   "at": "src/sim/interior.ts:201"
   },
   {
    "key": "Банк",
@@ -4693,72 +4873,72 @@
   },
   {
    "key": "Нет элемента {0}",
-   "at": "src/game/hud.ts:82",
+   "at": "src/game/hud.ts:83",
    "why": "arg:Error"
   },
   {
    "key": "гость",
-   "at": "src/game/hud.ts:1480",
+   "at": "src/game/hud.ts:1492",
    "why": "arg:plural"
   },
   {
    "key": "гостя",
-   "at": "src/game/hud.ts:1480",
+   "at": "src/game/hud.ts:1492",
    "why": "arg:plural"
   },
   {
    "key": "гостей",
-   "at": "src/game/hud.ts:1480",
+   "at": "src/game/hud.ts:1492",
    "why": "arg:plural"
   },
   {
    "key": "человек",
-   "at": "src/game/hud.ts:1512",
+   "at": "src/game/hud.ts:1524",
    "why": "arg:plural"
   },
   {
    "key": "человека",
-   "at": "src/game/hud.ts:1512",
+   "at": "src/game/hud.ts:1524",
    "why": "arg:plural"
   },
   {
    "key": "человек",
-   "at": "src/game/hud.ts:1512",
+   "at": "src/game/hud.ts:1524",
    "why": "arg:plural"
   },
   {
    "key": "прохожий",
-   "at": "src/game/hud.ts:1513",
+   "at": "src/game/hud.ts:1525",
    "why": "arg:plural"
   },
   {
    "key": "прохожих",
-   "at": "src/game/hud.ts:1513",
+   "at": "src/game/hud.ts:1525",
    "why": "arg:plural"
   },
   {
    "key": "прохожих",
-   "at": "src/game/hud.ts:1513",
+   "at": "src/game/hud.ts:1525",
    "why": "arg:plural"
   },
   {
    "key": "гость",
-   "at": "src/game/hud.ts:1543",
+   "at": "src/game/hud.ts:1555",
    "why": "arg:plural"
   },
   {
    "key": "гостя",
-   "at": "src/game/hud.ts:1543",
+   "at": "src/game/hud.ts:1555",
    "why": "arg:plural"
   },
   {
    "key": "гостей",
-   "at": "src/game/hud.ts:1543",
+   "at": "src/game/hud.ts:1555",
    "why": "arg:plural"
   },
   {
    "key": "Русский",
-   "at": "src/game/hud.ts:2099",
+   "at": "src/game/hud.ts:2142",
    "why": "marked"
   },
   {

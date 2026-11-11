@@ -55,6 +55,12 @@ export const STYLES: HallStyle[] = [
 
 export const hallStyle = (id: StyleId): HallStyle => STYLES.find((s) => s.id === id)!;
 
+/** Насколько стиль близок жителю: 1 — своя аудитория, homeShare — «Как дома», 0 — не его */
+function audienceShare(s: HallStyle, kind: ResidentKind): number {
+  if (s.audience === 'all') return INTERIOR.homeShare;
+  return s.audience.includes(kind) ? 1 : 0;
+}
+
 export interface Furniture {
   id: FurnitureId;
   name: string;
@@ -244,6 +250,8 @@ export const INTERIOR = {
   styleWord: 1.5,
   /** «Как дома» нравится всем, но впятеро слабее */
   homeShare: 0.2,
+  /** Смешанный зал: каждая вещь своего стиля даёт четверть от этой доли (все четыре своих — как 0,4 цельного стиля) */
+  partial: 0.4,
 } as const;
 
 export function canPlace(slotId: string, id: FurnitureId): boolean {
@@ -285,13 +293,23 @@ export class Interior {
     return best;
   }
 
-  /** Насколько зал по душе жителю этого типа: 0 — не его стиль, 1 — его, homeShare — «Как дома» */
+  /**
+   * Насколько зал по душе жителю этого типа, 0…1. Цельный стиль своей аудитории — 1 («Как дома» — homeShare).
+   * Смешанный зал тоже кому-то нравится: каждая вещь в стиле, близком жителю, даёт четверть от INTERIOR.partial
+   * (кроме «Как дома»).
+   * Берётся большее: цельность выигрывает, но смешивать стили — не ноль.
+   */
   styleFit(kind: ResidentKind): number {
+    let partial = 0;
+    // «Как дома» — общий фон, а не вкус: в смешанном зале его вещи не считаются
+    for (const s of STYLES) if (s.audience !== 'all') partial += (this.styleCount(s.id) / STYLE_SLOTS.length) * audienceShare(s, kind);
+    return Math.max(this.wholeFit(kind), partial * INTERIOR.partial);
+  }
+
+  /** Только цельный стиль: 1 — своя аудитория, homeShare — «Как дома», 0 — не его или стиля нет */
+  wholeFit(kind: ResidentKind): number {
     const id = this.style;
-    if (!id) return 0;
-    const s = hallStyle(id);
-    if (s.audience === 'all') return INTERIOR.homeShare;
-    return s.audience.includes(kind) ? 1 : 0;
+    return id ? audienceShare(hallStyle(id), kind) : 0;
   }
 
   likes(kind: ResidentKind): boolean {

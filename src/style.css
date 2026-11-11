@@ -3524,3 +3524,58 @@ button.small.danger {
   background: #e8f2ea;
   color: #2f6b3f;
 }
+
+/* Хроника района: еженедельная газета из событий симуляции */
+.chronicle {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffdf7;
+  box-shadow: inset 0 3px 0 #2b2f3a;
+}
+.chronicle-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed var(--line);
+}
+.chronicle-head b {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+}
+.chronicle-head small {
+  color: var(--muted);
+  white-space: nowrap;
+}
+.chronicle ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.chronicle li {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 6px;
+  align-items: start;
+}
+.chronicle li b {
+  display: block;
+  font-size: 14px;
+}
+.chronicle li small {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.chronicle.teaser p {
+  margin: 0 0 8px;
+  font-weight: 600;
+}

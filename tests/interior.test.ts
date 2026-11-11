@@ -154,6 +154,30 @@ describe('Стиль зала', () => {
     expect(sim.cafe.interior.styleFit('office')).toBe(INTERIOR.homeShare);
   });
 
+  it('смешанный зал отчасти нравится тем, чьи вещи в нём есть, но цельный стиль сильнее', () => {
+    const sim = new Simulation(1);
+    sim.openCafe();
+    sim.cash += 100_000;
+    expect(sim.cafe.interior.styleFit('remote')).toBe(0);
+    sim.placeFurniture('walls', 'walls-loft');
+    sim.placeFurniture('floor', 'floor-scandi');
+    sim.placeFurniture('feature', 'neon');
+    sim.placeFurniture('touch', 'paperlamp');
+    const hall = sim.cafe.interior;
+    expect(hall.style).toBe(null);
+    // Фрилансерам близки и лофт, и сканди: все четыре вещи их
+    expect(hall.styleFit('remote')).toBeCloseTo(INTERIOR.partial);
+    expect(hall.styleFit('youth')).toBeCloseTo(INTERIOR.partial / 2);
+    expect(hall.styleFit('office')).toBeCloseTo(INTERIOR.partial / 2);
+    expect(hall.styleFit('pensioner')).toBe(0);
+    expect(hall.wholeFit('remote')).toBe(0);
+    sim.placeFurniture('walls', 'walls-scandi');
+    expect(hall.style).toBe('scandi');
+    expect(hall.styleFit('office')).toBe(1);
+    // Лофтовая вещь осталась одна — молодёжи зал почти не близок
+    expect(hall.styleFit('youth')).toBeCloseTo(INTERIOR.partial / 4);
+  });
+
   it('стены и пол не продаются, только меняются; фирменные вещи — продаются', () => {
     const sim = new Simulation(1);
     sim.openCafe();

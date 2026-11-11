@@ -303,7 +303,7 @@ function styleSection(sim: Simulation): string {
   const nowName = now ? STYLES.find((st) => st.id === now)!.name : '';
   const head = now
     ? tr`<p class="hint-line">Стиль зала: <b>${nowName}</b> — нравится ${AUDIENCE_LABEL[now]}. Они чаще замечают кафе, садятся в зале и советуют его своим.</p>`
-    : tr`<p class="hint-line">Стиля пока нет. Стиль засчитывается с ${INTERIOR.styleNeed} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим.</p>`;
+    : tr`<p class="hint-line">Стиля пока нет. Стиль засчитывается с ${INTERIOR.styleNeed} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим. Смешанный зал тоже работает, но слабее: каждая вещь нравится своим понемногу.</p>`;
   const cards = STYLES.map((st) => {
     const n = hall.styleCount(st.id);
     const full = n === STYLE_SLOTS.length;
