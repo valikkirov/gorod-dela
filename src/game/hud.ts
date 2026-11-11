@@ -313,7 +313,7 @@ export class Hud {
   /** Конструктор своего блюда: null — закрыт */
   private dish: { base: BaseId | null; addIns: AddInId[]; name: string | null; price: number | null } | null = null;
   /** Игрок вводит название заведения; на это время игра на паузе */
-  private renaming: { resume: number } | null = null;
+  private renaming: { resume: number; draft: string } | null = null;
   /** Развернуть нижний лист на телефоне — подставляет main */
   onExpand: () => void = () => {};
   private confirmRestart = false;
@@ -407,6 +407,11 @@ export class Hud {
     this.panel.addEventListener('change', (ev) => this.onChange(ev));
     // Ушли со списка, ничего не выбрав, — догоняем отложенную пересборку
     this.panel.addEventListener('focusout', () => setTimeout(() => this.render(), 0));
+    // Набранное название помним: если панель пересоберётся (конец дня, событие), текст не пропадёт
+    this.panel.addEventListener('input', (ev) => {
+      const t = ev.target as HTMLInputElement;
+      if (t.dataset.action === 'rename-input' && this.renaming) this.renaming.draft = t.value;
+    });
     this.panel.addEventListener('keydown', (ev) => {
       const t = ev.target as HTMLElement;
       if (t.dataset.action !== 'rename-input') return;
@@ -638,10 +643,19 @@ export class Hud {
 
   // ——— Действия ———
 
+  /** Поле названия в фокусе, курсор в конце — можно сразу дописывать или стирать */
+  private focusRename(): void {
+    const input = this.panel.querySelector<HTMLInputElement>('input[data-action="rename-input"]');
+    if (!input) return;
+    input.focus();
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  }
+
   private finishRename(save: boolean): void {
     if (!this.renaming) return;
     const input = this.panel.querySelector<HTMLInputElement>('input[data-action="rename-input"]');
-    if (save && input) this.sim.cafe.rename(input.value);
+    if (save) this.sim.cafe.rename(input?.value ?? this.renaming.draft);
     const resume = this.renaming.resume;
     this.renaming = null;
     this.setSpeed(resume || 1);
@@ -650,7 +664,8 @@ export class Hud {
 
   private onClick(ev: Event): void {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
-    if (!btn || btn.tagName === 'SELECT') return;
+    // Нажатие в поле ввода или списке — не действие: пересборка панели сбросила бы набранный текст и курсор
+    if (!btn || btn.tagName === 'SELECT' || btn.tagName === 'INPUT' || btn.tagName === 'TEXTAREA') return;
     const { action, item } = btn.dataset;
     const sim = this.sim;
     switch (action) {
@@ -806,10 +821,10 @@ export class Hud {
         this.onExpand();
         return;
       case 'rename':
-        this.renaming = { resume: this.speed };
+        this.renaming = { resume: this.speed, draft: sim.cafe.title };
         this.setSpeed(0);
         this.render(true);
-        this.panel.querySelector<HTMLInputElement>('input[data-action="rename-input"]')?.focus();
+        this.focusRename();
         return;
       case 'rename-save':
         this.finishRename(true);
@@ -1145,7 +1160,10 @@ export class Hud {
     }
     if (!editing && (force || html !== this.lastHtml)) {
       this.lastHtml = html;
+      // Пересборка во время ввода названия (конец дня, событие) не должна выбивать из поля
+      const typing = document.activeElement instanceof HTMLInputElement && document.activeElement.dataset.action === 'rename-input';
       this.panel.innerHTML = html;
+      if (typing && this.renaming) this.focusRename();
       const viewKey = this.sim.bankrupt ? 'bankrupt' : `${this.sim.cafe.opened}:${this.view}:${this.selected?.id ?? ''}:${this.selectedPlace?.id ?? ''}`;
       if (viewKey !== this.lastView) this.panel.scrollTop = 0;
       this.lastView = viewKey;
@@ -1558,7 +1576,7 @@ export class Hud {
     this.liveClass['biz-result'] = running >= 0 ? 'pos' : 'neg';
     const name = this.renaming
       ? tr`<div class="rename">
-          <input data-action="rename-input" maxlength="${CAFE_NAME_MAX}" value="${escapeHtml(cafe.title)}" aria-label="Название заведения" enterkeyhint="done" />
+          <input data-action="rename-input" maxlength="${CAFE_NAME_MAX}" value="${escapeHtml(this.renaming.draft)}" aria-label="Название заведения" enterkeyhint="done" />
           <button class="small" data-action="rename-save">Готово</button>
           <button class="icon" data-action="rename-cancel" aria-label="Отмена">✕</button>
         </div>`
