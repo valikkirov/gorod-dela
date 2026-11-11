@@ -1744,7 +1744,7 @@ export class Hud {
           <button class="small" data-action="owner-on">Добавить часы</button></div>`;
     return tr`<ul class="menu staff"><li class="staff-card owner">
       <div class="row"><div class="grow"><b>Ты · владелец</b><small data-live="owner-status"></small></div></div>
-      <small>Бесплатно, ${pace}, не больше ${ECONOMY.ownerHours} ч в день. ${alone ? '' : L('По умолчанию — когда никого из персонала нет.')}</small>
+      <small>Бесплатно, ${pace}, не больше ${ECONOMY.ownerHours} ч в день. ${alone ? '' : L('По\u00a0умолчанию\u00a0— когда никого из\u00a0персонала нет.')}</small>
       <p class="hint-line">Сегодня за стойкой: <b data-live="owner-hours"></b> из ${ECONOMY.ownerHours} ч</p>
       ${extra}
     </li></ul>`;
