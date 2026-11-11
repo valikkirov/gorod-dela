@@ -38,6 +38,7 @@ const REASON_WHY: Record<RejectReason, string> = {
   rival: tr`ушли к конкуренту`,
   taste: tr`не их вкус`,
   'no-staff': tr`некому было обслужить`,
+  company: tr`компания коллег решила иначе`,
 };
 
 /** Кому: «Студентам дорого» */

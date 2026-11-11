@@ -56,6 +56,7 @@ const REASON_SHORT: Record<RejectReason, string> = {
   rival: L('к конкуренту'),
   taste: L('не его вкус'),
   'no-staff': L('некому обслужить'),
+  company: L('компания против'),
 };
 
 const FONT = 'Inter, system-ui, sans-serif';

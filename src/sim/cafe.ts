@@ -44,7 +44,9 @@ export type RejectReason =
   | 'unaware'
   | 'rival'
   | 'taste'
-  | 'no-staff';
+  | 'no-staff'
+  /** Компания коллег решила обедать в другом месте */
+  | 'company';
 
 export const REJECT_LABEL: Record<RejectReason, string> = {
   'not-open': L('Кафе ещё не открыто'),
@@ -60,6 +62,7 @@ export const REJECT_LABEL: Record<RejectReason, string> = {
   rival: L('Ушёл к конкуренту'),
   taste: L('Не\u00a0его вкус'),
   'no-staff': L('Некому обслужить'),
+  company: L('Компания решила иначе'),
 };
 
 /** Расход на продукты за день: продано по себестоимости + испортилось + продукты под заказ */
@@ -204,6 +207,13 @@ export const MAX_MENU = 8;
 export const MAX_QUEUE = 6;
 /** На сколько каждая категория меню сверх трёх замедляет обслуживание */
 export const MENU_SLOWDOWN = 0.15;
+
+/**
+ * Специализация: в меню не больше maxKinds категорий — точку знают как «ту самую кофейню».
+ * Кто хочет её категорию, заходит охотнее (pull), утром в пик (peakFrom…peakTo) руки набиты — обслуживание быстрее
+ * (speed), а довольный гость чаще советует (word). Широкое меню остаётся сильным, но не во всём.
+ */
+export const SPECIALTY = { maxKinds: 3, pull: 0.25, speed: 0.8, peakFrom: 7 * 60, peakTo: 10 * 60, word: 1 } as const;
 
 /** Категория позиции каталога или своего блюда */
 export function kindOf(id: string): ItemKind {
@@ -804,6 +814,12 @@ export class Cafe {
     const base = this.baristas > 0 ? 2 : 4;
     const terminal = this.has('terminal') ? UPGRADE_EFFECT.terminalService : 1;
     return (this.has('machine') ? base * UPGRADE_EFFECT.machineService : base) * terminal * this.serviceFactor * this.menuSlowdown;
+  }
+
+  /** Специализация: категории меню, если их не больше SPECIALTY.maxKinds; иначе null */
+  get specialty(): Set<ItemKind> | null {
+    const kinds = new Set(this.menu.map((m) => m.kind));
+    return kinds.size > 0 && kinds.size <= SPECIALTY.maxKinds ? kinds : null;
   }
 
   /** Широкое меню медленнее готовить: каждая категория сверх трёх — +15 % ко времени на гостя */

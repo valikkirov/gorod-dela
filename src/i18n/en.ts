@@ -1261,5 +1261,21 @@ export const EN: Record<string, string> = {
  "🤝 Обеды для «Севера» по договору: {0} × {1}, +{2}. Стойка была занята {3} мин": "🤝 Contract lunches for “Sever”: {0} × {1}, +{2}. The counter was busy for {3} min",
  "🤝 Договор с «Севером» закончился: {0} заказов, +{1}": "🤝 The contract with “Sever” has ended: {0} orders, +{1}",
  "🤝 «Север» расторг договор: в 11:00 кафе было закрыто уже {0} раза": "🤝 “Sever” cancelled the contract: the café was closed at 11:00 {0} times",
- "🤝 Заказ «Севера» сорван: в 11:00 кафе закрыто, продукты пропали. Ещё срыв — и договор расторгнут": "🤝 “Sever” order missed: the café was closed at 11:00, the supplies went to waste. One more miss and the contract is cancelled"
+ "🤝 Заказ «Севера» сорван: в 11:00 кафе закрыто, продукты пропали. Ещё срыв — и договор расторгнут": "🤝 “Sever” order missed: the café was closed at 11:00, the supplies went to waste. One more miss and the contract is cancelled",
+ "\n      <div class=\"card-head\">\n        {0}\n        <div><b>{1}</b><small>{2}</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button>\n      </div>\n      <div class=\"status\">{3}</div>\n      {4}\n      {5}\n      <div class=\"facts\"><div>{6}</div>{7}<div>{8}</div>{9}{10}<div>{11} платить: {12}</div></div>\n      {13}\n      <ul class=\"schedule\">{14}</ul>": "\n      <div class=\"card-head\">\n        {0}\n        <div><b>{1}</b><small>{2}</small></div>\n        <button data-action=\"back\" aria-label=\"Close\">✕</button>\n      </div>\n      <div class=\"status\">{3}</div>\n      {4}\n      {5}\n      <div class=\"facts\"><div>{6}</div>{7}<div>{8}</div>{9}{10}<div>{11}: {12}</div></div>\n      {13}\n      <ul class=\"schedule\">{14}</ul>",
+ "компания против": "group said no",
+ "Обедают с коллегами, а большинству компании у тебя не по душе: дорого, не по пути или не их вкус. Понравится троим из четырёх — придут все": "They lunch with colleagues, and most of the group doesn't like your place: too pricey, off the way or not their taste. If three out of four like it, they all come",
+ "{0} {1} в меню — это специализация: за ними идут именно к вам (+{2} %), утром в пик обслуживание быстрее, а довольные гости чаще советуют знакомым. Четвёртая категория снимет специализацию и замедлит стойку.": "{0} {1} on the menu — that's a specialty: people come to you for them (+{2} %), service is faster in the morning rush, and happy guests recommend you more often. A fourth category removes the specialty and slows the counter.",
+ " · сегодня у тебя": " · today at your place",
+ " · сегодня не у тебя: {0}": " · not at your place today: {0}",
+ "<div>Обедает с коллегами: {0}{1}</div>": "<div>Has lunch with colleagues: {0}{1}</div>",
+ "компания коллег решила иначе": "the group of colleagues decided otherwise",
+ "Компания решила иначе": "The group decided otherwise",
+ "{0} и ещё {1}": "{0} and {1} more",
+ "большинству не по душе": "most of them don't like it",
+ "{0}: {1} теперь обедают у вас компанией": "{0}: {1} now have lunch at your place together",
+ "{0}: {1} сегодня обедают не у вас — {2}": "{0}: {1} are not having lunch at your place today — {2}",
+ "🏷️ {0} теряет гостей и отвечает: скидка {1} % всю следующую неделю": "🏷️ {0} is losing guests and fights back: {1} % off all next week",
+ "🕖 {0} теряет гостей и отвечает: следующую неделю работает до {1}": "🕖 {0} is losing guests and fights back: open until {1} all next week",
+ "📈 У {0} дела идут хорошо: на следующей неделе цены выше на {1} %": "📈 {0} is doing well: prices are {1} % higher next week"
 };

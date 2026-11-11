@@ -16,6 +16,7 @@ import {
   foodCost,
   foodLine,
   windowOn,
+  SPECIALTY,
 } from '../sim/cafe';
 import {
   dayNumber,
@@ -213,6 +214,7 @@ const REASON_HINT: Record<RejectReason, string> = {
   rival: tr`Готовы были зайти, но выбрали конкурента: у него дешевле, ближе по пути или нужная позиция`,
   taste: tr`Цена и дорога устраивали, но в меню не нашлось ничего на их вкус. Посмотри, что любят твои гости, в их карточках`,
   'no-staff': tr`Точка открыта, но за стойкой никого: ты отстоял свои ${ECONOMY.ownerHours} ч, а бариста не было. Найми бариста на эти часы или сократи часы работы`,
+  company: tr`Обедают с коллегами, а большинству компании у тебя не по душе: дорого, не по пути или не их вкус. Понравится троим из четырёх — придут все`,
 };
 
 const USUAL: Record<WantKind, string> = {
@@ -1166,7 +1168,7 @@ export class Hud {
       if (rival) {
         const opened = sim.today >= rival.opensDay;
         return tr`${head(rival.t.name, opened ? L('конкурент') : tr`конкурент откроется через ${rival.opensDay - sim.today} дн.`)}
-          <div class="facts"><div>${rival.t.pitch}</div><div>Часы: ${fmtMinute(rival.t.openAt)}–${fmtMinute(rival.t.closeAt)}</div><div>Цены: ${Object.entries(
+          <div class="facts"><div>${rival.t.pitch}</div><div>Часы: ${fmtMinute(rival.t.openAt)}–${fmtMinute(rival.closeAt(sim.today))}</div><div>Цены: ${Object.entries(
             rival.t.prices,
           )
             .map(([item, price]) => `${itemName(item)} ${money(price)}`)
@@ -1580,7 +1582,7 @@ export class Hud {
       : tr`<small>Следующая акция через ${rival.daysToPromo(day)} дн.</small>`;
     this.live['rival-today'] = String(rival.servedToday);
     return tr`<div class="rival"><div class="row"><b class="grow">Конкурент: ${t.name}</b>${rival.promo(day) ? promo : ''}</div>
-      <small>${t.pitch}. ${fmtMinute(t.openAt)}–${fmtMinute(t.closeAt)}.</small>
+      <small>${t.pitch}. ${fmtMinute(t.openAt)}–${fmtMinute(rival.closeAt(day))}.</small>
       <small>${menu}</small>
       <small>Сегодня у него гостей: <b data-live="rival-today"></b>${rival.promo(day) ? '' : ` · ${promo.replace(/<\/?small>/g, '')}`}</small></div>`;
   }
@@ -1717,7 +1719,7 @@ export class Hud {
     const pace =
       slow > 0
         ? tr`${n} ${word} в меню: стойка работает медленнее на ${slow} % — каждая категория сверх трёх добавляет 15 %.`
-        : tr`${n} ${word} в меню. Больше трёх — и стойка начнёт работать медленнее.`;
+        : tr`${n} ${word} в меню — это специализация: за ними идут именно к вам (+${Math.round(SPECIALTY.pull * 100)} %), утром в пик обслуживание быстрее, а довольные гости чаще советуют знакомым. Четвёртая категория снимет специализацию и замедлит стойку.`;
     return `${pace} ${deep}`;
   }
 
@@ -2687,9 +2689,25 @@ export class Hud {
       <div class="status">${status}</div>
       ${reg ? this.faceCard(reg, r) : ''}
       ${decision}
-      <div class="facts"><div>${home}</div>${work}<div>${r.aware ? tr`Знает о твоём кафе` : tr`<b class="oos">Не знает о твоём кафе</b>`}</div>${this.hallTaste(r)}<div>${f ? L('Готова') : L('Готов')} платить: ${budget}</div></div>
+      <div class="facts"><div>${home}</div>${work}<div>${r.aware ? tr`Знает о твоём кафе` : tr`<b class="oos">Не знает о твоём кафе</b>`}</div>${this.hallTaste(r)}${this.groupLine(r)}<div>${f ? L('Готова') : L('Готов')} платить: ${budget}</div></div>
       ${character}
       <ul class="schedule">${rows}</ul>`;
+  }
+
+  /** С кем обедает и что компания решила сегодня */
+  private groupLine(r: Resident): string {
+    const g = this.sim.groupFor(r.id);
+    if (!g) return '';
+    const others = g.group.members
+      .filter((id) => id !== r.id)
+      .map((id) => this.sim.residents[id].name.split(' ')[0])
+      .join(', ');
+    const today = g.today
+      ? g.today.go
+        ? tr` · сегодня у тебя`
+        : tr` · сегодня не у тебя: ${REJECT_LABEL[g.today.reason ?? 'company'].toLowerCase()}`
+      : '';
+    return tr`<div>Обедает с коллегами: ${others}${today}</div>`;
   }
 
   /** Нравится ли жителю стиль зала — видно в карточке */

@@ -1,10 +1,10 @@
 import { canPlace, FINISH_SLOTS, SEASON_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, STYLE_SLOTS, styleSet, type StyleId } from './interior';
-import { Cafe, CATALOG, hours24, ownerShiftText, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
+import { Cafe, CATALOG, hours24, ownerShiftText, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, SPECIALTY, type CafeSave, type Change, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
 import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
 import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
 import { tasteMatch } from './character';
 import { dayNumber, hm, isWeekend, MINUTES_PER_DAY, minuteOfDay, weekday } from './clock';
-import { evaluate, rejectReason, rollWant, type Want } from './demand';
+import { evaluate, rejectReason, rollWant, type Offer, type Want } from './demand';
 import { ECONOMY, EQUIPMENT, formatMoney, PREMISES, type EquipmentId, type PremisesId } from './economy';
 import { rateVisit, remember, type Memory } from './character';
 import { currentEntry, generateResidents, isFemale, type Resident, type ResidentKind, type ScheduleEntry } from './residents';
@@ -12,6 +12,7 @@ import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marke
 import { Rng } from './rng';
 import { INGREDIENTS, ingredient, recipeCost, recipeOf, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId } from './stock';
 import { Rival, RIVAL, type RivalSave } from './rival';
+import { formGroups, GROUP, votesNeeded, type Group, type GroupDay } from './groups';
 import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type Regular } from './regulars';
 import { FIRST_STEPS, STEP_GUESTS, STEP_REVENUE, type StepId } from './firstSteps';
 import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
@@ -76,6 +77,9 @@ export interface SaveData {
   lastEvent?: Partial<Record<EventId, number>>;
   /** Договор с офисом и счётчики для него (нет в старых сохранениях — значит, договора не было) */
   contract?: OfficeContract | null;
+  /** Компании коллег: итог сегодняшнего дня и ходили ли к вам в прошлый раз (для новостей) */
+  groupDay?: Record<number, GroupDay>;
+  groupWas?: Record<number, boolean>;
   officeOrders?: number;
   contractBan?: number;
   eventRng?: number;
@@ -196,6 +200,11 @@ export class Simulation {
   effects: Effect[] = [];
   /** Когда какое событие было в последний раз — чтобы не повторялись подряд */
   private lastEvent: Partial<Record<EventId, number>> = {};
+  /** Компании коллег: обедают вместе (sim/groups.ts) */
+  readonly groups: Group[];
+  private readonly groupOf = new Map<number, Group>();
+  private groupDay: Record<number, GroupDay> = {};
+  private groupWas: Record<number, boolean> = {};
   /** Договор с офисом «Север»: обеды каждый будний день */
   contract: OfficeContract | null = null;
   /** Сколько разовых заказов офиса выполнено — после первого офис предлагает договор */
@@ -318,6 +327,8 @@ export class Simulation {
     this.ownForecast = this.rollForecast(this.day + 1);
     this.residents = generateResidents(this.rng, seed, district);
     this.regulars = pickRegulars(this.residents);
+    this.groups = formGroups(this.residents);
+    for (const g of this.groups) for (const id of g.members) this.groupOf.set(id, g);
     for (const g of this.regulars) this.regularById.set(g.residentId, g);
     this.cafe.pricing = (price, minute) => this.marketing.priceAt(price, minute);
     this.applyDaySchedules();
@@ -361,6 +372,8 @@ export class Simulation {
       effects: this.effects,
       lastEvent: { ...this.lastEvent },
       contract: this.contract,
+      groupDay: this.groupDay,
+      groupWas: this.groupWas,
       officeOrders: this.officeOrders,
       contractBan: this.contractBan,
       eventRng: this.eventRng.snapshot,
@@ -425,6 +438,8 @@ export class Simulation {
     sim.effects = d.effects ?? [];
     sim.lastEvent = { ...(d.lastEvent ?? {}) };
     sim.contract = d.contract ?? null;
+    sim.groupDay = { ...(d.groupDay ?? {}) };
+    sim.groupWas = { ...(d.groupWas ?? {}) };
     sim.officeOrders = d.officeOrders ?? 0;
     sim.contractBan = d.contractBan ?? 0;
     if (d.eventRng !== undefined) sim.eventRng.snapshot = d.eventRng;
@@ -794,7 +809,10 @@ export class Simulation {
       else this.wander(r, dt);
     }
 
-    this.cafe.serviceFactor = this.effects.some((e) => e.type === 'broken' && e.slow && this.time < e.until) ? 1.5 : 1;
+    const broken = this.effects.some((e) => e.type === 'broken' && e.slow && this.time < e.until) ? 1.5 : 1;
+    // Специализация: утром в пик руки набиты — гостя обслуживают быстрее
+    const peak = this.cafe.specialty && minute >= SPECIALTY.peakFrom && minute < SPECIALTY.peakTo ? SPECIALTY.speed : 1;
+    this.cafe.serviceFactor = broken * peak;
     this.fulfilOrders(minute);
     const { sales, failed } = this.cafe.tick(dt, minute);
     for (const sale of sales) this.onSale(sale.residentId, sale.price, sale.itemId);
@@ -872,20 +890,19 @@ export class Simulation {
     // Открыто, но за стойкой никого: владелец отработал свои часы, бариста нет — видно издалека
     else if (cafe.unstaffed) reason = 'no-staff';
     else {
-      // Житель видит цены с учётом счастливых часов
-      const festive = this.holiday;
-      const menu = cafe.menu
-        .filter((m) => !this.blocked(m.kind))
-        .map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute), festive: festive && !!m.seasonal }));
-      const offer = evaluate(r, want, menu, r.pos, this.at(this.shopId).front, nearestFront(this.at(entry.placeId), r.pos), this.weather.kind);
+      const { offer, pP, pR } = this.chances(r, want, entry, minute);
       itemId = offer.item?.id;
       price = offer.item?.price;
-      const pP = offer.item ? Math.min(1, offer.p * this.boost * this.cozyPull(r, want)) : 0;
-      // Фирменное блюдо по вкусу есть только здесь — конкурент переманивает вдвое реже
-      const signature = offer.item && isDish(offer.item.id) && offer.match >= SIGNATURE_MATCH ? DISH_EFFECT.rivalPull : 1;
-      const pR = this.rivalChance(r, want, entry, minute) * signature;
+      const group = want.kind === 'lunch' && !isWeekend(this.day) ? this.groupOf.get(r.id) : undefined;
       if (!offer.item) reason = 'no-item';
-      else if (pR <= 0) {
+      else if (group) {
+        // Обедают компанией: решение общее, своё «зайти или нет» не бросают
+        const v = this.groupVote(group, want, entry, minute);
+        if (!v.go) {
+          reason = v.reason ?? 'company';
+          if (reason === 'rival' && this.rival) r.rivalVisit = { until: null, dwell: this.rival.t.seats ? want.dwell : 0 };
+        }
+      } else if (pR <= 0) {
         if (!this.rng.chance(pP)) reason = rejectReason(offer, r.budget[want.kind]);
       } else if (!this.rng.chance(1 - (1 - Math.min(1, pP)) * (1 - Math.min(1, pR)))) {
         reason = rejectReason(offer, r.budget[want.kind]);
@@ -916,6 +933,73 @@ export class Simulation {
     const visitWant = cafe.premises.seats ? want : { ...want, mode: 'stopover' as const, dwell: 0 };
     r.visit = { want: visitWant, itemId: itemId!, stage: 'going', until: 0, since: this.time };
     return true;
+  }
+
+  /** Компания жителя и её сегодняшнее решение (если уже решали) */
+  groupFor(residentId: number): { group: Group; today: GroupDay | null } | null {
+    const group = this.groupOf.get(residentId);
+    if (!group) return null;
+    const d = this.groupDay[group.id];
+    return { group, today: d && d.day === this.day ? d : null };
+  }
+
+  /** Насколько житель готов зайти к вам (pP) и к конкуренту (pR) и что он бы взял */
+  private chances(r: Resident, want: Want, entry: ScheduleEntry, minute: number): { offer: Offer; pP: number; pR: number } {
+    const cafe = this.cafe;
+    // Житель видит цены с учётом счастливых часов
+    const festive = this.holiday;
+    const menu = cafe.menu
+      .filter((m) => !this.blocked(m.kind))
+      .map((m) => ({ ...m, price: this.marketing.priceAt(m.price, minute), festive: festive && !!m.seasonal }));
+    const offer = evaluate(r, want, menu, r.pos, this.at(this.shopId).front, nearestFront(this.at(entry.placeId), r.pos), this.weather.kind);
+    // Специализация: за своей категорией идут именно сюда
+    const special = cafe.specialty?.has(want.kind) ? 1 + SPECIALTY.pull : 1;
+    const pP = offer.item ? Math.min(1, offer.p * this.boost * this.cozyPull(r, want) * special) : 0;
+    // Фирменное блюдо по вкусу есть только здесь — конкурент переманивает вдвое реже
+    const signature = offer.item && isDish(offer.item.id) && offer.match >= SIGNATURE_MATCH ? DISH_EFFECT.rivalPull : 1;
+    const pR = this.rivalChance(r, want, entry, minute) * signature;
+    return { offer, pP, pR };
+  }
+
+  /**
+   * Компания коллег решает за всех один раз в день: каждый «голосует» своим желанием зайти к вам или к конкуренту.
+   * Нравится большинству и очередь небольшая — идут все; иначе все идут к конкуренту (если большинство за него) или мимо.
+   */
+  private groupVote(g: Group, want: Want, entry: ScheduleEntry, minute: number): GroupDay {
+    const cached = this.groupDay[g.id];
+    if (cached && cached.day === this.day) return cached;
+    const members = g.members.map((id) => this.residents[id]);
+    // На работе говорят: знает один — знают все
+    if (members.some((m) => m.aware)) for (const m of members) if (!m.aware) this.learn(m, 'word');
+    let yes = 0;
+    let rival = 0;
+    for (const m of members) {
+      const c = this.chances(m, want, entry, minute);
+      if (c.offer.item && this.rng.chance(c.pP)) yes += 1;
+      else if (c.pR > 0 && this.rng.chance(c.pR)) rival += 1;
+    }
+    const need = votesNeeded(members.length);
+    let verdict: GroupDay;
+    if (yes >= need && this.cafe.busy < GROUP.queue) verdict = { day: this.day, go: true };
+    else if (yes >= need) verdict = { day: this.day, go: false, reason: 'queue' };
+    else if (rival >= need) verdict = { day: this.day, go: false, reason: 'rival' };
+    else verdict = { day: this.day, go: false, reason: 'company' };
+    this.groupDay[g.id] = verdict;
+    // Новость, когда компания впервые пришла или перестала ходить
+    const was = this.groupWas[g.id];
+    if (was !== undefined ? was !== verdict.go : verdict.go) {
+      const first = members.map((m) => m.name.split(' ')[0]);
+      const who = tr`${first.slice(0, 2).join(', ')} и\u00a0ещё ${first.length - 2}`;
+      const where = this.at(g.workId).name;
+      const why = verdict.reason === 'queue' ? L('очередь') : verdict.reason === 'rival' ? L('выбрали конкурента') : L('большинству не\u00a0по\u00a0душе');
+      this.addNews(
+        verdict.go
+          ? tr`${where}: ${who} теперь обедают у\u00a0вас компанией`
+          : tr`${where}: ${who} сегодня обедают не\u00a0у\u00a0вас\u00a0— ${why}`,
+      );
+    }
+    this.groupWas[g.id] = verdict.go;
+    return verdict;
   }
 
   /** Уютный зал тянет: посидеть идут охотнее, чем взять с собой; любимая вещь в зале — ещё немного */
@@ -1009,7 +1093,9 @@ export class Simulation {
       }
     }
     // Постоянный гость рассказывает соседу, коллеге или другу
-    const cozyWord = hall ? (1 + INTERIOR.wordBoost * hall.cozyLevel) * (1 + INTERIOR.styleWord * hall.styleFit(r.kind)) : 1;
+    const cozyWord =
+      (hall ? (1 + INTERIOR.wordBoost * hall.cozyLevel) * (1 + INTERIOR.styleWord * hall.styleFit(r.kind)) : 1) *
+      (this.cafe.specialty?.has(item.kind) ? 1 + SPECIALTY.word : 1);
     if (r.loyalty >= 0.3 && this.rng.chance(MARKETING.wordChance * cozyWord)) {
       const friends = this.residents.filter(
         (o) => !o.aware && (o.homeId === r.homeId || (r.workId !== null && o.workId === r.workId) || o.kind === r.kind),
@@ -1307,7 +1393,12 @@ export class Simulation {
       this.cafe.today.rivalGuests = this.rival.servedToday;
       this.cafe.today.rivalPromo = this.rival.promo(this.day);
     }
-    if (this.rival) this.rival.servedToday = 0;
+    if (this.rival) {
+      // Конец недели конкурента: теряет гостей — отвечает, дела идут хорошо — поднимает цены
+      const late = this.cafe.opened && this.cafe.closeAt > this.rival.t.closeAt;
+      const move = this.rival.endDay(this.day, late);
+      if (move) (this.cafe.today.events ??= []).push(move);
+    }
     // Не успели решить — срабатывает вариант по умолчанию
     if (this.pendingEvent) this.applyChoice(card(this.pendingEvent).fallback, true);
     this.effects = this.effects.filter((e) => !(e.type === 'boost' && e.day <= this.day) && !(e.type === 'broken' && e.until <= nextDay * MINUTES_PER_DAY - MINUTES_PER_DAY));

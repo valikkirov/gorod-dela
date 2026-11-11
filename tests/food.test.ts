@@ -18,7 +18,7 @@ describe('Итог дня по себестоимости, а не по заку
     const b = new Simulation(2);
     a.openCafe();
     b.openCafe();
-    b.cafe.stock.order('beans', 200);
+    b.cafe.stock.order('beans', 300);
     a.advance(2 * 24 * 60);
     b.advance(2 * 24 * 60);
     const ra = a.reports[1];
