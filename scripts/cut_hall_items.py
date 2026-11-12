@@ -7,7 +7,10 @@ Ideogram 4.5 «добавь только одну вещь». Вещь ложи�
 Непрозрачность — по силе отличия: сама вещь плотная, свечение вокруг неё (неон, лампы) — полупрозрачное,
 поэтому ложится и на кирпич, и на белую стену.
 
-Выход: src/game/art/hall3/item-<id>.webp и src/game/hallItems.ts (рамка каждой вещи в пикселях комнаты).
+Вещи на стене над диваном и светильники нарисованы в обставленном зале (furnished.png), см. FURNISHED и TOUCH.
+Светильники висят вместо штатных ламп: их прячут заплатки стены без ламп (art-src/v2/hall3/nolamp/<отделка>.png).
+
+Выход: src/game/art/hall3/item-<id>.webp, nolamp-<отделка>.webp и src/game/hallItems.ts (рамка каждой вещи в пикселях комнаты).
 """
 from pathlib import Path
 import sys
@@ -24,14 +27,95 @@ OUT = ROOT / 'src' / 'game' / 'art' / 'hall3'
 TS = ROOT / 'src' / 'game' / 'hallItems.ts'
 
 
+# Вещи на стене над диваном (место «акцент»): нарисованы в обставленном зале (furnished.png — та же комната
+# с мебелью «Премиум» без картины и часов), чтобы встали в свободное место и не залезали на шкаф и доску
+FURNISHED = {'mirror', 'neon', 'samovar', 'rack'}
+# Светильники (место «штрих»): висят вместо двух штатных ламп на тех же шнурах. Штатные лампы прячет заплатка
+# стены без ламп (nolamp-*.webp) — своя для каждой отделки стен
+TOUCH = {'paperlamp', 'pendants', 'chandelier'}
+# Где вещам «акцента» можно быть: стена над диваном (в пикселях 1024×768)
+FEATURE_BOX = (236, 96, 420, 300)
+WALLS = ['default', 'loft', 'scandi', 'classic', 'home']
+
+
+def diff(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    return np.abs(blur(a) - blur(b)).sum(2)
+
+
+def rgb(path: Path) -> np.ndarray:
+    return np.asarray(Image.open(path).convert('RGB').resize((1024, 768))).astype(np.int32)
+
+
+def save(img: np.ndarray, a: np.ndarray, name: str, box) -> tuple[int, int, int, int]:
+    bx, by = box[0], box[1]
+    a[:by] = 0
+    ys, xs = np.nonzero(a > 0.02)
+    x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+    out = np.dstack([img.astype(np.uint8), (a * 255).astype(np.uint8)])[y0:y1, x0:x1]
+    Image.fromarray(out).save(OUT / f'{name}.webp', quality=92)
+    return (int(x0 - bx), int(y0 - by), int(x1 - x0), int(y1 - y0))
+
+
+def lamps(clean: np.ndarray, nolamp: np.ndarray) -> np.ndarray:
+    """Где штатные лампы со шнурами: разница пустой комнаты и той же комнаты без ламп"""
+    m = diff(clean, nolamp) > 30
+    m = nd.binary_opening(m, iterations=1)
+    m[300:] = False
+    return nd.binary_dilation(m, iterations=3)
+
+
+def patches(box) -> None:
+    """Заплатки стены без штатных ламп: слой размером с комнату для каждой отделки"""
+    bx, by, bx1, by1 = box
+    for w in WALLS:
+        orig = load('empty-clean') if w == 'default' else rgb(SRC.parent / 'style' / f'walls-{w}.png')
+        free = rgb(SRC.parent / 'nolamp' / f'{w}.png')
+        m = lamps(orig, free)
+        a = nd.gaussian_filter(m.astype(float), 1.0).clip(0, 1)
+        out = np.dstack([free.astype(np.uint8), (a * 255).astype(np.uint8)])[by:by1, bx:bx1]
+        Image.fromarray(out).save(OUT / f'nolamp-{w}.webp', quality=92)
+
+
 def main() -> None:
-    _, (bx, by, bx1, by1) = room(load('empty'))
+    _, box = room(load('empty'))
+    bx, by = box[0], box[1]
     clean = load('empty-clean')
+    furnished = load('furnished')
+    free = rgb(SRC.parent / 'nolamp' / 'default.png')
+    old = lamps(clean, free)
+    patches(box)
     frames = {}
     for f in sorted(SRC.glob('*.png')):
-        img = np.asarray(Image.open(f).convert('RGB')).astype(np.int32)
-        d = np.abs(blur(img) - blur(clean)).sum(2)
+        img = rgb(f)
+        if f.stem in TOUCH:
+            # Новая лампа (отличие от зала) и шнур на месте старой (всё, что не голая стена)
+            new = diff(img, furnished) > 45
+            new = nd.binary_opening(new, iterations=1)
+            new[320:] = False
+            # Только у штатных ламп: остальное модель могла чуть перерисовать
+            new &= nd.binary_dilation(old, iterations=40)
+            # Там, где был старый плафон, модель нарисовала голую стену — её не берём: только то, что не стена
+            bare = diff(img, free)
+            new &= bare > 60
+            # Шнур — тёмная тонкая линия на месте старого
+            lum = img.mean(2)
+            keep = new | (old & (bare > 40) & (lum < 110))
+            keep = nd.binary_fill_holes(nd.binary_closing(keep, iterations=2))
+            a = np.maximum(keep.astype(float) * 1.0, nd.gaussian_filter(keep.astype(float), 0.8))
+            # Без ореола: он вырезан с обычной стены и на кирпиче или обоях лёг бы бежевым пятном
+            frames[f.stem] = save(img, a, f'item-{f.stem}', box)
+            print(f.stem, frames[f.stem])
+            continue
+        base = furnished if f.stem in FURNISHED else clean
+        d = diff(img, base)
         core = d > 45
+        if f.stem in FURNISHED:
+            x0, y0, x1, y1 = FEATURE_BOX
+            clip = np.zeros_like(core)
+            clip[y0:y1, x0:x1] = True
+            core &= clip
+            # Штатная лампа рядом нарисована заново поверх вещи — она уже есть в комнате
+            core &= ~old
         core = nd.binary_opening(core, iterations=1)
         lab, n = nd.label(core)
         if not n:
@@ -42,14 +126,14 @@ def main() -> None:
         keep = nd.binary_fill_holes(nd.binary_closing(keep, iterations=3))
         # Ореол: слабое отличие рядом с вещью — свечение и тень, полупрозрачно
         near = nd.binary_dilation(keep, iterations=14)
+        if f.stem in FURNISHED:
+            near &= ~old
+            # Ореол — только у неона (это его свечение); у остальных он лёг бы пятном обычной стены на другую отделку
+            if f.stem != 'neon':
+                near &= False
         a = np.where(keep, 1.0, np.clip((d - 12) / 60, 0, 0.85) * near)
         a = np.maximum(a, nd.gaussian_filter(keep.astype(float), 0.8) * keep.max())
-        a[: by] = 0
-        ys, xs = np.nonzero(a > 0.02)
-        x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
-        out = np.dstack([img.astype(np.uint8), (a * 255).astype(np.uint8)])[y0:y1, x0:x1]
-        Image.fromarray(out).save(OUT / f'item-{f.stem}.webp', quality=92)
-        frames[f.stem] = (int(x0 - bx), int(y0 - by), int(x1 - x0), int(y1 - y0))
+        frames[f.stem] = save(img, a, f'item-{f.stem}', box)
         print(f.stem, frames[f.stem])
     lines = ['// Сгенерировано scripts/cut_hall_items.py — не править руками',
              '/** Фирменные вещи и декор зала: x, y, w, h в пикселях комнаты */',

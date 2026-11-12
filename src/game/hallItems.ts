@@ -2,13 +2,13 @@
 /** Фирменные вещи и декор зала: x, y, w, h в пикселях комнаты */
 export const HALL_ITEMS: Record<string, [number, number, number, number]> = {
   cat: [732, 247, 77, 59],
-  chandelier: [377, 78, 157, 122],
+  chandelier: [212, 22, 276, 152],
   garland: [44, 66, 134, 280],
-  mirror: [286, 40, 137, 204],
-  neon: [291, 94, 124, 49],
-  paperlamp: [380, 25, 171, 247],
-  pendants: [385, 13, 159, 238],
-  rack: [256, 80, 172, 137],
-  samovar: [290, 60, 178, 156],
+  mirror: [277, 57, 87, 120],
+  neon: [276, 64, 114, 125],
+  paperlamp: [223, 22, 255, 152],
+  pendants: [215, 22, 263, 152],
+  rack: [248, 86, 117, 104],
+  samovar: [284, 47, 82, 101],
   tree: [690, 275, 168, 268],
 };

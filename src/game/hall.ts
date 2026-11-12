@@ -57,12 +57,20 @@ const SEATED: FurnitureId[] = ['table2', 'table4', 'sofa', 'bar'];
 
 const isFinish = (f: FurnitureId): boolean => f.startsWith('walls-') || f.startsWith('floor-');
 
+/** Светильники «штриха» висят вместо штатных ламп: те прячет заплатка стены без ламп */
+const LIGHTS: FurnitureId[] = ['paperlamp', 'pendants', 'chandelier'];
+
 function finishHtml(layout: Partial<Record<string, FurnitureId>>): string {
-  return ['walls', 'floor']
+  const layers = ['walls', 'floor']
     .map((slot) => layout[slot])
     .filter((f): f is FurnitureId => !!f && !!ART[`./art/hall3/${f}.webp`])
-    .map((f) => `<img class="hall-finish" src="${art(f)}" alt="">`)
-    .join('');
+    .map((f) => `<img class="hall-finish" src="${art(f)}" alt="">`);
+  if (layout.touch && LIGHTS.includes(layout.touch)) {
+    const walls = layout.walls?.replace('walls-', '') ?? 'default';
+    const patch = art(`nolamp-${walls}`) ?? art('nolamp-default');
+    layers.push(`<img class="hall-finish" src="${patch}" alt="">`);
+  }
+  return layers.join('');
 }
 
 /** Висят над залом — поверх стены и вещей на стене; остальное стоит на полу и сортируется по глубине */
@@ -72,7 +80,8 @@ function itemHtml(slot: string, f: FurnitureId, sel: boolean, live: boolean): st
   const fr = HALL_ITEMS[f];
   if (!fr) return '';
   const [x, y, w, h] = fr;
-  const z = HANGING.includes(f) ? 3 : 10 + y + h;
+  // Светильники висят под потолком перед стеной и шкафом; вещи на стене — за мебелью
+  const z = LIGHTS.includes(f) ? 900 : HANGING.includes(f) ? 3 : 10 + y + h;
   const act = live ? ` data-action="hall-slot" data-item="${slot}"` : '';
   return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(`item-${f}`)}" alt="${live ? furniture(f).name : ''}"${act}
     style="left:${pct(x, HALL_ROOM.w)};top:${pct(y, HALL_ROOM.h)};width:${pct(w, HALL_ROOM.w)};z-index:${z}">`;
