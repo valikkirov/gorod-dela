@@ -1378,5 +1378,6 @@ export const EN: Record<string, string> = {
  "<div>По пятницам вечером сидит с друзьями: {0}{1}</div>": "<div>Friday nights out with friends: {0}{1}</div>",
  "компания решила иначе": "the group decided otherwise",
  "🍻 {0} теперь собираются у вас по пятницам": "🍻 {0} now meet at your place on Fridays",
- "🍻 {0} в эту пятницу сидят не у вас — {1}": "🍻 {0} are not at your place this Friday — {1}"
+ "🍻 {0} в эту пятницу сидят не у вас — {1}": "🍻 {0} are not at your place this Friday — {1}",
+ "Не хватает {0}": "Short by {0}"
 };

@@ -1193,6 +1193,7 @@ export class Hud {
       <div class="row"><b class="grow">${pr.name}</b><span class="badge">аренда ${money(pr.rentPerDay * 30)}/мес</span></div>
       <small>${pr.about}. Коммуналка — за часы работы, налог 6 % с выручки.</small>
       <button class="primary" data-action="${id === 'bakery' ? 'open-bakery' : 'open-cafe'}" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>
+      ${canAfford ? '' : tr`<small class="muted">Не хватает ${money(pr.openingCost - this.sim.cash)}</small>`}
     </li>`;
   }
 
