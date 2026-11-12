@@ -10,6 +10,7 @@ import '@fontsource/nunito/700.css';
 import './style.css';
 import { Hud } from './game/hud';
 import { StreetScene, type SceneHooks } from './game/StreetScene';
+import { SkyScene } from './game/sky';
 import { autosave, loadGame } from './game/save';
 import { showTutorial, tutorialDone } from './game/tutorial';
 import { Simulation } from './sim/simulation';
@@ -72,19 +73,24 @@ const city =
 // ?delovoy — сразу открыть деловой квартал (для проверки)
 if (params.has('delovoy')) city.openDistrict();
 autosave(city, saveKey);
-let scene = new StreetScene();
-let covered = -1;
-const drawer = new Drawer((css) => {
-  covered = css;
-  scene.setCovered(css);
-});
+// Город — одна карта: Кленовая (главная сцена) и, когда откроется, деловой квартал восточнее,
+// за общей железной дорогой (своя сцена поверх, камера общая)
+const scene = new StreetScene();
+const sky = new SkyScene();
+let neighbor: StreetScene | null = null;
+const drawer = new Drawer((css) => scene.setCovered(css));
+/** Сцена района, где точка из панели */
+const sceneOf = (sim: Simulation): StreetScene => (neighbor && sim.district === neighborSim()?.district ? neighbor : scene);
+const neighborSim = (): Simulation | null => city.branch;
 const hud = new Hud(
   city,
   () => {
-    scene.select(null);
-    scene.selectPlace(null, false);
+    for (const s of [scene, neighbor]) {
+      s?.select(null);
+      s?.selectPlace(null, false);
+    }
   },
-  (r) => scene.select(r),
+  (r) => sceneOf(hud.current).select(r),
   challenge,
 );
 
@@ -106,21 +112,42 @@ const game = new Phaser.Game({
   scene: [],
 });
 
-const hooksFor = (sim: Simulation): SceneHooks => ({
+/** Нажали на что-то в другом районе — панель сначала переходит туда */
+function focus(sim: Simulation): void {
+  if (hud.current.district === sim.district) return;
+  const point = city.point(sim.district);
+  if (!point) return;
+  hud.show(point);
+  scene.setFocus(sim.district);
+}
+
+const hooksFor = (sim: Simulation, host?: StreetScene): SceneHooks => ({
   sim,
   city,
+  host,
+  sky,
+  onLook: (district) => {
+    const point = city.point(district);
+    if (point && hud.current.district !== district) hud.show(point);
+  },
   getSpeed: () => hud.speed,
   onSelect: (r) => {
+    focus(sim);
     hud.select(r);
     if (r) drawer.open();
   },
   onPlace: (p) => {
+    if (p) focus(sim);
     hud.selectPlace(p);
     if (p) drawer.open();
     else drawer.collapse();
   },
   wide: isWide,
-  onFrame: () => hud.frame(),
+  onFrame: () => {
+    // Квартал открылся — он появляется на той же карте, за насыпью
+    if (city.branch && !neighbor) addNeighbor(city.branch);
+    hud.frame();
+  },
   onDayEnd: () => {
     hud.onDayEnd();
     drawer.open();
@@ -134,17 +161,24 @@ const hooksFor = (sim: Simulation): SceneHooks => ({
   },
 });
 game.scene.add('street', scene, true, hooksFor(city.main));
+game.scene.add('sky', sky, true);
 
-/** Поехать в другой район: та же игра, другая карта и другая точка в панели */
+/** Деловой квартал на карте: своя сцена поверх Кленовой, камеру ведёт Кленовая */
+function addNeighbor(sim: Simulation): void {
+  neighbor = new StreetScene('street-delovoy');
+  game.scene.add('street-delovoy', neighbor, true, hooksFor(sim, scene));
+  // Небо остаётся поверх обоих районов
+  game.scene.bringToTop('sky');
+  Object.assign(window, { neighbor });
+}
+
+/** Перейти в другой район: камера едет туда по карте, панель — на точку района */
 function switchTo(district: DistrictId): void {
   const sim = city.point(district);
-  if (!sim || scene.hooksSim === sim) return;
-  hud.show(sim);
-  game.scene.remove('street');
-  scene = new StreetScene();
-  if (covered >= 0) scene.setCovered(covered);
-  game.scene.add('street', scene, true, hooksFor(sim));
-  Object.assign(window, { sim, scene });
+  if (!sim) return;
+  if (city.branch && !neighbor) addNeighbor(city.branch);
+  if (hud.current.district !== district) hud.show(sim);
+  scene.flyTo(district);
 }
 hud.onSwitch = switchTo;
 

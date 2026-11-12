@@ -7,11 +7,11 @@ import type { Simulation } from '../sim/simulation';
 import { WANT_LABEL } from '../sim/demand';
 import { formatMoney, PREMISES, type PremisesId } from '../sim/economy';
 import { Borders, BORDER } from './borders';
-import { Fog } from './fog';
+import type { SkyScene } from './sky';
 import { BIG_PARK, CROSSWALK_Y, DISTRICTS, GRID, place, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type DistrictId, type Place } from '../sim/world';
 import type { City } from '../sim/city';
 import { COLORS } from './palette';
-import { WeatherFx, type FxKind } from './weatherFx';
+import type { FxKind } from './weatherFx';
 import { Animals } from './animals';
 import type { WindLevel } from '../sim/weather';
 import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, seasonal, textureOf, type Accessory, type Facing } from './atlas';
@@ -40,7 +40,19 @@ export interface SceneHooks {
   onBankrupt: () => void;
   /** Сцена создана и нарисована */
   onCreate?: () => void;
+  /**
+   * Сцена соседнего района (деловой квартал): рисуется поверх главной, восточнее, за общей насыпью.
+   * Камерой, жестами и временем управляет главная сцена (Кленовая)
+   */
+  host?: StreetScene;
+  /** Небо над городом: туман и погода одним слоем поверх всех районов */
+  sky?: SkyScene;
+  /** Игрок прокрутил карту в другой район — панель переключается на него */
+  onLook?: (district: DistrictId) => void;
 }
+
+/** Где район в общем мире: деловой квартал — восточнее Кленовой, за общей железной дорогой */
+export const DISTRICT_X: Record<DistrictId, number> = { klenovaya: 0, delovoy: WORLD.width + BORDER.side };
 
 const REASON_SHORT: Record<RejectReason, string> = {
   'not-open': '',
@@ -85,6 +97,7 @@ const KLENOVAYA_WIDTH = 720;
 
 /** Насколько темно на улице: 0 днём, 0.42 глубокой ночью */
 const MAX_DARK = 0.42;
+const NIGHT_COLOR = 0x1b2340;
 
 function darkness(minute: number): number {
   const h = minute / 60;
@@ -346,11 +359,9 @@ export class StreetScene extends Phaser.Scene {
   private faces!: Phaser.GameObjects.Graphics;
   private guests!: Phaser.GameObjects.Graphics;
   private night!: Phaser.GameObjects.Graphics;
-  private weatherFx!: WeatherFx;
   private animals!: Animals;
   /** Деревья качаются на ветру */
   private borders!: Borders;
-  private fog!: Fog;
   private trees: { img: Phaser.GameObjects.Image; phase: number }[] = [];
   private treeBases: { x: number; y: number }[] = [];
   private shops: Shop[] = [];
@@ -378,11 +389,25 @@ export class StreetScene extends Phaser.Scene {
   private labels: Phaser.GameObjects.Text[] = [];
   /** Камера: центр в координатах мира и масштаб. Пока игрок не трогал масштаб — подбираем сами */
   private view = { cx: KLENOVAYA_WIDTH / 2, cy: 0, zoom: 1, auto: true };
+  /** Соседний район на той же карте (у главной сцены) */
+  private neighbor: StreetScene | null = null;
+  /** Какой район сейчас в панели: кнопка «вся улица» показывает его */
+  private focus: DistrictId = 'klenovaya';
   private touches = new Map<number, { x: number; y: number }>();
   private gesture: { x: number; y: number; moved: boolean; pinch: number; zoom: number } | null = null;
 
-  constructor() {
-    super('street');
+  constructor(key = 'street') {
+    super(key);
+  }
+
+  /** Соседний район рисует другая сцена: эта управляет только своей картинкой */
+  private get host(): StreetScene | null {
+    return this.hooks.host ?? null;
+  }
+
+  /** Где этот район в общем мире */
+  private get offset(): number {
+    return DISTRICT_X[this.district];
   }
 
   init(hooks: SceneHooks): void {
@@ -454,15 +479,14 @@ export class StreetScene extends Phaser.Scene {
       if (p.id === 'kiosk') spill.setScale(0.6 / ART_SCALE);
       this.spills.push({ place: p, image: spill });
     }
-    this.traffic = new Traffic(this, this.hooks.sim, DEPTH.lights);
-    this.borders = new Borders(this);
-    this.fog = new Fog(this, DEPTH.night - 10);
+    // У соседа западную полосу (насыпь, конец Садовой) рисует главная сцена
+    this.traffic = new Traffic(this, this.hooks.sim, DEPTH.lights, !this.host);
+    this.borders = new Borders(this, !this.host, this.offset);
 
     this.guests = this.add.graphics().setDepth(c.rect.y + c.rect.h + 0.5);
     this.marks = this.add.graphics();
     this.faces = this.add.graphics().setDepth(DEPTH.labels);
     this.night = this.add.graphics().setDepth(DEPTH.night);
-    this.weatherFx = new WeatherFx(this, DEPTH.sky);
     this.animals = new Animals(this, this.hooks.sim.residents, this.treeBases);
     for (const shop of this.shops) {
       // Одно правило для всех помещений: подпись по центру здания, на краю крыши
@@ -491,7 +515,11 @@ export class StreetScene extends Phaser.Scene {
       lastY: r.pos.y,
     }));
     this.highlight = this.add.graphics().setDepth(DEPTH.labels - 0.5);
-    this.setupCamera();
+    if (this.host) {
+      // Сосед не ловит жесты и не красит фон: под ним видна главная сцена
+      this.input.enabled = false;
+      this.host.attach(this);
+    } else this.setupCamera();
     this.hooks.onCreate?.();
   }
 
@@ -512,12 +540,78 @@ export class StreetScene extends Phaser.Scene {
 
   private zoomLimits(): [number, number] {
     const { width: w, height: h } = this.scale;
-    const contain = Math.min(w / WORLD.width, h / MAP.height);
+    // Отдалить можно до всего города: с кварталом — оба района рядом
+    const contain = Math.min(w / this.cityWidth, h / MAP.height);
     return [contain, Math.max(this.baseZoom() * 2.6, 1.4 * this.px)];
   }
 
   /** Сколько CSS-пикселей снизу карты закрыто нижним листом */
   private covered = 0;
+
+  /** Открылся сосед: туман расходится над обоими районами, камера ведёт его вместе с собой */
+  attach(n: StreetScene): void {
+    this.neighbor = n;
+    this.hooks.sky?.setDistricts([0, n.offset]);
+    n.events.once('shutdown', () => {
+      if (this.neighbor === n) this.neighbor = null;
+    });
+    this.applyView();
+  }
+
+  /** Ширина города на карте: Кленовая или Кленовая с кварталом */
+  private get cityWidth(): number {
+    return this.neighbor ? this.neighbor.offset + WORLD.width : WORLD.width;
+  }
+
+  /** Куда можно прокрутить камеру: с соседом — дальше на восток */
+  private get bounds(): { left: number; right: number; top: number; bottom: number } {
+    return { ...VIEW, right: this.cityWidth + BORDER.side + 120 };
+  }
+
+  /** Камера соседа повторяет главную со сдвигом: мир один */
+  private follow(cam: Phaser.Cameras.Scene2D.Camera, v: { cx: number; cy: number; zoom: number }): void {
+    const own = this.cameras.main;
+    if (own.x !== cam.x || own.y !== cam.y || own.width !== cam.width || own.height !== cam.height) own.setViewport(cam.x, cam.y, cam.width, cam.height);
+    this.view.cx = v.cx - this.offset;
+    this.view.cy = v.cy;
+    this.view.zoom = v.zoom;
+    own.setZoom(v.zoom);
+    own.centerOn(this.view.cx, v.cy);
+    const k = Math.max(1, (0.62 * this.px) / v.zoom);
+    for (const l of this.labels) l.setScale(k);
+  }
+
+  /** Какой район в панели: от него зависит «вся улица» */
+  setFocus(district: DistrictId): void {
+    this.focus = district;
+  }
+
+  /** Плавно перевести камеру в район (кнопка района, карточка «квартал открыт») */
+  flyTo(district: DistrictId): void {
+    this.focus = district;
+    const v = this.view;
+    const to = DISTRICT_X[district] + (v.zoom <= this.baseZoom() + 0.01 && !this.hooks.wide() ? KLENOVAYA_WIDTH / 2 : WORLD.width / 2);
+    const from = v.cx;
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: Math.min(1400, 500 + Math.abs(to - from) * 0.4),
+      ease: 'Sine.easeInOut',
+      onUpdate: (t) => {
+        v.cx = from + (to - from) * (t.getValue() ?? 0);
+        this.applyView();
+      },
+    });
+  }
+
+  /** Центр кадра перешёл в другой район — сказать панели */
+  private lookAround(): void {
+    if (!this.neighbor) return;
+    const d: DistrictId = this.view.cx > WORLD.width + BORDER.side / 2 ? this.neighbor.district : this.district;
+    if (d === this.focus) return;
+    this.focus = d;
+    this.hooks.onLook?.(d);
+  }
 
   private setupCamera(): void {
     this.cameras.main.setBackgroundColor('#e6e2da');
@@ -575,6 +669,7 @@ export class StreetScene extends Phaser.Scene {
       const g = this.gesture;
       this.gesture = null;
       if (g && !g.moved) this.pick(...this.toWorld(p.x, p.y));
+      else this.lookAround();
     };
     this.input.on('pointerup', up);
     this.input.on('pointerupoutside', up);
@@ -642,7 +737,9 @@ export class StreetScene extends Phaser.Scene {
     const base = this.baseZoom();
     this.view.zoom = Math.abs(this.view.zoom - base) < 0.01 ? lo : base;
     this.view.auto = this.view.zoom === base;
-    this.view.cx = this.view.zoom === base && !this.hooks.wide() ? KLENOVAYA_WIDTH / 2 : WORLD.width / 2;
+    this.view.cx = DISTRICT_X[this.focus] + (this.view.zoom === base && !this.hooks.wide() ? KLENOVAYA_WIDTH / 2 : WORLD.width / 2);
+    // Самый мелкий масштаб — весь город целиком
+    if (this.view.zoom === lo) this.view.cx = this.cityWidth / 2;
     this.applyView();
   }
 
@@ -653,17 +750,24 @@ export class StreetScene extends Phaser.Scene {
     v.zoom = Phaser.Math.Clamp(v.zoom, lo, hi);
     const vw = cam.width / v.zoom;
     const vh = cam.height / v.zoom;
-    v.cx = vw >= VIEW.right - VIEW.left ? WORLD.width / 2 : Phaser.Math.Clamp(v.cx, VIEW.left + vw / 2, VIEW.right - vw / 2);
-    v.cy = vh >= VIEW.bottom - VIEW.top ? (VIEW.top + VIEW.bottom) / 2 : Phaser.Math.Clamp(v.cy, VIEW.top + vh / 2, VIEW.bottom - vh / 2);
+    const b = this.bounds;
+    v.cx = vw >= b.right - b.left ? this.cityWidth / 2 : Phaser.Math.Clamp(v.cx, b.left + vw / 2, b.right - vw / 2);
+    v.cy = vh >= b.bottom - b.top ? (b.top + b.bottom) / 2 : Phaser.Math.Clamp(v.cy, b.top + vh / 2, b.bottom - vh / 2);
     cam.setZoom(v.zoom);
     cam.centerOn(v.cx, v.cy);
     // Подписи не мельче ~11 px на экране
     const k = Math.max(1, (0.62 * this.px) / v.zoom);
     for (const l of this.labels) l.setScale(k);
+    this.neighbor?.follow(cam, v);
+    this.hooks.sky?.follow(cam, v.cx, v.cy, v.zoom);
   }
 
   /** Прокрутить карту так, чтобы прямоугольник был в кадре (если уже виден — не трогаем) */
   private reveal(r: { x: number; y: number; w: number; h: number }): void {
+    if (this.host) {
+      this.host.reveal({ ...r, x: r.x + this.offset });
+      return;
+    }
     const cam = this.cameras.main;
     const v = this.view;
     const vw = cam.width / v.zoom;
@@ -678,11 +782,13 @@ export class StreetScene extends Phaser.Scene {
 
   update(time: number, delta: number): void {
     const realSeconds = Math.min(delta, 250) / 1000;
-    this.hooks.city.advance(realSeconds * GAME_MINUTES_PER_SECOND * this.hooks.getSpeed());
+    // Время ведёт главная сцена: сосед только рисует свой район
+    if (!this.host) this.hooks.city.advance(realSeconds * GAME_MINUTES_PER_SECOND * this.hooks.getSpeed());
     this.handleEvents();
-    // Другие точки живут без картинки: их события не копятся, банкротство общее
-    for (const other of this.hooks.city.points) {
-      if (other === this.hooks.sim) continue;
+    // Другие точки живут без своей картинки: их события не копятся, банкротство общее.
+    // У соседа на карте своя сцена — его события разбирает она
+    for (const other of this.host ? [] : this.hooks.city.points) {
+      if (other === this.hooks.sim || other === this.neighbor?.hooks.sim) continue;
       // Своя другая точка на этой же карте (пекарня): продажи видны над её крыльцом
       const here = other.district === this.district;
       for (const e of other.drainEvents()) {
@@ -709,9 +815,16 @@ export class StreetScene extends Phaser.Scene {
     });
     this.traffic.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
     this.borders.update(realSeconds * this.hooks.getSpeed(), this.hooks.sim.minute);
-    this.fog.update(realSeconds);
     this.updateSound();
-    this.hooks.onFrame();
+    if (!this.host) this.hooks.onFrame();
+  }
+
+  /** Снять выбор без сообщения панели: выбрали что-то в другом районе */
+  quiet(): void {
+    if (!this.highlight) return;
+    this.selected = null;
+    this.selectedPlace = null;
+    this.highlight.clear();
   }
 
   select(resident: Resident | null): void {
@@ -739,6 +852,14 @@ export class StreetScene extends Phaser.Scene {
   }
 
   private pick(x: number, y: number): void {
+    // Нажали в соседнем районе: выбор там, здесь — снять
+    const n = this.neighbor;
+    if (n && x > WORLD.width + BORDER.side / 2) {
+      this.quiet();
+      n.pick(x - n.offset, y);
+      return;
+    }
+    n?.quiet();
     let best: Resident | null = null;
     // Палец толще курсора: на мелком масштабе радиус попадания больше
     let bestDist = Math.max(26, (20 * this.px) / this.view.zoom);
@@ -794,6 +915,9 @@ export class StreetScene extends Phaser.Scene {
       } else if (e.type === 'aware') {
         const r = sim.residents[e.residentId];
         if (r.visible) this.float(r.pos.x, r.pos.y - 52, e.source === 'walk' ? L('заметил кафе') : L('узнал о кафе'), '#2f6fb0', 16);
+      } else if (this.host) {
+        // День, шаги и банкротство — общие для города: о них сообщает главная сцена
+        continue;
       } else if (e.type === 'step') {
         const c = this.at(sim.shopId).rect;
         this.float(c.x + c.w / 2, c.y - 10, `✓ ${FIRST_STEPS.find((s) => s.id === e.id)?.title ?? ''}`, '#2e8b57', 20);
@@ -815,7 +939,7 @@ export class StreetScene extends Phaser.Scene {
   /** Звук улицы по времени суток и погоде; дверь утром и поломка — по смене состояния */
   private updateSound(): void {
     const sim = this.hooks.sim;
-    sound.update(sim.minute, sim.weather.kind === 'rain', sim.effects.some((e) => e.type === 'boost' && e.day === sim.today));
+    if (!this.host) sound.update(sim.minute, sim.weather.kind === 'rain', sim.effects.some((e) => e.type === 'boost' && e.day === sim.today));
     const open = sim.cafe.opened && sim.cafe.isOpenAt(sim.minute);
     if (open && !this.wasOpen) sound.play('sfx-door', 0.7);
     this.wasOpen = open;
@@ -1001,9 +1125,11 @@ export class StreetScene extends Phaser.Scene {
     const dark = darkness(minute);
     this.night.clear();
     if (dark > 0) {
-      this.night.fillStyle(0x1b2340, dark);
+      this.night.fillStyle(NIGHT_COLOR, dark);
       // С запасом: ночь накрывает и дальние кварталы за границами района
-      this.night.fillRect(VIEW.left - 2000, VIEW.top - 2000, VIEW.right - VIEW.left + 4000, VIEW.bottom - VIEW.top + 4000);
+      // У соседа — только его часть карты: над Кленовой уже темнеет главная сцена
+      const left = this.host ? 0 : VIEW.left - 2000;
+      this.night.fillRect(left, VIEW.top - 2000, VIEW.right + 2000 - left, VIEW.bottom - VIEW.top + 4000);
     }
     const k = dark / MAX_DARK;
     const h = minute / 60;
@@ -1047,7 +1173,14 @@ export class StreetScene extends Phaser.Scene {
   private drawSky(time: number, dt: number): void {
     const cam = this.cameras.main;
     const wind = this.fxWind();
-    this.weatherFx.update(dt, time, this.fxKind(), wind, cam.worldView, this.px / cam.zoom, new Phaser.Geom.Rectangle(VIEW.left, VIEW.top, VIEW.right - VIEW.left, VIEW.bottom - VIEW.top), this.hooks.sim.holiday);
+    // Туман и погода — одним слоем над всем городом (sky.ts): их ведёт главная сцена
+    if (!this.host && this.hooks.sky) {
+      const b = this.bounds;
+      this.hooks.sky.draw(dt, time, this.fxKind(), wind, this.px / cam.zoom, new Phaser.Geom.Rectangle(b.left, b.top, b.right - b.left, b.bottom - b.top), this.hooks.sim.holiday, {
+        color: NIGHT_COLOR,
+        alpha: darkness(this.hooks.sim.minute),
+      });
+    }
     const amp = [0.006, 0.016, 0.035][wind];
     for (const t of this.trees) t.img.setRotation(Math.sin(time / (wind === 2 ? 520 : 900) + t.phase) * amp + (wind === 2 ? amp * 0.4 : 0));
   }

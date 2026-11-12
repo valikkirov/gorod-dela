@@ -30,6 +30,8 @@ const WATER_TOP = WORLD.height + 120;
 const BOAT_LANES = { right: WORLD.height + 168, left: WORLD.height + 218 };
 /** Видимая часть реки — между железнодорожными мостами */
 const RIVER = { left: -RAIL_X, right: WORLD.width + RAIL_X };
+/** У соседа западный мост — чужой, поверх его судов не ляжет: суда выходят из-под его восточного края */
+export const NEIGHBOR_EDGE = -RAIL_X + BRIDGE_W / 2;
 /** Суда проходят под мостами: ниже настила */
 const BOAT_DEPTH = -990;
 
@@ -82,7 +84,25 @@ export class Borders {
   private boatCount = 0;
   private wakes: Phaser.GameObjects.Graphics;
 
-  constructor(private scene: Phaser.Scene) {
+  /** Насыпи с поездами: у соседнего района западную рисует сосед слева */
+  private readonly rails: number[];
+  /** Левый край того, что рисует район: у соседа — от своего края мира (западную полосу рисует сосед) */
+  private readonly x0: number;
+  private readonly riverLeft: number;
+
+  /**
+   * west — рисовать западную полосу (насыпь, конец Садовой, лес и реку слева). Деловой квартал стоит
+   * восточнее Кленовой за общей насыпью: её рисует Кленовая. offset — где район в общем мире
+   * (чтобы рисунок леса и реки не рвался на стыке)
+   */
+  constructor(
+    private scene: Phaser.Scene,
+    private west = true,
+    private offset = 0,
+  ) {
+    this.rails = west ? RAIL_CENTERS : RAIL_CENTERS.slice(1);
+    this.x0 = west ? -BORDER.side : 0;
+    this.riverLeft = west ? RIVER.left : NEIGHBOR_EDGE;
     this.drawBeyond();
     this.drawRails();
     this.drawRiver();
@@ -92,27 +112,31 @@ export class Borders {
     this.wakes = scene.add.graphics().setDepth(BOAT_DEPTH - 1);
   }
 
-  private tile(x: number, y: number, w: number, h: number, key: string, depth: number): Phaser.GameObjects.TileSprite {
-    return this.scene.add
+  private tile(x: number, y: number, w: number, h: number, key: string, depth: number, align = false): Phaser.GameObjects.TileSprite {
+    const t = this.scene.add
       .tileSprite(x, y, w * ART_SCALE, h * ART_SCALE, key)
       .setOrigin(0)
       .setScale(1 / ART_SCALE)
       .setDepth(depth);
+    // Лес и река общие у соседних районов: узор привязан к общему миру, на стыке без шва
+    if (align) t.tilePositionX = (x + this.offset + BORDER.side) * ART_SCALE;
+    return t;
   }
 
   /** Соседние кварталы в дымке за насыпями и река дальше вниз — на широком экране не видно пустоты */
   private drawBeyond(): void {
     const far = FOG_FAR;
     // Под туманом: за насыпями и над лесом — лес, за рекой — вода. Туман редеет у края, и там видна земля
-    this.tile(-far, -far, WORLD.width + 2 * far, WORLD.height + far, 'tex-forest', -1004);
+    const left = this.west ? -far : 0;
+    this.tile(left, -far, WORLD.width + far - left, WORLD.height + far, 'tex-forest', -1004, !this.west);
     const g = this.scene.add.graphics().setDepth(-1003);
     g.fillStyle(0x426c71, 1);
-    g.fillRect(-far, WORLD.height + BORDER.bottom, WORLD.width + 2 * far, far);
-    this.tile(-far, WORLD.height, far - BORDER.side, BORDER.bottom, 'tex-river', -1003);
+    g.fillRect(left, WORLD.height + BORDER.bottom, WORLD.width + far - left, far);
+    if (this.west) this.tile(-far, WORLD.height, far - BORDER.side, BORDER.bottom, 'tex-river', -1003);
     this.tile(WORLD.width + BORDER.side, WORLD.height, far - BORDER.side, BORDER.bottom, 'tex-river', -1003);
     // Садовая уходит дальше под туман
     g.fillStyle(0x6f6f71, 1);
-    g.fillRect(-far, SADOVAYA.top, far - BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
+    if (this.west) g.fillRect(-far, SADOVAYA.top, far - BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
     g.fillRect(WORLD.width + BORDER.side, SADOVAYA.top, far - BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
   }
 
@@ -120,18 +144,18 @@ export class Borders {
   private drawRails(): void {
     const top = -BORDER.top;
     const h = WORLD.height - top;
-    for (const cx of RAIL_CENTERS) this.tile(cx - RAIL_W / 2, top, RAIL_W, h, 'tex-rail', -999);
+    for (const cx of this.rails) this.tile(cx - RAIL_W / 2, top, RAIL_W, h, 'tex-rail', -999);
     // Узкие полосы между насыпью и краем полосы — тот же склон
     const g = this.scene.add.graphics().setDepth(-998);
     g.fillStyle(0x5f7a35, 1);
-    g.fillRect(-BORDER.side, top, BORDER.side - RAIL_X - RAIL_W / 2, h);
+    if (this.west) g.fillRect(-BORDER.side, top, BORDER.side - RAIL_X - RAIL_W / 2, h);
     g.fillRect(WORLD.width + RAIL_X + RAIL_W / 2, top, BORDER.side - RAIL_X - RAIL_W / 2, h);
   }
 
   /** Набережная и река во всю ширину; пути переходят реку по мосту; на набережной — фонари и лавки */
   private drawRiver(): void {
-    this.tile(-BORDER.side, WORLD.height, WORLD.width + 2 * BORDER.side, BORDER.bottom, 'tex-river', -997);
-    for (const cx of RAIL_CENTERS) {
+    this.tile(this.x0, WORLD.height, WORLD.width + BORDER.side - this.x0, BORDER.bottom, 'tex-river', -997, true);
+    for (const cx of this.rails) {
       // Мост через реку — одним пролётом от набережной до края, без швов
       this.bridge(cx, WORLD.height - 14, BORDER.bottom + 600);
       const shade = this.scene.add.graphics().setDepth(-996);
@@ -153,9 +177,9 @@ export class Borders {
   private drawForest(): void {
     const top = -BORDER.top;
     // Подстилка леса — под насыпями: пути уходят в лес, а не обрываются
-    this.tile(-BORDER.side, top, WORLD.width + 2 * BORDER.side, BORDER.top + 4, 'tex-forest', -999.5);
+    this.tile(this.x0, top, WORLD.width + BORDER.side - this.x0, BORDER.top + 4, 'tex-forest', -999.5, true);
     // Склоны насыпи в лесу — та же подстилка, видны только пути
-    for (const cx of RAIL_CENTERS) {
+    for (const cx of this.rails) {
       this.tile(cx - RAIL_W / 2, top, RAIL_W / 2 - 34, BORDER.top, 'tex-forest', -998.8);
       this.tile(cx + 34, top, RAIL_W / 2 - 34, BORDER.top, 'tex-forest', -998.8);
     }
@@ -163,7 +187,7 @@ export class Borders {
     const g = this.scene.add.graphics().setDepth(-998.5);
     for (let k = 0; k < 6; k++) {
       g.fillStyle(0x2c3d1e, 0.06);
-      g.fillRect(-BORDER.side, -4, WORLD.width + 2 * BORDER.side, 4 + k * 3);
+      g.fillRect(this.x0, -4, WORLD.width + BORDER.side - this.x0, 4 + k * 3);
     }
     const clear = (x: number) => RAIL_CENTERS.some((c) => Math.abs(x - c) < 40);
     // Поляны: в этих местах деревья редеют
@@ -171,7 +195,7 @@ export class Borders {
     let i = 0;
     for (let row = 0; row < 7; row++) {
       const y = top + 34 + row * 36;
-      for (let x = -BORDER.side + 10 + (row % 2) * 26 + rand(row) * 20; x < WORLD.width + BORDER.side; x += 44 + rand(row * 31 + x) * 22) {
+      for (let x = this.x0 + 10 + (row % 2) * 26 + rand(row) * 20; x < WORLD.width + BORDER.side; x += 44 + rand(row * 31 + x) * 22) {
         i++;
         const jx = x + (rand(i) - 0.5) * 30;
         if (clear(jx)) continue;
@@ -192,7 +216,7 @@ export class Borders {
       }
     }
     // Опушка: кусты вдоль кромки, неровной полосой
-    for (let x = -BORDER.side + 20, k = 0; x < WORLD.width + BORDER.side; x += 34 + rand(k + 400) * 30, k++) {
+    for (let x = this.x0 + 20, k = 0; x < WORLD.width + BORDER.side; x += 34 + rand(k + 400) * 30, k++) {
       if (clear(x) || rand(k + 500) < 0.35) continue;
       const frame = rand(k + 600) < 0.5 ? 'prop-forest-bush' : 'prop-bushes';
       this.prop(frame, x, -2 - rand(k + 700) * 8).setFlipX(rand(k + 800) > 0.5);
@@ -203,19 +227,19 @@ export class Borders {
   private drawRoadEnds(): void {
     const g = this.scene.add.graphics().setDepth(-996);
     g.fillStyle(0x6f6f71, 1);
-    g.fillRect(-BORDER.side, SADOVAYA.top, BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
+    if (this.west) g.fillRect(-BORDER.side, SADOVAYA.top, BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
     g.fillRect(WORLD.width, SADOVAYA.top, BORDER.side, SADOVAYA.bottom - SADOVAYA.top);
     // Осевая
     g.fillStyle(0xf6f0e2, 0.85);
     const mid = SADOVAYA.top + (SADOVAYA.bottom - SADOVAYA.top) / 2;
-    for (let x = -BORDER.side; x < 0; x += 40) g.fillRect(x + 6, mid - 1.5, 20, 3);
+    if (this.west) for (let x = -BORDER.side; x < 0; x += 40) g.fillRect(x + 6, mid - 1.5, 20, 3);
     for (let x = WORLD.width; x < WORLD.width + BORDER.side; x += 40) g.fillRect(x + 6, mid - 1.5, 20, 3);
   }
 
   /** Путепроводы над Садовой: настил, тень под ним и бетонные опоры по краям дороги */
   private drawBridges(): void {
     const half = BRIDGE_W / 2;
-    for (const cx of RAIL_CENTERS) {
+    for (const cx of this.rails) {
       const g = this.scene.add.graphics().setDepth(-995);
       g.fillStyle(0x15140f, 0.34);
       g.fillRect(cx - half - 12, SADOVAYA.top, 2 * half + 24, SADOVAYA.bottom - SADOVAYA.top);
@@ -267,7 +291,7 @@ export class Borders {
   private spawnTrain(kind: keyof typeof TRAINS): void {
     // Пути: на каждой насыпи вниз — левый путь, вверх — правый; насыпь — та, где сейчас нет поезда
     const busy = new Set(this.trains.map((t) => t.x));
-    const side = this.trainCount % 2;
+    const side = this.west ? this.trainCount % 2 : 1;
     const dir: 1 | -1 = Math.floor(this.trainCount / 2) % 2 === 0 ? 1 : -1;
     const x = RAIL_CENTERS[side] + TRACKS[dir === 1 ? 0 : 1];
     if (busy.has(x)) return;
@@ -329,7 +353,7 @@ export class Borders {
       .setAlpha(0.25)
       .setDepth(BOAT_DEPTH - 0.5);
     // Судно выходит из-под одного железнодорожного моста и уходит под другой
-    const x = dir === 1 ? RIVER.left - img.displayWidth / 2 : RIVER.right + img.displayWidth / 2;
+    const x = dir === 1 ? this.riverLeft - img.displayWidth / 2 : RIVER.right + img.displayWidth / 2;
     this.boats.push({ img, shadow, x, y, dir, speed });
   }
 
@@ -337,17 +361,17 @@ export class Borders {
     b.x += b.dir * b.speed * dt;
     b.img.setPosition(b.x, b.y);
     b.shadow.setPosition(b.x + 4, b.y + 6);
-    clipX(b.img, RIVER.left, RIVER.right);
-    clipX(b.shadow, RIVER.left, RIVER.right);
+    clipX(b.img, this.riverLeft, RIVER.right);
+    clipX(b.shadow, this.riverLeft, RIVER.right);
     // Белый след за кормой: несколько вытянутых бликов
     const w = b.img.displayWidth;
     const stern = b.x - (b.dir * w) / 2;
-    for (let k = 0; k < 4 && stern > RIVER.left && stern < RIVER.right; k++) {
+    for (let k = 0; k < 4 && stern > this.riverLeft && stern < RIVER.right; k++) {
       this.wakes.fillStyle(0xe8f4f2, 0.28 - k * 0.06);
       const len = 26 + k * 14;
       this.wakes.fillEllipse(stern - b.dir * (len / 2 + k * 10), b.y + (k % 2 ? 4 : -4), len, 5 - k * 0.8);
     }
-    const out = b.dir === 1 ? b.x - w / 2 > RIVER.right : b.x + w / 2 < RIVER.left;
+    const out = b.dir === 1 ? b.x - w / 2 > RIVER.right : b.x + w / 2 < this.riverLeft;
     if (out) {
       b.img.destroy();
       b.shadow.destroy();

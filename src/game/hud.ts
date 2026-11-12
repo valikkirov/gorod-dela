@@ -504,6 +504,11 @@ export class Hud {
   }
 
   /** Переключиться на точку в другом районе: панель — с обзора */
+  /** Какая точка сейчас в панели */
+  get current(): Simulation {
+    return this.sim;
+  }
+
   show(sim: Simulation): void {
     this.sim = sim;
     this.selected = null;

@@ -55,21 +55,58 @@ const smooth = (a: number, b: number, x: number): number => {
 export class Fog {
   private drift: Phaser.GameObjects.TileSprite[] = [];
 
-  constructor(scene: Phaser.Scene, depth: number) {
-    const left = -FOG_FAR;
+  private parts: Phaser.GameObjects.GameObject[] = [];
+
+  /**
+   * districts — левые края открытых районов в координатах сцены (каждый шириной в мир): туман
+   * расходится над всеми сразу. Один район — [0]; Кленовая и деловой квартал из сцены квартала — [−x, 0]
+   */
+  constructor(scene: Phaser.Scene, depth: number, private districts: number[] = [0]) {
+    const left = Math.min(...districts) - FOG_FAR;
+    const right = Math.max(...districts) + WORLD.width + FOG_FAR;
     const top = -FOG_FAR;
-    const w = WORLD.width + 2 * FOG_FAR;
+    const w = right - left;
     const h = WORLD.height + 2 * FOG_FAR;
     const cw = Math.ceil(w / RES);
     const ch = Math.ceil(h / RES);
-    // Туман одинаковый во всех районах: посчитан при первом показе — берём готовый
-    if (!scene.textures.exists('fog-map')) this.paint(scene, cw, ch, left, top);
-    scene.add.image(left, top, 'fog-map').setOrigin(0).setScale(RES).setDepth(depth);
+    // Туман считается один раз на набор районов: при повторном показе берём готовый
+    const key = `fog-map-${districts.join('_')}`;
+    if (!scene.textures.exists(key)) this.paint(scene, key, cw, ch, left, top);
+    this.parts.push(scene.add.image(left, top, key).setOrigin(0).setScale(RES).setDepth(depth));
     this.addDrift(scene, depth, left, top, w);
   }
 
-  private paint(scene: Phaser.Scene, cw: number, ch: number, left: number, top: number): void {
-    const tex = scene.textures.createCanvas('fog-map', cw, ch);
+  /** Расстояние от точки до ближайшего района наружу (внутри — отрицательное, по ближнему краю) */
+  private distance(wx: number, wy: number): number {
+    let best = Infinity;
+    const dy = wy < 0 ? -wy : wy > WORLD.height ? wy - WORLD.height : 0;
+    for (const x0 of this.districts) {
+      const x = wx - x0;
+      const dx = x < 0 ? -x : x > WORLD.width ? x - WORLD.width : 0;
+      let d = Math.hypot(dx, dy);
+      if (dx === 0 && dy === 0) d = -Math.min(x, WORLD.width - x, wy, WORLD.height - wy);
+      best = Math.min(best, d);
+    }
+    return best;
+  }
+
+  /** Ночью облака темнеют так же, как город под ними: тот же цвет поверх с той же силой */
+  shade(color: number, alpha: number): void {
+    const mix = (shift: number) => Math.round(255 * (1 - alpha) + ((color >> shift) & 0xff) * alpha);
+    const tint = (mix(16) << 16) | (mix(8) << 8) | mix(0);
+    for (const p of this.parts) (p as Phaser.GameObjects.Image).setTint(tint);
+    for (const t of this.drift) t.setTint(tint);
+  }
+
+  destroy(): void {
+    for (const p of this.parts) p.destroy();
+    for (const t of this.drift) t.destroy();
+    this.parts = [];
+    this.drift = [];
+  }
+
+  private paint(scene: Phaser.Scene, key: string, cw: number, ch: number, left: number, top: number): void {
+    const tex = scene.textures.createCanvas(key, cw, ch);
     if (!tex) return;
     const ctx = tex.getContext();
     // Облака: текстура повторяется, привязана к миру
@@ -81,13 +118,9 @@ export class Fog {
     const px = data.data;
     for (let j = 0; j < ch; j++) {
       const wy = top + j * RES;
-      const dy = wy < 0 ? -wy : wy > WORLD.height ? wy - WORLD.height : 0;
       for (let i = 0; i < cw; i++) {
         const wx = left + i * RES;
-        const dx = wx < 0 ? -wx : wx > WORLD.width ? wx - WORLD.width : 0;
-        // Расстояние от прямоугольника района наружу (внутри — отрицательное, по ближнему краю)
-        let d = Math.hypot(dx, dy);
-        if (dx === 0 && dy === 0) d = -Math.min(wx, WORLD.width - wx, wy, WORLD.height - wy);
+        const d = this.distance(wx, wy);
         const n = (fbm(wx / 190, wy / 190) - 0.5) * 2 * WOBBLE;
         const a = smooth(EDGE.from, EDGE.to, d + n);
         const k = (j * cw + i) * 4;
@@ -112,7 +145,7 @@ export class Fog {
       [left, top, w, FOG_FAR - solid],
       [left, WORLD.height + solid, w, FOG_FAR - solid],
       [left, -solid, FOG_FAR - solid, WORLD.height + 2 * solid],
-      [WORLD.width + solid, -solid, FOG_FAR - solid, WORLD.height + 2 * solid],
+      [left + w - FOG_FAR + solid, -solid, FOG_FAR - solid, WORLD.height + 2 * solid],
     ];
     for (const [x, y, bw, bh] of bands) {
       const k = 768 / CLOUD_TILE;

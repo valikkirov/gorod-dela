@@ -4,6 +4,7 @@
 // и держат дистанцию. Правостороннее движение. Случайность обычная (Math.random): это слой отрисовки.
 import Phaser from 'phaser';
 import type { Simulation } from '../sim/simulation';
+import { NEIGHBOR_EDGE } from './borders';
 import { ROAD, SADOVAYA, SIDEWALK, WORLD, type Point } from '../sim/world';
 import { ART_SCALE, textureOf } from './atlas';
 import { sound } from './sound';
@@ -201,12 +202,18 @@ export class Traffic {
   private lights: LightPost[] = [];
   private peds: PedPost[] = [];
 
+  /** Левый край, за которым машину не рисуем */
+  private readonly left: number;
+
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly sim: Simulation,
     /** Глубина слоя света: окошки светофора светятся поверх ночи */
     lightsDepth: number,
+    /** Западный путепровод свой (false — у соседа слева: машины выходят из-под его края, а не середины) */
+    west = true,
   ) {
+    this.left = west ? UNDER_BRIDGE.left : NEIGHBOR_EDGE;
     this.drawRails();
     // Светофоры стоят справа по ходу движения, перед стоп-линиями
     this.lights.push(this.post('S', 'prop-traffic-light-down', ROAD.left - 16, SADOVAYA.top - 46, [10, [7.5, 15, 22.5]], lightsDepth));
@@ -266,8 +273,8 @@ export class Traffic {
       for (const dy of [-RAIL_GAUGE, RAIL_GAUGE]) {
         // Тёмный желобок и светлая натёртая полоска сверху
         // Рельсы уходят под путепроводы по краям района
-        const x0 = UNDER_BRIDGE.left - 60;
-        const w = UNDER_BRIDGE.right - UNDER_BRIDGE.left + 120;
+        const x0 = this.left === UNDER_BRIDGE.left ? this.left - 60 : this.left;
+        const w = UNDER_BRIDGE.right + 60 - x0;
         g.fillStyle(0x3d3a36, 0.55).fillRect(x0, y + dy - 1.5, w, 3);
         g.fillStyle(0xcfc8bc, 0.7).fillRect(x0, y + dy - 1.5, w, 1);
       }
@@ -471,14 +478,14 @@ export class Traffic {
       .setRotation(rot)
       .setDepth(pos.y + Math.abs(Math.sin(angle)) * (v.len / 2) + Math.abs(Math.cos(angle)) * 16)
       .setAlpha(alpha);
-    clipToMap(v.sprite);
+    clipToMap(v.sprite, this.left);
   }
 }
 
 /** Не рисовать машину дальше середины путепровода: там она уже под мостом. По краям Садовой машины едут прямо */
-function clipToMap(sprite: Phaser.GameObjects.Image): void {
+function clipToMap(sprite: Phaser.GameObjects.Image, edge: number): void {
   const half = sprite.displayWidth / 2;
-  const left = sprite.x - half - UNDER_BRIDGE.left;
+  const left = sprite.x - half - edge;
   const right = sprite.x + half - UNDER_BRIDGE.right;
   if (left >= 0 && right <= 0) {
     if (sprite.isCropped) sprite.setCrop();
