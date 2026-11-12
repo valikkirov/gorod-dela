@@ -12,7 +12,7 @@ import { MARKETING, Marketing, type AwareSource, type HappyHours } from './marke
 import { Rng } from './rng';
 import { INGREDIENTS, ingredient, orderPrice, recipeCost, recipeOf, STARTER_KEEP, STARTER_KEEP_WEEKEND, type IngredientId, type WriteOff } from './stock';
 import { Rival, RIVAL, type RivalSave } from './rival';
-import { formGroups, GROUP, votesNeeded, type Group, type GroupDay } from './groups';
+import { formFriends, formGroups, FRIENDS, GROUP, meetAt, votesNeeded, type Group, type GroupDay } from './groups';
 import { addNote, LOYAL, newsLine, STATUS_WINDOW, pickRegulars, statusOf, type Regular } from './regulars';
 import { FIRST_STEPS, STEP_GUESTS, STEP_REVENUE, type StepId } from './firstSteps';
 import { MILESTONES, upgrade, UPGRADE_EFFECT, type MilestoneId, type UpgradeId } from './milestones';
@@ -376,7 +376,8 @@ export class Simulation {
     this.ownForecast = this.rollForecast(this.day + 1);
     this.residents = generateResidents(this.rng, seed, district);
     this.regulars = pickRegulars(this.residents);
-    this.groups = formGroups(this.residents);
+    const colleagues = formGroups(this.residents);
+    this.groups = [...colleagues, ...formFriends(this.residents, colleagues.length)];
     for (const g of this.groups) for (const id of g.members) this.groupOf.set(id, g);
     for (const g of this.regulars) this.regularById.set(g.residentId, g);
     this.cafe.pricing = (price, minute) => this.marketing.priceAt(price, minute);
@@ -941,7 +942,10 @@ export class Simulation {
     r.rivalVisit = null;
 
     const bakery = this.guests.some((g) => g.cafe.opened && g.cafe.premisesId === 'bakery');
-    const want = rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day), this.sitMood(), this.holidayRush(this.minute), bakery);
+    // В пятницу компания друзей идёт сидеть вместе — в бар, а не как придётся
+    const want = this.friendsMeeting(r, entry)
+      ? { kind: 'bar' as const, mode: 'replace' as const, dwell: FRIENDS.dwell }
+      : rollWant(this.rng, r, entry, prev, this.weather.kind, isWeekend(this.day), this.sitMood(), this.holidayRush(this.minute), bakery);
     const point = want ? this.pickPoint(r, want, entry) : this;
     // Хлеб домой бывает только в пекарне: закрыта — житель купит хлеб в «Продуктах», в отчёт кафе это не идёт
     const breadOnly = want?.bakery && point === this;
@@ -1001,7 +1005,8 @@ export class Simulation {
       const { offer, pP, pR } = this.chances(r, want, entry, minute);
       itemId = offer.item?.id;
       price = offer.item?.price;
-      const group = want.kind === 'lunch' && !isWeekend(this.day) ? this.groupOf.get(r.id) : undefined;
+      const colleagues = want.kind === 'lunch' && !isWeekend(this.day) ? this.groupOf.get(r.id) : undefined;
+      const group = colleagues && !colleagues.friends ? colleagues : want.kind === 'bar' ? this.friendsMeeting(r, entry) ?? undefined : undefined;
       if (!offer.item) reason = 'no-item';
       else if (group) {
         // Обедают компанией: решение общее, своё «зайти или нет» не бросают
@@ -1044,11 +1049,11 @@ export class Simulation {
   }
 
   /** Компания жителя и её сегодняшнее решение (если уже решали) */
-  groupFor(residentId: number): { group: Group; today: GroupDay | null } | null {
+  groupFor(residentId: number): { group: Group; today: GroupDay | null; last: GroupDay | null } | null {
     const group = this.groupOf.get(residentId);
     if (!group) return null;
     const d = this.groupDay[group.id];
-    return { group, today: d && d.day === this.day ? d : null };
+    return { group, today: d && d.day === this.day ? d : null, last: d ?? null };
   }
 
   /** Насколько житель готов зайти к вам (pP) и к конкуренту (pR) и что он бы взял */
@@ -1099,13 +1104,21 @@ export class Simulation {
     if (was !== undefined ? was !== verdict.go : verdict.go) {
       const first = members.map((m) => m.name.split(' ')[0]);
       const who = tr`${first.slice(0, 2).join(', ')} и\u00a0ещё ${first.length - 2}`;
-      const where = this.at(g.workId).name;
       const why = verdict.reason === 'queue' ? L('очередь') : verdict.reason === 'rival' ? L('выбрали конкурента') : L('большинству не\u00a0по\u00a0душе');
-      this.addNews(
-        verdict.go
-          ? tr`${where}: ${who} теперь обедают у\u00a0вас компанией`
-          : tr`${where}: ${who} сегодня обедают не\u00a0у\u00a0вас\u00a0— ${why}`,
-      );
+      if (g.friends)
+        this.addNews(
+          verdict.go
+            ? tr`🍻 ${who} теперь собираются у\u00a0вас по\u00a0пятницам`
+            : tr`🍻 ${who} в\u00a0эту пятницу сидят не\u00a0у\u00a0вас\u00a0— ${why}`,
+        );
+      else {
+        const where = this.at(g.workId).name;
+        this.addNews(
+          verdict.go
+            ? tr`${where}: ${who} теперь обедают у\u00a0вас компанией`
+            : tr`${where}: ${who} сегодня обедают не\u00a0у\u00a0вас\u00a0— ${why}`,
+        );
+      }
     }
     this.groupWas[g.id] = verdict.go;
     return verdict;
@@ -2367,6 +2380,33 @@ export class Simulation {
     this.cafe.weekday = weekday(this.day);
     const weekend = isWeekend(this.day);
     for (const r of this.residents) r.schedule = weekend ? r.weekend : r.weekday;
+    if (this.cafe.weekday === FRIENDS.weekday) this.fridayPlans();
+  }
+
+  /** Пятница: у компании друзей общий вечер — собираются в одно время, потом расходятся по домам */
+  private fridayPlans(): void {
+    this.groups
+      .filter((g) => g.friends)
+      .forEach((g, i) => {
+        const meet = meetAt(i);
+        for (const id of g.members) {
+          const r = this.residents[id];
+          // Ночь с четверга (до утра) остаётся, свой вечер — нет
+          const day = r.weekday.filter((e) => e.start < meet - 30 && (e.activity !== 'night' || e.start < hm(6)));
+          r.schedule = [
+            ...day,
+            { start: meet, placeId: 'park', activity: 'night' },
+            { start: meet + FRIENDS.stay, placeId: r.homeId, activity: 'home' },
+          ];
+        }
+      });
+  }
+
+  /** Компания друзей, которая сейчас собирается (пятница, вечер встречи) */
+  private friendsMeeting(r: Resident, entry: ScheduleEntry): Group | null {
+    const g = this.groupOf.get(r.id);
+    if (!g?.friends || this.cafe.weekday !== FRIENDS.weekday || entry.activity !== 'night') return null;
+    return entry.start >= FRIENDS.meet ? g : null;
   }
 
   get weekday(): number {

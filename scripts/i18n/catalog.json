@@ -633,7 +633,7 @@
    "at": "src/game/hud.ts:220"
   },
   {
-   "key": "Обедают с коллегами, а большинству компании у тебя не по душе: дорого, не по пути или не их вкус. Понравится троим из четырёх — придут все",
+   "key": "Ходят компанией (коллеги на обед, друзья по пятницам), а большинству у тебя не по душе: дорого, не по пути или не их вкус. Понравится троим из четырёх — придут все",
    "at": "src/game/hud.ts:221"
   },
   {
@@ -2389,48 +2389,60 @@
    "at": "src/game/hud.ts:2861"
   },
   {
+   "key": " · в последнюю пятницу были у тебя",
+   "at": "src/game/hud.ts:2868"
+  },
+  {
+   "key": " · в последнюю пятницу не у тебя: {0}",
+   "at": "src/game/hud.ts:2869"
+  },
+  {
+   "key": "<div>По пятницам вечером сидит с друзьями: {0}{1}</div>",
+   "at": "src/game/hud.ts:2871"
+  },
+  {
    "key": "<div>Обедает с коллегами: {0}{1}</div>",
-   "at": "src/game/hud.ts:2863"
+   "at": "src/game/hud.ts:2873"
   },
   {
    "key": "<div>Зал отчасти по душе: есть вещи в его вкусе</div>",
-   "at": "src/game/hud.ts:2872"
+   "at": "src/game/hud.ts:2882"
   },
   {
    "key": "<div>Зал по душе: {0}</div>",
-   "at": "src/game/hud.ts:2874"
+   "at": "src/game/hud.ts:2884"
   },
   {
    "key": "<div>Зал «{0}» отчасти по душе</div>",
-   "at": "src/game/hud.ts:2875"
-  },
-  {
-   "key": "<div>Зал «{0}» — не по вкусу</div>",
-   "at": "src/game/hud.ts:2875"
-  },
-  {
-   "key": "любит {0}",
    "at": "src/game/hud.ts:2885"
   },
   {
-   "key": "не любит {0}",
-   "at": "src/game/hud.ts:2886"
+   "key": "<div>Зал «{0}» — не по вкусу</div>",
+   "at": "src/game/hud.ts:2885"
   },
   {
-   "key": "ест всё",
-   "at": "src/game/hud.ts:2887"
-  },
-  {
-   "key": "<li class=\"{0}\"><span>День {1}</span>{2}{3}</li>",
-   "at": "src/game/hud.ts:2892"
-  },
-  {
-   "key": "<div class=\"character\">\n        {0}\n        <div class=\"taste\"><span>Вкус:</span> {1}</div>\n        {2}\n      </div>",
+   "key": "любит {0}",
    "at": "src/game/hud.ts:2895"
   },
   {
+   "key": "не любит {0}",
+   "at": "src/game/hud.ts:2896"
+  },
+  {
+   "key": "ест всё",
+   "at": "src/game/hud.ts:2897"
+  },
+  {
+   "key": "<li class=\"{0}\"><span>День {1}</span>{2}{3}</li>",
+   "at": "src/game/hud.ts:2902"
+  },
+  {
+   "key": "<div class=\"character\">\n        {0}\n        <div class=\"taste\"><span>Вкус:</span> {1}</div>\n        {2}\n      </div>",
+   "at": "src/game/hud.ts:2905"
+  },
+  {
    "key": "<div class=\"taste\"><span>Помнит о твоём кафе:</span></div><ul class=\"memory\">{0}</ul>",
-   "at": "src/game/hud.ts:2898"
+   "at": "src/game/hud.ts:2908"
   },
   {
    "key": "Это не файл игры",
@@ -2573,7 +2585,7 @@
    "at": "src/sim/analysis.ts:39"
   },
   {
-   "key": "компания коллег решила иначе",
+   "key": "компания решила иначе",
    "at": "src/sim/analysis.ts:41"
   },
   {
@@ -4726,351 +4738,359 @@
   },
   {
    "key": "{0}: открыто",
-   "at": "src/sim/simulation.ts:563"
+   "at": "src/sim/simulation.ts:564"
   },
   {
    "key": "Нанят бариста",
-   "at": "src/sim/simulation.ts:629"
+   "at": "src/sim/simulation.ts:630"
   },
   {
    "key": "на смену",
-   "at": "src/sim/simulation.ts:629"
+   "at": "src/sim/simulation.ts:630"
   },
   {
    "key": "Уволен бариста",
-   "at": "src/sim/simulation.ts:641"
+   "at": "src/sim/simulation.ts:642"
   },
   {
    "key": "почасовой",
-   "at": "src/sim/simulation.ts:641"
+   "at": "src/sim/simulation.ts:642"
   },
   {
    "key": "График бариста {0}",
-   "at": "src/sim/simulation.ts:657"
+   "at": "src/sim/simulation.ts:658"
   },
   {
    "key": "Твои часы за стойкой",
-   "at": "src/sim/simulation.ts:669"
+   "at": "src/sim/simulation.ts:670"
   },
   {
    "key": "Меню: {0}",
-   "at": "src/sim/simulation.ts:684"
+   "at": "src/sim/simulation.ts:685"
   },
   {
    "key": "добавлен",
-   "at": "src/sim/simulation.ts:684"
+   "at": "src/sim/simulation.ts:685"
   },
   {
    "key": "убран",
-   "at": "src/sim/simulation.ts:684"
+   "at": "src/sim/simulation.ts:685"
   },
   {
    "key": "Своё блюдо: {0}",
-   "at": "src/sim/simulation.ts:704"
+   "at": "src/sim/simulation.ts:705"
   },
   {
    "key": "убрано",
-   "at": "src/sim/simulation.ts:704"
+   "at": "src/sim/simulation.ts:705"
   },
   {
    "key": "в меню",
-   "at": "src/sim/simulation.ts:704"
+   "at": "src/sim/simulation.ts:705"
   },
   {
    "key": "{0} и ещё {1}",
-   "at": "src/sim/simulation.ts:1101"
-  },
-  {
-   "key": "большинству не по душе",
-   "at": "src/sim/simulation.ts:1103"
-  },
-  {
-   "key": "{0}: {1} теперь обедают у вас компанией",
    "at": "src/sim/simulation.ts:1106"
   },
   {
-   "key": "{0}: {1} сегодня обедают не у вас — {2}",
+   "key": "большинству не по душе",
    "at": "src/sim/simulation.ts:1107"
   },
   {
+   "key": "🍻 {0} теперь собираются у вас по пятницам",
+   "at": "src/sim/simulation.ts:1111"
+  },
+  {
+   "key": "🍻 {0} в эту пятницу сидят не у вас — {1}",
+   "at": "src/sim/simulation.ts:1112"
+  },
+  {
+   "key": "{0}: {1} теперь обедают у вас компанией",
+   "at": "src/sim/simulation.ts:1118"
+  },
+  {
+   "key": "{0}: {1} сегодня обедают не у вас — {2}",
+   "at": "src/sim/simulation.ts:1119"
+  },
+  {
    "key": "коллегу",
-   "at": "src/sim/simulation.ts:1267"
+   "at": "src/sim/simulation.ts:1280"
   },
   {
    "key": "соседку",
-   "at": "src/sim/simulation.ts:1267"
+   "at": "src/sim/simulation.ts:1280"
   },
   {
    "key": "соседа",
-   "at": "src/sim/simulation.ts:1267"
+   "at": "src/sim/simulation.ts:1280"
   },
   {
    "key": "подругу",
-   "at": "src/sim/simulation.ts:1267"
+   "at": "src/sim/simulation.ts:1280"
   },
   {
    "key": "друга",
-   "at": "src/sim/simulation.ts:1267"
+   "at": "src/sim/simulation.ts:1280"
   },
   {
    "key": "{0} {1} {2} — {3} взял{4} {5}",
-   "at": "src/sim/simulation.ts:1269"
+   "at": "src/sim/simulation.ts:1282"
   },
   {
    "key": "привела",
-   "at": "src/sim/simulation.ts:1269"
+   "at": "src/sim/simulation.ts:1282"
   },
   {
    "key": "привёл",
-   "at": "src/sim/simulation.ts:1269"
+   "at": "src/sim/simulation.ts:1282"
   },
   {
    "key": "Выпечка в свои точки",
-   "at": "src/sim/simulation.ts:1432"
+   "at": "src/sim/simulation.ts:1445"
   },
   {
    "key": "возим",
-   "at": "src/sim/simulation.ts:1432"
+   "at": "src/sim/simulation.ts:1445"
   },
   {
    "key": "не возим",
-   "at": "src/sim/simulation.ts:1432"
+   "at": "src/sim/simulation.ts:1445"
   },
   {
    "key": "Хлеб в «Продукты»",
-   "at": "src/sim/simulation.ts:1439"
+   "at": "src/sim/simulation.ts:1452"
   },
   {
    "key": "{0} шт.",
-   "at": "src/sim/simulation.ts:1439"
+   "at": "src/sim/simulation.ts:1452"
   },
   {
    "key": "Повешена вывеска",
-   "at": "src/sim/simulation.ts:1482"
+   "at": "src/sim/simulation.ts:1495"
   },
   {
    "key": "раздаём",
-   "at": "src/sim/simulation.ts:1489"
+   "at": "src/sim/simulation.ts:1502"
   },
   {
    "key": "остановлены",
-   "at": "src/sim/simulation.ts:1489"
+   "at": "src/sim/simulation.ts:1502"
   },
   {
    "key": "Запущены соцсети",
-   "at": "src/sim/simulation.ts:1497"
+   "at": "src/sim/simulation.ts:1510"
   },
   {
    "key": "{0} дней",
-   "at": "src/sim/simulation.ts:1497"
+   "at": "src/sim/simulation.ts:1510"
   },
   {
    "key": "со следующего утра",
-   "at": "src/sim/simulation.ts:1497"
+   "at": "src/sim/simulation.ts:1510"
   },
   {
    "key": "Счастливые часы",
-   "at": "src/sim/simulation.ts:1506"
+   "at": "src/sim/simulation.ts:1519"
   },
   {
    "key": "включена",
-   "at": "src/sim/simulation.ts:1510"
+   "at": "src/sim/simulation.ts:1523"
   },
   {
    "key": "выключена",
-   "at": "src/sim/simulation.ts:1510"
+   "at": "src/sim/simulation.ts:1523"
   },
   {
    "key": "Заказ: {0}",
-   "at": "src/sim/simulation.ts:1532"
+   "at": "src/sim/simulation.ts:1545"
   },
   {
    "key": "{0} порц.",
-   "at": "src/sim/simulation.ts:1532"
+   "at": "src/sim/simulation.ts:1545"
   },
   {
    "key": "привезут в 6:00",
-   "at": "src/sim/simulation.ts:1532"
+   "at": "src/sim/simulation.ts:1545"
   },
   {
    "key": "Держать {0} ({1})",
-   "at": "src/sim/simulation.ts:1549"
+   "at": "src/sim/simulation.ts:1562"
   },
   {
    "key": "выходные",
-   "at": "src/sim/simulation.ts:1549"
+   "at": "src/sim/simulation.ts:1562"
   },
   {
    "key": "будни",
-   "at": "src/sim/simulation.ts:1549"
+   "at": "src/sim/simulation.ts:1562"
   },
   {
    "key": "автозаказ ночью",
-   "at": "src/sim/simulation.ts:1552"
+   "at": "src/sim/simulation.ts:1565"
   },
   {
    "key": "Сначала открой точку",
-   "at": "src/sim/simulation.ts:1640"
+   "at": "src/sim/simulation.ts:1653"
   },
   {
    "key": "Сначала верни текущий кредит",
-   "at": "src/sim/simulation.ts:1641"
-  },
-  {
-   "key": "Новый кредит — через {0} дн. после погашения прошлого",
-   "at": "src/sim/simulation.ts:1644"
-  },
-  {
-   "key": "Частник выручал уже {0} раза и больше не даёт",
-   "at": "src/sim/simulation.ts:1647"
-  },
-  {
-   "key": "Банк смотрит историю: приходи через {0} дн. работы",
-   "at": "src/sim/simulation.ts:1651"
-  },
-  {
-   "key": "Банк не кредитует точку в убытке: за неделю {0}",
    "at": "src/sim/simulation.ts:1654"
   },
   {
+   "key": "Новый кредит — через {0} дн. после погашения прошлого",
+   "at": "src/sim/simulation.ts:1657"
+  },
+  {
+   "key": "Частник выручал уже {0} раза и больше не даёт",
+   "at": "src/sim/simulation.ts:1660"
+  },
+  {
+   "key": "Банк смотрит историю: приходи через {0} дн. работы",
+   "at": "src/sim/simulation.ts:1664"
+  },
+  {
+   "key": "Банк не кредитует точку в убытке: за неделю {0}",
+   "at": "src/sim/simulation.ts:1667"
+  },
+  {
    "key": "Кредит: {0}",
-   "at": "src/sim/simulation.ts:1674"
+   "at": "src/sim/simulation.ts:1687"
   },
   {
    "key": "Кредит погашен досрочно",
-   "at": "src/sim/simulation.ts:1685"
+   "at": "src/sim/simulation.ts:1698"
   },
   {
    "key": "🤝 Обеды для «Севера» по договору: {0} × {1}, +{2}. Стойка была занята {3} мин",
-   "at": "src/sim/simulation.ts:1982"
+   "at": "src/sim/simulation.ts:1995"
   },
   {
    "key": "🎄 Корпоратив: {0} × {1}, +{2}. Стойка была занята {3} мин",
-   "at": "src/sim/simulation.ts:1984"
+   "at": "src/sim/simulation.ts:1997"
   },
   {
    "key": "🏢 Заказ офиса: {0} × {1}, +{2}. Стойка была занята {3} мин",
-   "at": "src/sim/simulation.ts:1985"
+   "at": "src/sim/simulation.ts:1998"
   },
   {
    "key": "🤝 Договор с «Севером» закончился: {0} заказов, +{1}",
-   "at": "src/sim/simulation.ts:2002"
+   "at": "src/sim/simulation.ts:2015"
   },
   {
    "key": "🤝 «Север» расторг договор: в 11:00 кафе было закрыто уже {0} раза",
-   "at": "src/sim/simulation.ts:2032"
+   "at": "src/sim/simulation.ts:2045"
   },
   {
    "key": "🤝 Заказ «Севера» сорван: в 11:00 кафе закрыто, продукты пропали. Ещё срыв — и договор расторгнут",
-   "at": "src/sim/simulation.ts:2033"
+   "at": "src/sim/simulation.ts:2046"
   },
   {
    "key": "🧊 Подлатанный холодильник встал ночью: продуктов испортилось на {0}, компрессор всё равно пришлось менять за {1}",
-   "at": "src/sim/simulation.ts:2079"
+   "at": "src/sim/simulation.ts:2092"
   },
   {
    "key": "🧊 Подлатанный холодильник встал ночью. Повезло, что он был пуст, но компрессор всё равно пришлось менять за {0}",
-   "at": "src/sim/simulation.ts:2080"
+   "at": "src/sim/simulation.ts:2093"
   },
   {
    "key": "💬 {0} {1} соседям, как вы извинились за вчерашнее: о вас узнали ещё {2} чел.",
-   "at": "src/sim/simulation.ts:2107"
+   "at": "src/sim/simulation.ts:2120"
   },
   {
    "key": "рассказала",
-   "at": "src/sim/simulation.ts:2107"
+   "at": "src/sim/simulation.ts:2120"
   },
   {
    "key": "рассказал",
-   "at": "src/sim/simulation.ts:2107"
+   "at": "src/sim/simulation.ts:2120"
   },
   {
    "key": "💬 {0} {1} соседям, как вы извинились за вчерашнее",
-   "at": "src/sim/simulation.ts:2108"
+   "at": "src/sim/simulation.ts:2121"
   },
   {
    "key": "💬 {0} {1} в чат дома, как {2} не выслушали. {3} чел. из ваших гостей стали относиться к вам холоднее",
-   "at": "src/sim/simulation.ts:2118"
+   "at": "src/sim/simulation.ts:2131"
   },
   {
    "key": "написала",
-   "at": "src/sim/simulation.ts:2118"
+   "at": "src/sim/simulation.ts:2131"
   },
   {
    "key": "написал",
-   "at": "src/sim/simulation.ts:2118"
+   "at": "src/sim/simulation.ts:2131"
   },
   {
    "key": "её",
-   "at": "src/sim/simulation.ts:2118"
+   "at": "src/sim/simulation.ts:2131"
   },
   {
    "key": "его",
-   "at": "src/sim/simulation.ts:2118"
+   "at": "src/sim/simulation.ts:2131"
   },
   {
    "key": "💬 {0} {1} в чат дома, как {2} не выслушали. Обошлось: ваших гостей там почти нет",
-   "at": "src/sim/simulation.ts:2119"
+   "at": "src/sim/simulation.ts:2132"
   },
   {
    "key": "🧾 Пришла санитарная проверка. Всё было готово: {0} минут, нарушений нет",
-   "at": "src/sim/simulation.ts:2138"
+   "at": "src/sim/simulation.ts:2151"
   },
   {
    "key": "🧾 Пришла санитарная проверка и нашла нарушения: штраф {0}, {1} часа стойка не обслуживала гостей",
-   "at": "src/sim/simulation.ts:2140"
+   "at": "src/sim/simulation.ts:2153"
   },
   {
    "key": "🧾 Пришла санитарная проверка. Без подготовки, но обошлось: нарушений не нашли, час стойка стояла",
-   "at": "src/sim/simulation.ts:2141"
+   "at": "src/sim/simulation.ts:2154"
   },
   {
    "key": "🚜 Ферма привезла испорченную партию: {0}, {1} порц. в списание. Сегодня только то, что осталось со вчера",
-   "at": "src/sim/simulation.ts:2158"
+   "at": "src/sim/simulation.ts:2171"
   },
   {
    "key": "🚜 Договор с фермой закончился: сэкономили {0}, на испорченных партиях потеряли {1}",
-   "at": "src/sim/simulation.ts:2163"
+   "at": "src/sim/simulation.ts:2176"
   },
   {
    "key": "📱 Обзор блогера так и не вышел",
-   "at": "src/sim/simulation.ts:2174"
+   "at": "src/sim/simulation.ts:2187"
   },
   {
    "key": "📱 Вышел обзор блогера: о вас узнали {0} человек",
-   "at": "src/sim/simulation.ts:2184"
+   "at": "src/sim/simulation.ts:2197"
   },
   {
    "key": "куплено за {0}",
-   "at": "src/sim/simulation.ts:2268"
+   "at": "src/sim/simulation.ts:2281"
   },
   {
    "key": "Стиль зала",
-   "at": "src/sim/simulation.ts:2309"
-  },
-  {
-   "key": "без стиля",
-   "at": "src/sim/simulation.ts:2309"
-  },
-  {
-   "key": "продано",
    "at": "src/sim/simulation.ts:2322"
   },
   {
+   "key": "без стиля",
+   "at": "src/sim/simulation.ts:2322"
+  },
+  {
+   "key": "продано",
+   "at": "src/sim/simulation.ts:2335"
+  },
+  {
    "key": "комплектация «{0}»",
-   "at": "src/sim/simulation.ts:2334"
+   "at": "src/sim/simulation.ts:2347"
   },
   {
    "key": "с {0} −{1} %",
-   "at": "src/sim/simulation.ts:2435"
+   "at": "src/sim/simulation.ts:2475"
   },
   {
    "key": "без уценки",
-   "at": "src/sim/simulation.ts:2435"
+   "at": "src/sim/simulation.ts:2475"
   },
   {
    "key": "Уценка выпечки вечером",
-   "at": "src/sim/simulation.ts:2436"
+   "at": "src/sim/simulation.ts:2476"
   },
   {
    "key": "Кофейное зерно",
