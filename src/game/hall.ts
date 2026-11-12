@@ -76,8 +76,13 @@ function finishHtml(layout: Partial<Record<string, FurnitureId>>): string {
 /** Висят над залом — поверх стены и вещей на стене; остальное стоит на полу и сортируется по глубине */
 const HANGING: FurnitureId[] = ['neon', 'rack', 'mirror', 'samovar', 'pendants', 'paperlamp', 'chandelier', 'garland'];
 
-function itemHtml(slot: string, f: FurnitureId, sel: boolean, live: boolean): string {
-  const fr = HALL_ITEMS[f];
+/** Где вещь висит на особой отделке: на стене с панелями неон — внутри средней панели, не поверх молдинга */
+const ON_WALLS: Partial<Record<string, Partial<Record<FurnitureId, [number, number, number, number]>>>> = {
+  'walls-classic': { neon: [322, 60, 84, 54] },
+};
+
+function itemHtml(slot: string, f: FurnitureId, sel: boolean, live: boolean, walls?: FurnitureId): string {
+  const fr = (walls && ON_WALLS[walls]?.[f]) ?? HALL_ITEMS[f];
   if (!fr) return '';
   const [x, y, w, h] = fr;
   // Светильники висят под потолком перед стеной и шкафом; вещи на стене — за мебелью
@@ -199,7 +204,7 @@ function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
   const things = HALL_SLOTS.map(({ id }) => {
     const f = layout[id];
     if (coveredByFeature(layout, id)) return '';
-    return f ? pieceHtml(id, f, '', rug, false, false) || itemHtml(id, f, false, false) : '';
+    return f ? pieceHtml(id, f, '', rug, false, false) || itemHtml(id, f, false, false, layout.walls) : '';
   }).join('');
   return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${finishHtml(layout)}${menuBoard(null)}${things}</div>`;
 }
@@ -214,7 +219,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
     const f = layout[id];
     const sel = selected === id;
     if (coveredByFeature(layout, id)) return '';
-    if (f) return pieceHtml(id, f, state, rug, sel) || itemHtml(id, f, sel, true);
+    if (f) return pieceHtml(id, f, state, rug, sel) || itemHtml(id, f, sel, true, layout.walls);
     const p = SLOT_AT[id];
     if (!p || (SEASON_SLOTS.includes(id) && !sim.holiday)) return '';
     return `<button class="hall-slot empty${sel ? ' selected' : ''}" data-action="hall-slot" data-item="${id}" aria-label="${SLOT_TITLE[id]}"
