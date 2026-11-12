@@ -7,29 +7,41 @@ import type { Simulation } from '../sim/simulation';
 import { ROAD, SADOVAYA, SIDEWALK, WORLD, type Point } from '../sim/world';
 import { ART_SCALE, textureOf } from './atlas';
 import { sound } from './sound';
+import { VEHICLE_FRAMES } from './vehicleFrames';
 
-type Kind = 'car' | 'van' | 'truck' | 'ambulance' | 'police' | 'garbage' | 'scooter' | 'bike' | 'bus' | 'tram';
+type Kind = 'car' | 'van' | 'minibus' | 'service' | 'truck' | 'ambulance' | 'police' | 'fire' | 'garbage' | 'scooter' | 'bike' | 'moto' | 'bus' | 'tram';
 /** Ходят по расписанию, а не случайным потоком */
 type Scheduled = 'bus' | 'tram';
 type Dir = 'down' | 'up' | 'left' | 'right';
 /** Откуда въехал: сверху по Кленовой, с запада или с востока по Садовой */
 type Entry = 'S' | 'W' | 'E';
 
-/** Виды транспорта: длина — по кадру, скорость — пикселей в игровую секунду ×1 */
-const KINDS: Record<Exclude<Kind, Scheduled>, { weight: number; len: number; speed: [number, number]; flash?: boolean }> = {
-  car: { weight: 70, len: 66, speed: [150, 200] },
-  van: { weight: 10, len: 72, speed: [140, 175] },
-  truck: { weight: 6, len: 104, speed: [115, 140] },
-  // Скорая и полиция редкие, едут быстрее и мигают
-  ambulance: { weight: 2, len: 78, speed: [210, 240], flash: true },
-  police: { weight: 2, len: 66, speed: [200, 230], flash: true },
-  // Мусоровоз — только рано утром (вес задаёт pickKind)
-  garbage: { weight: 0, len: 100, speed: [90, 115] },
-  // Курьеры на самокатах и велосипедисты — днём, медленнее машин
-  scooter: { weight: 6, len: 30, speed: [90, 120] },
-  bike: { weight: 5, len: 36, speed: [80, 110] },
+/**
+ * Виды транспорта: вес в потоке, скорость (пикселей в игровую секунду ×1) и картинки вида — каждая машина
+ * берёт одну случайно. Длина машины — по её кадру сбоку.
+ */
+const KINDS: Record<Exclude<Kind, Scheduled>, { weight: number; frames: string[]; speed: [number, number]; flash?: boolean; quiet?: boolean }> = {
+  // Легковые жителей: седаны, такси, хэтчбек, кроссовер, универсал, старый седан, представительский, малолитражка
+  car: { weight: 64, frames: ['car-a', 'car-b', 'car-c', 'car-d', 'car-e', 'car-f', 'car-g', 'car-h', 'car-i'], speed: [150, 200] },
+  van: { weight: 8, frames: ['van', 'delivery'], speed: [140, 175] },
+  // Микроавтобусы и маршрутки
+  minibus: { weight: 6, frames: ['minibus', 'marshrutka'], speed: [135, 170] },
+  // Связь и аварийная служба — днём (вес задаёт pickKind)
+  service: { weight: 2, frames: ['telecom', 'utility'], speed: [130, 160] },
+  truck: { weight: 6, frames: ['truck', 'fridge'], speed: [115, 140] },
+  // Скорая, полиция и пожарные редкие, едут быстрее и мигают
+  ambulance: { weight: 2, frames: ['ambulance'], speed: [210, 240], flash: true },
+  police: { weight: 2, frames: ['police'], speed: [200, 230], flash: true },
+  fire: { weight: 0.6, frames: ['fire'], speed: [170, 200], flash: true },
+  // Мусоровоз — только рано утром
+  garbage: { weight: 0, frames: ['garbage'], speed: [90, 115] },
+  // Курьеры на самокатах и велосипедисты — днём, медленнее машин; мотоциклы — до ночи
+  scooter: { weight: 6, frames: ['scooter'], speed: [90, 120], quiet: true },
+  bike: { weight: 6, frames: ['bike', 'cyclist', 'courier'], speed: [80, 110], quiet: true },
+  moto: { weight: 3, frames: ['moto'], speed: [160, 210] },
 };
-const CARS = ['car-a', 'car-b', 'car-c'];
+/** Длина машины в мире — ширина её кадра сбоку */
+const lengthOf = (frame: string): number => VEHICLE_FRAMES[`${frame}-right`]?.[2] ?? 66;
 /** Сколько секунд можно стоять в пробке из-за соседей, потом машина протискивается */
 const JAM_LIMIT = 6;
 const BUS = { len: 126, speed: 110, waitSeconds: 2.5, everyMinutes: 40 };
@@ -330,12 +342,12 @@ export class Traffic {
     const bus = kind === 'bus';
     const tram = kind === 'tram';
     const spec = bus || tram ? null : KINDS[kind];
-    const len = bus ? BUS.len : tram ? TRAM.len : spec!.len;
+    const base = spec ? spec.frames[Math.floor(Math.random() * spec.frames.length)] : kind;
+    const len = bus ? BUS.len : tram ? TRAM.len : lengthOf(base);
     // Не плодим машины друг в друге у края
     const start = sample(path, 0).pos;
     if (this.cars.some((v) => Math.hypot(v.pos.x - start.x, v.pos.y - start.y) < (v.len + len) / 2 + 40)) return;
-    const base = kind === 'car' ? CARS[Math.floor(Math.random() * CARS.length)] : kind;
-    if (!bus && !tram && kind !== 'scooter' && kind !== 'bike') sound.play('sfx-car-pass', kind === 'truck' || kind === 'garbage' ? 0.45 : 0.3);
+    if (spec && !spec.quiet) sound.play('sfx-car-pass', kind === 'truck' || kind === 'garbage' || kind === 'fire' ? 0.45 : 0.3);
     const { pos, angle } = sample(path, 0);
     const frame = `${base}-${dirOf(angle)}`;
     const sprite = this.scene.add.image(pos.x, pos.y, textureOf(frame), frame).setScale(1 / ART_SCALE).setOrigin(0.5);
@@ -439,7 +451,7 @@ export class Traffic {
     v.angle = angle;
     // Кадр — по ближайшему направлению, остаток угла — поворотом спрайта (плавно в повороте)
     const dir = dirOf(angle);
-    const flashing = (v.kind === 'ambulance' || v.kind === 'police') && flashOn;
+    const flashing = v.kind !== 'bus' && v.kind !== 'tram' && !!KINDS[v.kind].flash && flashOn;
     const frame = `${v.frame}-${dir}${flashing ? '-flash' : ''}`;
     if (v.sprite.frame.name !== frame) v.sprite.setTexture(textureOf(frame), frame);
     let rot = angle - DIR_ANGLE[dir];
@@ -500,6 +512,10 @@ function pickKind(h: number): Exclude<Kind, Scheduled> {
     if (night && k === 'van') w *= 0.5;
     // Самокаты и велосипеды ночью не ездят; мусоровоз — с 5 до 9 утра
     if ((k === 'scooter' || k === 'bike') && (h < 7 || h >= 22)) w = 0;
+    // Мотоциклы спят глубокой ночью, службы связи и аварийные — работают днём, маршрутки — с 6 до 23
+    if (k === 'moto' && h >= 1 && h < 7) w = 0;
+    if (k === 'service' && (h < 8 || h >= 19)) w = 0;
+    if (k === 'minibus' && night) w *= 0.3;
     if (k === 'garbage') w = h >= 5 && h < 9 ? 6 : 0;
     return [k as Exclude<Kind, Scheduled>, w] as const;
   });

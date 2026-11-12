@@ -24,12 +24,21 @@ SIZE = {
     'car-a': (36, 64), 'car-b': (36, 66), 'car-c': (36, 66),
     'van': (40, 72), 'truck': (44, 104), 'ambulance': (42, 78), 'police': (36, 66), 'bus': (46, 126),
     'garbage': (44, 100), 'scooter': (16, 30), 'bike': (16, 36), 'tram': (50, 190),
+    # Легковые жителей: хэтчбек, кроссовер, универсал, старый седан, представительский, малолитражка
+    'car-d': (35, 62), 'car-e': (38, 68), 'car-f': (36, 70), 'car-g': (36, 66), 'car-h': (38, 72), 'car-i': (34, 52),
+    # Микроавтобусы и фургоны служб
+    'minibus': (40, 76), 'marshrutka': (40, 76), 'delivery': (40, 72), 'telecom': (40, 74), 'utility': (40, 72),
+    'fire': (46, 108), 'fridge': (44, 100),
+    # Двухколёсные: курьер с коробом, велосипедистка, мотоциклист
+    'courier': (16, 36), 'cyclist': (16, 36), 'moto': (18, 42),
 }
+# Без заливки просветов: спицы, рама, люди на двухколёсных
+OPEN = {'scooter', 'bike', 'tram', 'courier', 'cyclist', 'moto'}
 # На листе сбоку машина смотрит влево (капот слева) — тогда «вправо» — это зеркало
-FACES_LEFT = {'car-a', 'car-b', 'car-c', 'police'}
+FACES_LEFT = {'car-a', 'car-b', 'car-c', 'police', 'car-d', 'car-e', 'car-f', 'car-g', 'car-h'}
 # Надпись на боку (доли ширины и высоты бокового вида): в зеркальном кадре её возвращаем читаемой
 TEXT_BOX = {'ambulance': (0.15, 0.49, 0.36, 0.58), 'police': (0.31, 0.48, 0.49, 0.58)}
-FLASH = {'ambulance': [(230, 40, 40), (40, 90, 230)], 'police': [(40, 90, 230), (230, 40, 40)]}
+FLASH = {'ambulance': [(230, 40, 40), (40, 90, 230)], 'police': [(40, 90, 230), (230, 40, 40)], 'fire': [(40, 90, 230), (230, 40, 40)]}
 
 
 def cutout(im: Image.Image, fill: bool = True) -> list[Image.Image]:
@@ -86,7 +95,7 @@ def main() -> None:
         f = SRC / f'{kind}.png'
         if not f.exists():
             continue
-        down, up, side = cutout(Image.open(f), fill=kind not in ('scooter', 'bike', 'tram'))
+        down, up, side = cutout(Image.open(f), fill=kind not in OPEN)
         mirror = side.transpose(Image.FLIP_LEFT_RIGHT)
         if kind in TEXT_BOX:
             w, h = side.size
