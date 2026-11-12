@@ -1250,6 +1250,12 @@ a.link.boosty {
   margin: 4px 0 8px;
 }
 
+.premises-list .premises small.muted {
+  margin: 6px 0 0;
+  text-align: center;
+  color: #b5523b;
+}
+
 /* ——— Конкурент ——— */
 .rival {
   margin: 10px 0;
