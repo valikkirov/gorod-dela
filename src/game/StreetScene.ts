@@ -10,7 +10,7 @@ import { Borders, BORDER } from './borders';
 import { Fog } from './fog';
 import { BIG_PARK, CROSSWALK_Y, DISTRICTS, GRID, place, ROAD, SAD_SOUTH, SADOVAYA, SQUARE, WORLD, type DistrictId, type Place } from '../sim/world';
 import type { City } from '../sim/city';
-import { COLORS, RESIDENT_COLOR } from './palette';
+import { COLORS } from './palette';
 import { WeatherFx, type FxKind } from './weatherFx';
 import { Animals } from './animals';
 import type { WindLevel } from '../sim/weather';
@@ -315,6 +315,9 @@ const CAFE_WINDOWS = [
   { x: 118, y: 124, w: 50, h: 46 },
 ];
 const CAFE_DOOR_GLASS = { x: 184, y: 132, w: 24, h: 28 };
+/** Гость в витрине: размер относительно жителя на улице (он в глубине зала) и какая доля спрайта видна над подоконником */
+const GUEST_SCALE = 0.8;
+const GUEST_SHOW = 0.55;
 /** Окна бистро (Деловой квартал): витрина под навесом и стекло двери */
 const BISTRO_WINDOWS = [
   { x: 12, y: 140, w: 82, h: 30 },
@@ -366,6 +369,8 @@ export class StreetScene extends Phaser.Scene {
   private windowLights: { place: Place; image: Phaser.GameObjects.Image }[] = [];
   private walkers: Walker[] = [];
   private guestSpots: { r: Resident; x: number; y: number }[] = [];
+  /** Гости в витрине: те же спрайты жителей, по пояс, за подоконником */
+  private guestSprites: Phaser.GameObjects.Image[] = [];
   private selected: Resident | null = null;
   private selectedPlace: Place | null = null;
   private highlight!: Phaser.GameObjects.Graphics;
@@ -938,6 +943,7 @@ export class StreetScene extends Phaser.Scene {
     const g = this.guests;
     g.clear();
     this.guestSpots = [];
+    for (const s of this.guestSprites) s.setVisible(false);
     if (!mineId) return;
     const r = this.at(mineId).rect;
     if (!open) {
@@ -948,22 +954,43 @@ export class StreetScene extends Phaser.Scene {
       return;
     }
     if (!hall) return; // в киоске не сидят
-    const spots: { x: number; y: number }[] = [];
-    for (const w of mineId === 'bistro' ? BISTRO_WINDOWS : CAFE_WINDOWS)
-      for (let x = w.x + 8; x < w.x + w.w - 4; x += 12) spots.push({ x: r.x + x, y: r.y + w.y + 20 });
+    // Места у окна парами: двое за столиком смотрят друг на друга
+    const spots: { x: number; y: number; flip: boolean }[] = [];
+    for (const w of mineId === 'bistro' ? BISTRO_WINDOWS : CAFE_WINDOWS) {
+      const pairs = Math.max(1, Math.floor((w.w - 6) / 30));
+      const step = (w.w - 6) / pairs;
+      for (let i = 0; i < pairs; i++) {
+        const cx = r.x + w.x + 3 + step * (i + 0.5);
+        const sill = r.y + w.y + w.h - 3;
+        spots.push({ x: cx - 7, y: sill, flip: false }, { x: cx + 7, y: sill, flip: true });
+      }
+    }
     let n = 0;
     for (const res of this.hooks.sim.residents) {
       if (res.placeId !== mineId || res.walking || n >= spots.length) continue;
-      const { x, y } = spots[n++];
-      g.fillStyle(RESIDENT_COLOR[res.kind], 1);
-      g.fillRoundedRect(x - 5, y + 1, 10, 8, { tl: 4, tr: 4, bl: 0, br: 0 });
-      g.fillStyle(0xf2c7a5, 1);
-      g.fillCircle(x, y - 3, 4);
+      const { x, y, flip } = spots[n];
+      const sprite = (this.guestSprites[n] ??= this.add.image(0, 0, 'people', personFrame(res.kind, 'right', 0)));
+      n += 1;
+      // По пояс: нижняя часть спрайта срезана и прячется за подоконником
+      const scale = GUEST_SCALE / ART_SCALE;
+      sprite
+        .setFrame(personFrame(res.kind, 'right', 0))
+        .setScale(scale)
+        .setFlipX(flip)
+        // За стеклом: чуть теплее и темнее, чем на улице
+        .setTint(0xf0dcc0)
+        .setOrigin(0.5, 0)
+        .setDepth(g.depth - 0.1)
+        .setVisible(true);
+      const fh = sprite.frame.height;
+      sprite.setCrop(0, 0, sprite.frame.width, fh * GUEST_SHOW);
+      sprite.setPosition(x, y - fh * GUEST_SHOW * scale);
+      const head = y - fh * GUEST_SHOW * scale + 6;
       if (res === this.selected) {
         g.lineStyle(2, COLORS.outline, 1);
-        g.strokeCircle(x, y, 9);
+        g.strokeCircle(x, head + 4, 10);
       }
-      this.guestSpots.push({ r: res, x, y });
+      this.guestSpots.push({ r: res, x, y: head + 4 });
     }
   }
 
