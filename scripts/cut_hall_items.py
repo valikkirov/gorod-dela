@@ -108,14 +108,17 @@ def main() -> None:
             continue
         base = furnished if f.stem in FURNISHED else clean
         d = diff(img, base)
-        core = d > 45
+        # Бледная середина неоновой трубки почти цвета стены — порог ниже
+        core = d > (22 if f.stem == 'neon' else 45)
         if f.stem in FURNISHED:
             x0, y0, x1, y1 = FEATURE_BOX
             clip = np.zeros_like(core)
             clip[y0:y1, x0:x1] = True
             core &= clip
             # Штатная лампа рядом нарисована заново поверх вещи — она уже есть в комнате
-            core &= ~old
+            # (кроме неона: его буква «к» заходит в рамку лампы, а саму лампу модель не трогала)
+            if f.stem != 'neon':
+                core &= ~old
         core = nd.binary_opening(core, iterations=1)
         lab, n = nd.label(core)
         if not n:
@@ -124,6 +127,14 @@ def main() -> None:
         sizes = nd.sum(core, lab, range(1, n + 1))
         keep = np.isin(lab, np.nonzero(sizes >= max(150, sizes.max() * 0.08))[0] + 1)
         keep = nd.binary_fill_holes(nd.binary_closing(keep, iterations=3))
+        if f.stem == 'neon':
+            # Только сами трубки: светлая середина и рыжий кант; розоватое свечение стены между буквами — нет
+            tube = ((img[..., 1] > 210) & (img.mean(2) > 195)) | (img[..., 2] < 75)
+            keep &= tube
+            keep = nd.binary_closing(keep, iterations=1)
+            lab, n = nd.label(keep)
+            sizes = nd.sum(keep, lab, range(1, n + 1))
+            keep = np.isin(lab, np.nonzero(sizes >= 20)[0] + 1)
         # Ореол: слабое отличие рядом с вещью — свечение и тень, полупрозрачно
         near = nd.binary_dilation(keep, iterations=14)
         if f.stem in FURNISHED:
@@ -133,6 +144,12 @@ def main() -> None:
                 near &= False
         a = np.where(keep, 1.0, np.clip((d - 12) / 60, 0, 0.85) * near)
         a = np.maximum(a, nd.gaussian_filter(keep.astype(float), 0.8) * keep.max())
+        if f.stem == 'neon':
+            # Свечение неона — ровный тёплый ореол вокруг трубок, а не пиксели обычной стены:
+            # иначе на кирпиче и обоях у буквы «к» видно светлое пятно от соседней лампы
+            glow = nd.gaussian_filter(keep.astype(float), 5) * 0.6
+            a = np.maximum(nd.gaussian_filter(keep.astype(float), 0.8), glow)
+            img = np.where(keep[..., None], img, np.array([255, 165, 80]))
         frames[f.stem] = save(img, a, f'item-{f.stem}', box)
         print(f.stem, frames[f.stem])
     lines = ['// Сгенерировано scripts/cut_hall_items.py — не править руками',

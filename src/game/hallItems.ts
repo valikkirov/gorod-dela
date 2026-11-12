@@ -5,7 +5,7 @@ export const HALL_ITEMS: Record<string, [number, number, number, number]> = {
   chandelier: [212, 22, 276, 152],
   garland: [44, 66, 134, 280],
   mirror: [277, 57, 87, 120],
-  neon: [271, 77, 117, 65],
+  neon: [270, 73, 112, 73],
   paperlamp: [223, 22, 255, 152],
   pendants: [215, 22, 263, 152],
   rack: [248, 86, 117, 104],
