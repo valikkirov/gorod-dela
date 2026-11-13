@@ -11,7 +11,8 @@ interface SpeedControl {
   setSpeed(s: number): void;
 }
 
-export function showEventCard(sim: Simulation, hud: SpeedControl, onDone: () => void): void {
+/** where — чья это точка, когда их несколько: «WoW бистро · Деловой квартал» */
+export function showEventCard(sim: Simulation, hud: SpeedControl, onDone: () => void, where = ''): void {
   const e = sim.pendingEvent;
   if (!e) return;
   document.querySelector('.overlay')?.remove();
@@ -24,6 +25,7 @@ export function showEventCard(sim: Simulation, hud: SpeedControl, onDone: () => 
   root.innerHTML = tr`
     <div class="sheet event-card" role="dialog" aria-label="${c.title}">
       <div class="event-icon">${c.icon}</div>
+      ${where ? `<small class="event-where">${where}</small>` : ''}
       <b>${c.title}</b>
       <p>${c.text}</p>
       ${c.stake ? `<p class="event-stake">${c.stake}</p>` : ''}

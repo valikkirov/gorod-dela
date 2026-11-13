@@ -1417,6 +1417,15 @@ a.link.boosty {
 }
 
 /* События-дилеммы */
+.event-card .event-where {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--muted, #8a7a66);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+
 .event-card .event-icon {
   font-size: 36px;
   line-height: 1;

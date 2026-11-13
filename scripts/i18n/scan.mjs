@@ -14,7 +14,7 @@ const NBSP = ' ';
 // Файлы и места, которые не переводим: словари, имена жителей (транслитерация на лету)
 const SKIP_FILES = new Set(['src/sim/i18n.ts', 'src/i18n/en.ts', 'src/game/lang.ts']);
 // Строки, которые остаются по-русски в данных (имена жителей и их женские формы — по ним согласуются глаголы)
-const SKIP_LINES = { 'src/sim/residents.ts': [[115, 140]] };
+const SKIP_LINES = { 'src/sim/residents.ts': [[115, 148]] };
 const SKIP_CALLEES = new Set(['includes', 'startsWith', 'endsWith', 'indexOf', 'has', 'get', 'set', 'delete', 'split', 'querySelector', 'querySelectorAll', 'closest', 'getElementById', 'addEventListener', 'Error', 'log', 'warn', 'error', 'L', 'tr', 'plural']);
 
 const files = [];

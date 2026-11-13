@@ -49,7 +49,7 @@ import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type 
 import { statusText, type Regular } from '../sim/regulars';
 import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
 import { BAKERY, type Simulation } from '../sim/simulation';
-import type { DistrictId, Place } from '../sim/world';
+import { DISTRICTS, type DistrictId, type Place } from '../sim/world';
 import { UNLOCK, type City } from '../sim/city';
 import { clearSave, exportSave, importSave } from './save';
 import { openFeedback } from './feedback';
@@ -633,11 +633,14 @@ export class Hud {
     const night = this.isQuietNight();
     if (this.nightSkip.hidden === night) this.nightSkip.hidden = !night;
     this.cash.classList.toggle('neg', this.sim.cash < 0);
-    const e = this.sim.pendingEvent;
-    const key = e ? `${e.id}:${e.day}` : '';
-    if (e && key !== this.eventShown && !document.querySelector('.overlay')) {
+    // События всех точек: в бистро сломалась кофемашина — узнаёшь, даже если смотришь на Кленовую
+    const owner = [this.sim, ...this.city.points].find((p) => p.pendingEvent);
+    const e = owner?.pendingEvent;
+    const key = e ? `${owner!.district}:${owner!.cafe.premisesId}:${e.id}:${e.day}` : '';
+    if (owner && e && key !== this.eventShown && !document.querySelector('.overlay')) {
       this.eventShown = key;
-      showEventCard(this.sim, this, () => this.render(true));
+      const many = this.city.points.filter((p) => p.cafe.opened).length > 1;
+      showEventCard(owner, this, () => this.render(true), many ? `${owner.cafe.title} · ${DISTRICTS[owner.district].name}` : '');
       sound.play('ui-event');
     }
     // Касса ушла в минус — тихое предупреждение
@@ -689,8 +692,12 @@ export class Hud {
         return;
       }
       case 'point': {
-        const target = this.city.points.find((s) => s.district === sim.district && s.cafe.premisesId === item);
-        if (target) this.show(target);
+        const [district, premises] = (item ?? '').split(':');
+        const target = this.city.points.find((s) => s.district === district && s.cafe.premisesId === premises);
+        if (!target) return;
+        // В другой район — камера едет туда же
+        if (target.district !== sim.district) this.onSwitch(target.district);
+        this.show(target);
         return;
       }
       case 'bake': {
@@ -1212,16 +1219,27 @@ export class Hud {
         <div><b>${title}</b><small>${sub}</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button>
       </div>${placeInterior(p)}`;
-    const people = (list: Resident[], title: string) =>
-      list.length
+    // Тёзки в одном списке — с первой буквой фамилии: «Вера И.» и «Вера П.»
+    const short = (list: Resident[]) => {
+      const n = new Map<string, number>();
+      for (const r of list) n.set(r.name.split(' ')[0], (n.get(r.name.split(' ')[0]) ?? 0) + 1);
+      return (r: Resident) => {
+        const [first, last] = r.name.split(' ');
+        return (n.get(first) ?? 0) > 1 && last ? `${first} ${last[0]}.` : first;
+      };
+    };
+    const people = (list: Resident[], title: string) => {
+      const label = short(list.slice(0, 24));
+      return list.length
         ? `<h5>${title}</h5><div class="people">${list
             .slice(0, 24)
             .map(
               (r) =>
-                `<button class="person${sim.cafe.opened && !r.aware ? ' unaware' : ''}" data-action="face" data-item="${r.id}" title="${r.name}">${portrait(r, !!sim.regularOf(r.id))}${r.name.split(' ')[0]}</button>`,
+                `<button class="person${sim.cafe.opened && !r.aware ? ' unaware' : ''}" data-action="face" data-item="${r.id}" title="${r.name}">${portrait(r, !!sim.regularOf(r.id))}${label(r)}</button>`,
             )
             .join('')}${list.length > 24 ? tr`<small>и ещё ${list.length - 24}</small>` : ''}</div>`
         : '';
+    };
     const awareLine = (list: Resident[], what: string) => {
       if (!sim.cafe.opened || !list.length) return '';
       const n = list.filter((r) => r.aware).length;
@@ -1933,11 +1951,12 @@ export class Hud {
 
   /** Другие твои точки в этом районе: короткая строка и переход */
   private otherPoints(): string {
-    const others = this.city.points.filter((s) => s !== this.sim && s.district === this.sim.district && s.cafe.opened);
+    // Все свои точки города: и в этом районе, и за насыпью
+    const others = this.city.points.filter((s) => s !== this.sim && s.cafe.opened);
     return others
       .map((o) => {
         const icon = o.cafe.premisesId === 'bakery' ? '🥖' : '☕';
-        return tr`<div class="other-point"><span>${icon} ${o.cafe.title}: сегодня ${o.cafe.today.guests} ${plural(o.cafe.today.guests, 'гость', 'гостя', 'гостей')}, выручка ${money(o.cafe.today.revenue)}</span><button class="small secondary" data-action="point" data-item="${o.cafe.premisesId}">Перейти</button></div>`;
+        return tr`<div class="other-point"><span>${icon} ${o.cafe.title}: сегодня ${o.cafe.today.guests} ${plural(o.cafe.today.guests, 'гость', 'гостя', 'гостей')}, выручка ${money(o.cafe.today.revenue)}</span><button class="small secondary" data-action="point" data-item="${o.district}:${o.cafe.premisesId}">Перейти</button></div>`;
       })
       .join('');
   }

@@ -3,6 +3,7 @@
 import { SAVE_VERSION, Simulation, STEP, type SaveData } from './simulation';
 import { hm, MINUTES_PER_DAY } from './clock';
 import { linkCommuters, syncCommuters } from './commute';
+import { uniqueNames } from './residents';
 import { PREMISES } from './economy';
 import type { Resident } from './residents';
 import type { DistrictId } from './world';
@@ -19,6 +20,8 @@ export interface CitySave {
   main: SaveData;
   branch: SaveData | null;
   unlocked: boolean;
+  /** Доля шага, не дошедшая до следующего тика (нет в старых сохранениях) */
+  carry?: number;
   /** Гостевые точки в районе главной: пекарня на Садовой (нет в старых сохранениях) */
   extras?: SaveData[];
 }
@@ -48,6 +51,8 @@ export class City {
     readonly main: Simulation,
     public branch: Simulation | null = null,
   ) {
+    // Один город — без тёзок: на одной карте две «Веры Ивановой» выглядят как ошибка
+    uniqueNames(main.residents, new Set());
     if (branch) this.linkBranch(branch);
   }
 
@@ -77,6 +82,12 @@ export class City {
   private linkBranch(branch: Simulation): void {
     branch.link(this.main);
     this.commuters = linkCommuters(this.main, branch);
+    // Сквозные — те же люди, что на Кленовой: имя одно на двоих. Остальным в квартале — свои имена
+    const used = new Set(this.main.residents.map((r) => r.name));
+    uniqueNames(
+      branch.residents.filter((r) => !r.commute),
+      used,
+    );
   }
 
   get points(): Simulation[] {
@@ -157,6 +168,7 @@ export class City {
       main: this.main.serialize(),
       branch: this.branch?.serialize() ?? null,
       unlocked: this.unlocked,
+      carry: this.carry,
       extras: this.extras.map((p) => p.serialize()),
     };
   }
@@ -172,6 +184,7 @@ export class City {
     const branch = d.branch && d.branch.version === SAVE_VERSION ? Simulation.restore(d.branch) : null;
     const city = new City(main, branch);
     city.unlocked = d.unlocked || branch !== null;
+    city.carry = d.carry ?? 0;
     for (const e of d.extras ?? []) {
       const p = e.version === SAVE_VERSION ? Simulation.restore(e) : null;
       if (!p) continue;

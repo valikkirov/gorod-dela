@@ -1,3 +1,4 @@
+import { heldInMetro } from './commute';
 import { canPlace, FINISH_SLOTS, SEASON_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, STYLE_SLOTS, styleSet, type StyleId } from './interior';
 import { Cafe, CATALOG, hours24, ownerShiftText, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, MARKDOWN_DEFAULT, SPECIALTY, type CafeSave, type Change, type Markdown, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
 import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
@@ -884,7 +885,8 @@ export class Simulation {
       const entry = currentEntry(r.schedule, minute);
       // Пока житель в кафе и ещё не получил заказ, следующее занятие подождёт
       const waiting = r.visit && r.visit.stage !== 'dining' && this.time - r.visit.since < PATIENCE;
-      if (entry !== r.entry && !waiting) this.onTransition(r, entry);
+      // Сквозной житель выходит из метро, только когда второй «я» спустился в метро в другом районе
+      if (entry !== r.entry && !waiting && !heldInMetro(r, entry, minute)) this.onTransition(r, entry);
       if (r.visit?.stage === 'dining' && this.time >= r.visit.until) this.pointOf(r).finishVisit(r);
       if (r.rivalVisit?.until != null && this.time >= r.rivalVisit.until) {
         r.rivalVisit = null;

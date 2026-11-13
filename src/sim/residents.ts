@@ -138,6 +138,39 @@ export function isFemale(name: string): boolean {
   return FEMALE.has(name.split(' ')[0]);
 }
 
+/** Запасные имена: ими переименовываем тёзок, чтобы в городе не было двух одинаковых людей */
+const SPARE_FIRST = [
+  'Агата', 'Бажен', 'Варвара', 'Гордей', 'Злата', 'Елисей', 'Есения', 'Захар', 'Ирина', 'Лука',
+  'Маргарита', 'Мирон', 'Таисия', 'Платон', 'Вероника', 'Савелий', 'Милана', 'Тихон', 'Эмилия', 'Ярослав',
+];
+const SPARE_LAST = ['Орлов', 'Медведев', 'Тихонов', 'Комаров', 'Фролов', 'Журавлёв', 'Ершов', 'Сорокин', 'Галкин', 'Крылов', 'Макаров', 'Егоров'];
+for (const n of ['Агата', 'Варвара', 'Злата', 'Есения', 'Ирина', 'Маргарита', 'Таисия', 'Вероника', 'Милана', 'Эмилия']) FEMALE.add(n);
+
+/**
+ * Переименовать тёзок: у каждого жителя из списка — имя, которого ещё нет в used (used пополняется).
+ * Детерминированно: новое имя зависит только от номера жителя и того, какие имена уже заняты
+ */
+export function uniqueNames(residents: Resident[], used: Set<string>): void {
+  const firsts = [...FIRST_NAMES, ...SPARE_FIRST];
+  const lasts = [...LAST_NAMES, ...SPARE_LAST];
+  for (const r of residents) {
+    if (used.has(r.name)) {
+      const total = firsts.length * lasts.length;
+      for (let k = 0; k < total; k++) {
+        const i = (r.id * 7919 + k * 104729) % total;
+        const first = firsts[i % firsts.length];
+        const last = lasts[Math.floor(i / firsts.length)];
+        const name = `${first} ${FEMALE.has(first) ? `${last}а` : last}`;
+        if (!used.has(name)) {
+          r.name = name;
+          break;
+        }
+      }
+    }
+    used.add(r.name);
+  }
+}
+
 function makeName(rng: Rng): string {
   const first = rng.pick(FIRST_NAMES);
   const last = rng.pick(LAST_NAMES);

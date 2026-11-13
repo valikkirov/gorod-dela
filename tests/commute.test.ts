@@ -86,4 +86,46 @@ describe('Сквозные жители', () => {
     expect(pairs.map(([a]) => a.name)).toEqual(names);
     for (const [a, b] of pairs) expect(b.name).toBe(a.name);
   }, 60_000);
+
+  it('город на одной карте: сквозной житель не ходит по обоим районам сразу', () => {
+    const c = city();
+    c.branch!.openCafe('bistro');
+    c.branch!.cafe.hire('shift');
+    const pairs = commuterPairs(c.main, c.branch!);
+    let both = 0;
+    let commuted = 0;
+    for (let t = 0; t < 3 * MINUTES_PER_DAY; t += 5) {
+      c.advance(5);
+      for (const [a, b] of pairs) {
+        if (a.visible && b.visible) both += 1;
+        if (b.visible) commuted += 1;
+      }
+    }
+    expect(commuted).toBeGreaterThan(0);
+    expect(both).toBe(0);
+  }, 120_000);
+
+  it('в городе нет тёзок: одинаковое имя только у сквозного жителя и его «я» в квартале', () => {
+    const c = city();
+    const seen = new Map<string, number>();
+    for (const r of [...c.main.residents, ...c.branch!.residents.filter((x) => !x.commute)]) seen.set(r.name, (seen.get(r.name) ?? 0) + 1);
+    expect([...seen.values()].every((n) => n === 1)).toBe(true);
+    // Те же имена после загрузки
+    const back = City.restore(JSON.parse(JSON.stringify(c.serialize())))!;
+    expect(back.branch!.residents.map((r) => r.name)).toEqual(c.branch!.residents.map((r) => r.name));
+  }, 60_000);
+
+  it('после загрузки город идёт шаг в шаг с несохранённым', () => {
+    const c = city();
+    c.branch!.openCafe('bistro');
+    c.branch!.cafe.hire('shift');
+    c.advance(MINUTES_PER_DAY + 333);
+    const back = City.restore(JSON.parse(JSON.stringify(c.serialize())))!;
+    for (let h = 0; h < 30; h++) {
+      c.advance(60);
+      back.advance(60);
+      expect(back.main.cash).toBe(c.main.cash);
+      expect(back.branch!.today).toBe(c.branch!.today);
+    }
+  }, 120_000);
 });
