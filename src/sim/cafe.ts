@@ -557,7 +557,7 @@ export class Cafe {
       this.interior.load(preset(this.upgrades.includes('interior') ? 'cozy' : 'standard').layout);
     }
     // Сохранения до своего зала бистро: там стояла мебель кафе — ставим «Стандарт» бистро
-    if (this.opened && this.premisesId === 'bistro' && !this.interior.items().length) this.interior.load(preset('standard', 'bistro').layout);
+    if (this.opened && this.premisesId === 'bistro' && !this.interior.seats) this.interior.load(preset('standard', 'bistro').layout);
     this.prepUntil = d.prepUntil ?? -1;
     this.customName = d.name ?? null;
     // Блюдо в меню и в списке своих — один объект: цена меняется в обоих местах

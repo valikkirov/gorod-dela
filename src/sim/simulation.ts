@@ -1,5 +1,5 @@
 import { heldInMetro } from './commute';
-import { canPlace, FINISH_SLOTS, SEASON_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, STYLE_SLOTS, styleSet, type StyleId } from './interior';
+import { canPlace, FINISH_SLOTS, SEASON_SLOTS, furniture, type FurnitureId, hallStyle, Interior, INTERIOR, preset, type PresetId, styleName, styleSet, type StyleId } from './interior';
 import { Cafe, CATALOG, hours24, ownerShiftText, scheduleText, validWindow, weekHoursText, type DayHours, type StaffSchedule, MAX_QUEUE, MARKDOWN_DEFAULT, SPECIALTY, type CafeSave, type Change, type Markdown, type Contract, type DayReport, type RejectReason, type MenuItem } from './cafe';
 import { emptyHistory, LOAN, LOAN_LABEL, LOAN_TERMS, weeklyPayment, type Loan, type LoanHistory, type Offer as LoanOffer, type LoanSource } from './loans';
 import { DISH_EFFECT, isDish, SIGNATURE_MATCH, type AddInId, type BaseId } from './dishes';
@@ -2321,7 +2321,7 @@ export class Simulation {
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
     this.note(`hall:${slot}`, L('Зал'), old ? furniture(old).name : undefined, furniture(id).name);
     const after = this.cafe.interior.style;
-    if (after !== before) this.note('hall-style', L('Стиль зала'), before ? hallStyle(before).name : L('без стиля'), after ? hallStyle(after).name : L('без стиля'));
+    if (after !== before) this.note('hall-style', L('Стиль зала'), before ? styleName(before, this.cafe.interior.kind) : L('без стиля'), after ? styleName(after, this.cafe.interior.kind) : L('без стиля'));
     return true;
   }
 
@@ -2353,14 +2353,14 @@ export class Simulation {
   /** Собрать стиль целиком: стены, пол и обе фирменные вещи */
   applyStyle(id: StyleId): boolean {
     const hall = this.cafe.interior;
-    if (!this.hasHall || !hall.styled || hall.styleCount(id) === STYLE_SLOTS.length) return false;
+    if (!this.hasHall || hall.styleCount(id) === hall.styleSlots.length) return false;
     const cost = hall.styleCost(id);
     if (this.cash < cost) return false;
     const before = hall.style;
     this.cash -= cost;
-    Object.assign(hall.layout, styleSet(id));
+    Object.assign(hall.layout, styleSet(id, hall.kind));
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
-    this.note('hall-style', L('Стиль зала'), before ? hallStyle(before).name : L('без стиля'), hallStyle(id).name);
+    this.note('hall-style', L('Стиль зала'), before ? styleName(before, hall.kind) : L('без стиля'), styleName(id, hall.kind));
     return true;
   }
 

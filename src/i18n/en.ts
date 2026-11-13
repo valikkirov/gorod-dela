@@ -1475,5 +1475,15 @@ export const EN: Record<string, string> = {
  "Общий стол на шестерых, доска бизнес-ланча и кулер": "A communal table for six, a business lunch board and a water cooler",
  "Стойка у окна, кабинка с диванами, вешалка и часы": "Window counter, a booth, a coat stand and a clock",
  "Полный зал: два стола на четверых, кабинка, телевизор и цветы": "Full room: two tables for four, a booth, a TV and plants",
- "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    {3}\n    {4}\n    <h4>Готовые комплектации</h4>\n    <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Свой дизайн</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}": "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    {3}\n    {4}\n    <h4>Ready-made sets</h4>\n    <small>Pick one and it's placed. Extras sell for half price, matching items stay.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Your own design</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}"
+ "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    {3}\n    {4}\n    <h4>Готовые комплектации</h4>\n    <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Свой дизайн</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}": "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    {3}\n    {4}\n    <h4>Ready-made sets</h4>\n    <small>Pick one and it's placed. Extras sell for half price, matching items stay.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Your own design</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}",
+ "<p class=\"hint-line\">Стиля пока нет. В бистро стиль — это стены и пол одного стиля. Своя аудитория чаще замечает бистро, садится в зале и советует его своим.</p>": "<p class=\"hint-line\">No style yet. In a bistro the style is walls and floor of the same style. Its audience notices the bistro more often, sits in the room and recommends it to friends.</p>",
+ "<li class=\"style-card{0}\">\n      <div class=\"row\"><b class=\"grow\">{1}</b><span class=\"badge{2}\">{3} из {4}</span></div>\n      <div class=\"swatches\">{5}</div>\n      <small>Нравится {6}</small>\n      <button class=\"small\" data-action=\"hall-style\" data-item=\"{7}\" {8}>{9}</button>\n    </li>": "<li class=\"style-card{0}\">\n      <div class=\"row\"><b class=\"grow\">{1}</b><span class=\"badge{2}\">{3} of {4}</span></div>\n      <div class=\"swatches\">{5}</div>\n      <small>Liked by {6}</small>\n      <button class=\"small\" data-action=\"hall-style\" data-item=\"{7}\" {8}>{9}</button>\n    </li>",
+ "Белый кафель и тёплая краска": "White tiles and warm paint",
+ "Штукатурка и светлые рейки": "Plaster and light wood slats",
+ "Мятные стены с хромом": "Mint walls with chrome",
+ "Светлая плитка": "Light tiles",
+ "Столовая": "Canteen",
+ "Индустриальный": "Industrial",
+ "Офисный минимализм": "Office minimalism",
+ "Ретро-закусочная": "Retro diner"
 };

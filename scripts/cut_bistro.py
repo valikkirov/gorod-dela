@@ -115,6 +115,10 @@ def cut(layout: str, picture: str, empty: np.ndarray, frames: dict, suffix: str 
         col = pic.copy()
         col[shade] = 0
         alpha[shade] = np.minimum(alpha[shade], np.clip((1 - ratio[shade]) * 1.3, 0, 1))
+        # Пол и стена пустой комнаты внутри вещи (между ножками, под лавкой) — прозрачные: при другой отделке
+        # там видна новая, а не старая плитка
+        same = np.abs(blur(pic) - blur(empty)).sum(2) < 20
+        alpha[nd.binary_opening(same, iterations=2)] = 0
         name = f'{slot}-{item}{suffix}'
         fr = save_piece(col, alpha, name)
         if fr:

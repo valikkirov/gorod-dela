@@ -62,7 +62,7 @@ import { switchLang } from './lang';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
 import { hallPicker, hallTab } from './hall';
-import { hallStyle, type FurnitureId, type PresetId, type StyleId } from '../sim/interior';
+import { styleName, type FurnitureId, type PresetId, type StyleId } from '../sim/interior';
 import { goal } from './metrika';
 import { sound } from './sound';
 import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
@@ -3146,7 +3146,7 @@ export class Hud {
     const id = hall.style;
     const fit = hall.styleFit(r.kind);
     if (!id) return fit > 0 ? tr`<div>Зал отчасти по душе: есть вещи в его вкусе</div>` : '';
-    const name = hallStyle(id).name;
+    const name = styleName(id, hall.kind);
     if (fit > 0 && fit === hall.wholeFit(r.kind)) return tr`<div>Зал по душе: ${name}</div>`;
     return fit > 0 ? tr`<div>Зал «${name}» отчасти по душе</div>` : tr`<div>Зал «${name}» — не по вкусу</div>`;
   }

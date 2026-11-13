@@ -1,4 +1,4 @@
-// Вкладка «Зал»: картинка зала с мебелью на местах, готовые комплектации и свой дизайн.
+// Вкладка «Зал»: картинка зала с мебелью на местах, готовые комплектации и свой дизайн.
 // Только отрисовка: покупки идут через публичные методы Simulation.
 import {
   canPlace,
@@ -11,9 +11,9 @@ import {
   FINISH_SLOTS,
   INTERIOR,
   SEASON_SLOTS,
-  STYLE_SLOTS,
   STYLES,
   styleSet,
+  styleName,
   type FurnitureId,
   type StyleId,
 } from '../sim/interior';
@@ -29,13 +29,13 @@ import { HALL_ITEMS } from './hallItems';
 import { L, tr } from '../sim/i18n';
 const money = formatMoney;
 
-// Зал нарисован целиком в одном ракурсе, мебель вырезана из него же (scripts/cut_hall.py):
-// каждый кусочек ложится в свои координаты комнаты, поэтому размеры и перспектива совпадают
+// Зал нарисован целиком в одном ракурсе, мебель вырезана из него же (scripts/cut_hall.py):
+// каждый кусочек ложится в свои координаты комнаты, поэтому размеры и перспектива совпадают
 const ART = import.meta.glob('./art/hall3/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 const BISTRO_ART = import.meta.glob('./art/bistro/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
 
-// Зал кафе и зал бистро рисуются одинаково, только картинки свои (scripts/cut_bistro.py).
-// Какой зал сейчас рисуем — решает точка; переключается в начале hallTab/hallPicker
+// Зал кафе и зал бистро рисуются одинаково, только картинки свои (scripts/cut_bistro.py).
+// Какой зал сейчас рисуем — решает точка; переключается в начале hallTab/hallPicker
 let kind: HallKind = 'cafe';
 let HALL_FRAMES: Record<string, [number, number, number, number]> = CAFE_FRAMES;
 let HALL_ROOM = CAFE_ROOM;
@@ -46,10 +46,11 @@ function useHall(k: HallKind): void {
   HALL_ROOM = k === 'bistro' ? BISTRO_ROOM : CAFE_ROOM;
   roomUrl = k === 'bistro' ? bistroRoomUrl : cafeRoomUrl;
 }
+// Отделка бистро: «bwalls-loft» лежит в art/bistro/walls-loft.webp
 const art = (id: string): string =>
-  kind === 'bistro' && !isFinish(id as FurnitureId) ? (BISTRO_ART[`./art/bistro/${id}.webp`] ?? '') : ART[`./art/hall3/${id}.webp`];
+  kind === 'bistro' ? (BISTRO_ART[`./art/bistro/${id.replace(/^b(walls|floor)-/, '$1-')}.webp`] ?? '') : ART[`./art/hall3/${id}.webp`];
 
-/** Кнопка «+» пустого места: точка на полу или стене, в пикселях комнаты */
+/** Кнопка «+» пустого места: точка на полу или стене, в пикселях комнаты */
 const SLOT_AT: Record<string, { x: number; y: number }> = {
   rug: { x: 420, y: 470 },
   'wall-1': { x: 320, y: 145 },
@@ -81,18 +82,18 @@ const SLOT_AT: Record<string, { x: number; y: number }> = {
 };
 const SEATED: FurnitureId[] = ['table2', 'table4', 'sofa', 'bar', 'stools', 'commune', 'pair4', 'booth'];
 
-// ——— Стиль зала: стены и пол — слои размером с комнату, вещи — кусочки на своих местах (scripts/pack_hall_style.py,
-// scripts/cut_hall_items.py). Отделку и вещи можно сочетать как угодно: все правки сделаны поверх одной комнаты ———
+// ——— Стиль зала: стены и пол — слои размером с комнату, вещи — кусочки на своих местах (scripts/pack_hall_style.py,
+// scripts/cut_hall_items.py). Отделку и вещи можно сочетать как угодно: все правки сделаны поверх одной комнаты ———
 
-const isFinish = (f: FurnitureId): boolean => f.startsWith('walls-') || f.startsWith('floor-');
+const isFinish = (f: FurnitureId): boolean => /^b?(walls|floor)-/.test(f);
 
-/** Светильники «штриха» висят вместо штатных ламп: те прячет заплатка стены без ламп */
+/** Светильники «штриха» висят вместо штатных ламп: те прячет заплатка стены без ламп */
 const LIGHTS: FurnitureId[] = ['paperlamp', 'pendants', 'chandelier'];
 
 function finishHtml(layout: Partial<Record<string, FurnitureId>>): string {
   const layers = ['walls', 'floor']
     .map((slot) => layout[slot])
-    .filter((f): f is FurnitureId => !!f && !!ART[`./art/hall3/${f}.webp`])
+    .filter((f): f is FurnitureId => !!f && !!art(f))
     .map((f) => `<img class="hall-finish" src="${art(f)}" alt="">`);
   if (layout.touch && LIGHTS.includes(layout.touch)) {
     const walls = layout.walls?.replace('walls-', '') ?? 'default';
@@ -102,10 +103,10 @@ function finishHtml(layout: Partial<Record<string, FurnitureId>>): string {
   return layers.join('');
 }
 
-/** Висят над залом — поверх стены и вещей на стене; остальное стоит на полу и сортируется по глубине */
+/** Висят над залом — поверх стены и вещей на стене; остальное стоит на полу и сортируется по глубине */
 const HANGING: FurnitureId[] = ['neon', 'rack', 'mirror', 'samovar', 'pendants', 'paperlamp', 'chandelier', 'garland'];
 
-/** Где вещь висит на особой отделке: на стене с панелями неон — внутри средней панели, не поверх молдинга */
+/** Где вещь висит на особой отделке: на стене с панелями неон — внутри средней панели, не поверх молдинга */
 const ON_WALLS: Partial<Record<string, Partial<Record<FurnitureId, [number, number, number, number]>>>> = {
   'walls-classic': { neon: [322, 60, 84, 54] },
 };
@@ -114,34 +115,37 @@ function itemHtml(slot: string, f: FurnitureId, sel: boolean, live: boolean, wal
   const fr = (walls && ON_WALLS[walls]?.[f]) ?? HALL_ITEMS[f];
   if (!fr) return '';
   const [x, y, w, h] = fr;
-  // Светильники висят под потолком перед стеной и шкафом; вещи на стене — за мебелью
+  // Светильники висят под потолком перед стеной и шкафом; вещи на стене — за мебелью
   const z = LIGHTS.includes(f) ? 900 : HANGING.includes(f) ? 3 : 10 + y + h;
   const act = live ? ` data-action="hall-slot" data-item="${slot}"` : '';
   return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(`item-${f}`)}" alt="${live ? furniture(f).name : ''}"${act}
     style="left:${pct(x, HALL_ROOM.w)};top:${pct(y, HALL_ROOM.h)};width:${pct(w, HALL_ROOM.w)};z-index:${z}">`;
 }
 
-/** Акцент на стене висит там же, где картина и часы: пока он есть, их не видно (уют они дают по-прежнему) */
+/** Акцент на стене висит там же, где картина и часы: пока он есть, их не видно (уют они дают по-прежнему) */
 const coveredByFeature = (layout: Partial<Record<string, FurnitureId>>, slot: string): boolean =>
   !!layout.feature && (slot === 'wall-1' || slot === 'wall-2');
 
-/** Где на картинке видно отделку: кусок стены и пола для образца в списке */
+/** Где на картинке видно отделку: кусок стены и пола для образца в списке */
 const SWATCH_AT = { walls: { x: 205, y: 200 }, floor: { x: 470, y: 470 } };
+const BISTRO_SWATCH_AT = { walls: { x: 761, y: 140 }, floor: { x: 470, y: 520 } };
 const SWATCH_SPAN = 80;
 
-/** Картинка вещи для списка; у отделки — кусок стены или пола, у вещей стиля — сама вещь */
+/** Картинка вещи для списка; у отделки — кусок стены или пола, у вещей стиля — сама вещь */
 function swatch(id: FurnitureId): string {
   if (isFinish(id)) {
-    const at = SWATCH_AT[id.startsWith('walls-') ? 'walls' : 'floor'];
+    const at = (kind === 'bistro' ? BISTRO_SWATCH_AT : SWATCH_AT)[/^b?walls-/.test(id) ? 'walls' : 'floor'];
     const k = 44 / SWATCH_SPAN;
     const pos = `${-(at.x - SWATCH_SPAN / 2) * k}px ${-(at.y - SWATCH_SPAN / 2) * k}px`;
-    return `<span class="swatch" style="background:url(${art(id)}) ${pos}/${HALL_ROOM.w * k}px auto no-repeat #efe7da"></span>`;
+    // Базовая отделка бистро нарисована в самой комнате — образец из неё
+    const src = art(id) || (kind === 'bistro' ? roomUrl : '');
+    return `<span class="swatch" style="background:url(${src}) ${pos}/${HALL_ROOM.w * k}px auto no-repeat #efe7da"></span>`;
   }
   if (HALL_ITEMS[id]) return `<span class="swatch icon"><img src="${art(`thumb-${id}`) ?? art(`item-${id}`)}" alt=""></span>`;
   return `<img src="${thumb(id)}" alt="">`;
 }
 
-/** Картинка вещи для списка: вырезанная отдельно, целиком (scripts/cut_hall.py, THUMBS); иначе — первый кусок с ней */
+/** Картинка вещи для списка: вырезанная отдельно, целиком (scripts/cut_hall.py, THUMBS); иначе — первый кусок с ней */
 function thumb(id: FurnitureId): string {
   const own = art(`thumb-${id}`);
   if (own) return own;
@@ -151,12 +155,12 @@ function thumb(id: FurnitureId): string {
 
 const SLOT_TITLE: Record<string, string> = {
   rug: L('Пол в\u00a0центре'),
-  'wall-1': L('Стена над диваном'),
+  'wall-1': L('Стена над диваном'),
   'wall-2': L('Стена повыше'),
   corner: L('У\u00a0стены слева'),
   shelf: L('У\u00a0стены справа'),
   nook: L('Угол у\u00a0окна'),
-  window: L('Под окном'),
+  window: L('Под окном'),
   'small-1': L('Угол у\u00a0входа в\u00a0зал'),
   'table-1': L('Стол у\u00a0стойки'),
   'table-2': L('Стол слева'),
@@ -169,10 +173,10 @@ const SLOT_TITLE: Record<string, string> = {
   tree: L('Угол у\u00a0двери'),
   garland: L('Окно'),
   'b-wall-l': L('Стена слева'),
-  'b-wall-c': L('Над раздачей'),
+  'b-wall-c': L('Над раздачей'),
   'b-wall-r': L('Стена справа'),
   'b-corner': L('Угол у\u00a0раздачи'),
-  'b-window': L('Под окном'),
+  'b-window': L('Под окном'),
   'b-center': L('Центр зала'),
   'b-side': L('У\u00a0правой стены'),
   'b-door': L('У\u00a0двери'),
@@ -200,10 +204,10 @@ function facts(seats: number, cozy: number): string {
   const parts: string[] = [];
   if (seats) parts.push(tr`${seats} мест${seats === 1 ? L('о') : seats < 5 ? L('а') : ''}`);
   if (cozy) parts.push(tr`уют +${cozy}`);
-  return parts.join(' · ') || L('для вида');
+  return parts.join(' · ') || L('для вида');
 }
 
-/** Насколько зал полон: гости рисуются вместе с мебелью, одним уровнем на весь зал */
+/** Насколько зал полон: гости рисуются вместе с мебелью, одним уровнем на весь зал */
 function fullness(sim: Simulation): '' | 'half' | 'full' {
   const seats = sim.cafe.interior.seats;
   const now = sim.seated();
@@ -218,14 +222,14 @@ function pieceHtml(slot: string, f: FurnitureId, state: string, rug: boolean, se
   const frame = HALL_FRAMES[name];
   if (!frame) return '';
   const [x, y, w, h] = frame;
-  // Слой: коврик внизу, стены за мебелью, остальное — чем ниже на полу, тем ближе
+  // Слой: коврик внизу, стены за мебелью, остальное — чем ниже на полу, тем ближе
   const z = slot === 'rug' ? 1 : slot.startsWith('wall') || slot.startsWith('b-wall') ? 2 : 10 + y + h;
   const style = `left:${pct(x, HALL_ROOM.w)};top:${pct(y, HALL_ROOM.h)};width:${pct(w, HALL_ROOM.w)};z-index:${z}`;
   const act = live ? ` data-action="hall-slot" data-item="${slot}"` : '';
   return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(name)}" alt="${live ? furniture(f).name : ''}"${act} style="${style}">`;
 }
 
-/** Доска с меню на стене: настоящие позиции и цены игрока поверх нарисованной доски */
+/** Доска с меню на стене: настоящие позиции и цены игрока поверх нарисованной доски */
 const BOARD = { x: 470, y: 60, w: 218, h: 106 };
 const esc = (t: string): string => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
@@ -233,13 +237,13 @@ function menuBoard(sim: Simulation | null): string {
   const items = sim ? sim.cafe.menu : [];
   const rows = items.map((m) => `<li><span>${esc(m.name)}</span><b>${m.price}</b></li>`).join('');
   const style = `left:${pct(BOARD.x, HALL_ROOM.w)};top:${pct(BOARD.y, HALL_ROOM.h)};width:${pct(BOARD.w, HALL_ROOM.w)};height:${pct(BOARD.h, HALL_ROOM.h)}`;
-  return tr`<div class="hall-board" style="${style}" aria-label="Меню на доске"><ul>${rows}</ul></div>`;
+  return tr`<div class="hall-board" style="${style}" aria-label="Меню на доске"><ul>${rows}</ul></div>`;
 }
 
-/** Бариста за стойкой — отдельный слой размером с комнату (scripts/cut_hall.py): только когда он на смене */
-const baristaLayer = tr`<img class="hall-barista" src="${art('barista')}" alt="Бариста за стойкой">`;
+/** Бариста за стойкой — отдельный слой размером с комнату (scripts/cut_hall.py): только когда он на смене */
+const baristaLayer = tr`<img class="hall-barista" src="${art('barista')}" alt="Бариста за стойкой">`;
 
-/** Миниатюра комплектации: тот же зал из тех же кусков, без кнопок и гостей */
+/** Миниатюра комплектации: тот же зал из тех же кусков, без кнопок и гостей */
 function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
   const rug = layout.rug === 'rug';
   const things = hallSlots(kind).map(({ id }) => {
@@ -247,10 +251,10 @@ function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
     if (coveredByFeature(layout, id)) return '';
     return f ? pieceHtml(id, f, '', rug, false, false) || itemHtml(id, f, false, false, layout.walls) : '';
   }).join('');
-  return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${kind === 'cafe' ? finishHtml(layout) + menuBoard(null) : ''}${things}</div>`;
+  return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${finishHtml(layout)}${kind === 'cafe' ? menuBoard(null) : ''}${things}</div>`;
 }
 
-/** Вкладка целиком; selected — выбранное место для своего дизайна */
+/** Вкладка целиком; selected — выбранное место для своего дизайна */
 export function hallTab(sim: Simulation, selected: string | null): string {
   const hall = sim.cafe.interior;
   useHall(hall.kind);
@@ -303,22 +307,22 @@ export function hallTab(sim: Simulation, selected: string | null): string {
 
   return tr`
     <div class="hall" style="background-image:url(${roomUrl})">${
-      kind === 'cafe' ? `${finishHtml(layout)}${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}` : ''
+      finishHtml(layout) + (kind === 'cafe' ? `${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}` : '')
     }${things}</div>
     ${stats}
     ${styleBlock}
     <h4>Готовые комплектации</h4>
     <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>
     <ul class="menu presets">${presets}</ul>
-    ${sim.holiday ? tr`<h4>Новогодний декор 🎄</h4><p class="hint-line">До 12 января: ёлка и гирлянда — уют, а в праздники в такой зал чаще заходят посидеть. Нажми на место в зале — у двери или на окне.</p>` : ''}
+    ${sim.holiday ? tr`<h4>Новогодний декор 🎄</h4><p class="hint-line">До 12 января: ёлка и гирлянда — уют, а в праздники в такой зал чаще заходят посидеть. Нажми на место в зале — у двери или на окне.</p>` : ''}
     <h4>Свой дизайн</h4>
-    <div class="row wrap">${(hall.styled ? STYLE_SLOTS : []).map(
+    <div class="row wrap">${hall.styleSlots.map(
       (slot) => `<button class="small secondary${selected === slot ? ' on' : ''}" data-action="hall-slot" data-item="${slot}">${SLOT_TITLE[slot]}</button>`,
     ).join('')}</div>
     ${design}`;
 }
 
-/** Выбор вещи для места в зале — в окне поверх экрана: длинный список не уезжает вниз панели */
+/** Выбор вещи для места в зале — в окне поверх экрана: длинный список не уезжает вниз панели */
 export function hallPicker(sim: Simulation, selected: string): { title: string; body: string } {
   useHall(sim.cafe.interior.kind);
   const layout = sim.cafe.interior.layout;
@@ -330,7 +334,7 @@ export function hallPicker(sim: Simulation, selected: string): { title: string; 
       const likes = f.likes.length
         ? tr` · нравится ${f.likes.map((k) => LIKE_LABEL[k]).join(L(' и\u00a0'))}`
         : f.style
-          ? tr` · стиль «${STYLES.find((st) => st.id === f.style)!.name}»`
+          ? tr` · стиль «${styleName(f.style, kind)}»`
           : '';
       return `<li class="furniture${here ? ' on' : ''}">
           ${swatch(f.id)}
@@ -345,9 +349,9 @@ export function hallPicker(sim: Simulation, selected: string): { title: string; 
     .join('');
   const finish = FINISH_SLOTS.includes(selected);
   const body = `${
-    cur && !finish ? tr`<button class="small secondary" data-action="hall-sell" data-item="${selected}">Продать за ${money(Interior.refund(cur))}</button>` : ''
+    cur && !finish ? tr`<button class="small secondary" data-action="hall-sell" data-item="${selected}">Продать за ${money(Interior.refund(cur))}</button>` : ''
   }
-      ${cur ? tr`<small>Замена: старая вещь продаётся за полцены.</small>` : ''}
+      ${cur ? tr`<small>Замена: старая вещь продаётся за полцены.</small>` : ''}
       <ul class="menu furniture-list">${options}</ul>`;
   return { title: SLOT_TITLE[selected], body };
 }
@@ -359,26 +363,29 @@ const AUDIENCE_LABEL: Record<StyleId, string> = {
   classic: L('пенсионерам и\u00a0гостям района'),
 };
 
-/** Стиль зала: какой сейчас, сколько элементов у каждого, кому нравится и сколько таких вокруг */
+/** Стиль зала: какой сейчас, сколько элементов у каждого, кому нравится и сколько таких вокруг */
 function styleSection(sim: Simulation): string {
   const hall = sim.cafe.interior;
   const now = hall.style;
-  const nowName = now ? STYLES.find((st) => st.id === now)!.name : '';
+  const nowName = now ? styleName(now, kind) : '';
+  const total = hall.styleSlots.length;
   const head = now
-    ? tr`<p class="hint-line">Стиль зала: <b>${nowName}</b> — нравится ${AUDIENCE_LABEL[now]}. Они чаще замечают кафе, садятся в зале и советуют его своим.</p>`
-    : tr`<p class="hint-line">Стиля пока нет. Стиль засчитывается с ${INTERIOR.styleNeed} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим. Смешанный зал тоже работает, но слабее: каждая вещь нравится своим понемногу.</p>`;
+    ? tr`<p class="hint-line">Стиль зала: <b>${nowName}</b> — нравится ${AUDIENCE_LABEL[now]}. Они чаще замечают кафе, садятся в зале и советуют его своим.</p>`
+    : kind === 'bistro'
+      ? tr`<p class="hint-line">Стиля пока нет. В бистро стиль — это стены и пол одного стиля. Своя аудитория чаще замечает бистро, садится в зале и советует его своим.</p>`
+      : tr`<p class="hint-line">Стиля пока нет. Стиль засчитывается с ${INTERIOR.styleNeed} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим. Смешанный зал тоже работает, но слабее: каждая вещь нравится своим понемногу.</p>`;
   const cards = STYLES.map((st) => {
     const n = hall.styleCount(st.id);
-    const full = n === STYLE_SLOTS.length;
+    const full = n === total;
     const cost = hall.styleCost(st.id);
-    const items = Object.values(styleSet(st.id)).map((f) => swatch(f!)).join('');
+    const items = Object.values(styleSet(st.id, kind)).map((f) => swatch(f!)).join('');
     const who = st.audience === 'all' ? tr`всем понемногу` : tr`${AUDIENCE_LABEL[st.id]} · вокруг таких ${sim.styleAudience(st.id)}`;
     return tr`<li class="style-card${now === st.id ? ' on' : ''}">
-      <div class="row"><b class="grow">${st.name}</b><span class="badge${now === st.id ? ' on' : ''}">${n} из 4</span></div>
+      <div class="row"><b class="grow">${styleName(st.id, kind)}</b><span class="badge${now === st.id ? ' on' : ''}">${n} из ${total}</span></div>
       <div class="swatches">${items}</div>
       <small>Нравится ${who}</small>
       <button class="small" data-action="hall-style" data-item="${st.id}" ${full || sim.cash < cost ? 'disabled' : ''}>${
-        full ? L('Собран') : sim.cash < cost ? L('Не хватает денег') : tr`Собрать за ${money(cost)}`
+        full ? L('Собран') : sim.cash < cost ? L('Не хватает денег') : tr`Собрать за ${money(cost)}`
       }</button>
     </li>`;
   }).join('');

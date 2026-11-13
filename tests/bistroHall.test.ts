@@ -26,8 +26,6 @@ describe('Зал бистро', () => {
     expect(city.main.placeFurniture('b-center', 'commune')).toBe(false);
     expect(br.placeFurniture('b-center', 'commune')).toBe(true);
     expect(br.cafe.interior.seats).toBe(10);
-    // Стиля у зала бистро пока нет
-    expect(br.applyStyle('loft')).toBe(false);
   });
 
   it('комплектации бистро ставятся и сохраняются', () => {
@@ -35,9 +33,10 @@ describe('Зал бистро', () => {
     expect(br.applyPreset('premium')).toBe(true);
     const premium = BISTRO_PRESETS.find((p) => p.id === 'premium')!;
     expect(br.cafe.interior.matches('premium')).toBe(true);
-    expect(br.cafe.interior.layout).toEqual(premium.layout);
+    const finish = { walls: 'bwalls-home', floor: 'bfloor-home' };
+    expect(br.cafe.interior.layout).toEqual({ ...premium.layout, ...finish });
     const back = Simulation.restore(JSON.parse(JSON.stringify(br.serialize())))!;
-    expect(back.cafe.interior.layout).toEqual(premium.layout);
+    expect(back.cafe.interior.layout).toEqual({ ...premium.layout, ...finish });
   });
 
   it('старое сохранение: в бистро стояла мебель кафе — получает «Стандарт» бистро', () => {
@@ -45,6 +44,26 @@ describe('Зал бистро', () => {
     const save = JSON.parse(JSON.stringify(br.serialize()));
     save.cafe.interior = { 'table-1': 'table2', 'table-2': 'table2', walls: 'walls-home', floor: 'floor-home' };
     const back = Simulation.restore(save)!;
-    expect(back.cafe.interior.layout).toEqual({ 'b-front-1': 'table2', 'b-front-2': 'table2' });
+    expect(back.cafe.interior.layout).toEqual({ 'b-front-1': 'table2', 'b-front-2': 'table2', walls: 'bwalls-home', floor: 'bfloor-home' });
+  });
+});
+
+describe('Стиль зала бистро', () => {
+  it('стиль бистро — стены и пол одного стиля; по умолчанию «Столовая»', () => {
+    const main = new Simulation(4);
+    main.cash = 1_000_000;
+    const city = new City(main);
+    const br = city.openDistrict();
+    br.openCafe('bistro');
+    const hall = br.cafe.interior;
+    expect(hall.layout.walls).toBe('bwalls-home');
+    expect(hall.style).toBe('home');
+    expect(br.placeFurniture('walls', 'walls-loft')).toBe(false);
+    expect(br.placeFurniture('walls', 'bwalls-loft')).toBe(true);
+    expect(hall.style).toBeNull();
+    expect(br.applyStyle('loft')).toBe(true);
+    expect(hall.style).toBe('loft');
+    expect(hall.layout.floor).toBe('bfloor-loft');
+    expect(hall.wholeFit('youth')).toBe(1);
   });
 });

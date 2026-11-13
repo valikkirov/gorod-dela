@@ -47,7 +47,15 @@ export type FurnitureId =
   | 'herbs'
   | 'poster'
   | 'menuboard'
-  | 'tv';
+  | 'tv'
+  | 'bwalls-home'
+  | 'bwalls-loft'
+  | 'bwalls-scandi'
+  | 'bwalls-classic'
+  | 'bfloor-home'
+  | 'bfloor-loft'
+  | 'bfloor-scandi'
+  | 'bfloor-classic';
 
 /** Какой зал: у кафе — уютная кофейня, у бистро — обеденный зал с раздачей. Места, мебель и комплектации свои */
 export type HallKind = 'cafe' | 'bistro';
@@ -135,7 +143,27 @@ export const FURNITURE: Furniture[] = [
   { id: 'poster', name: L('Постер с\u00a0едой'), seats: 0, cozy: 1, cost: 800, likes: ['youth', 'student'] },
   { id: 'menuboard', name: L('Доска бизнес-ланча'), seats: 0, cozy: 1, cost: 1_500, likes: ['office'] },
   { id: 'tv', name: L('Телевизор с\u00a0новостями'), seats: 0, cozy: 1, cost: 4_000, likes: ['pensioner', 'shopkeeper'] },
+  // Отделка бистро: стиль — стены и пол вместе
+  { id: 'bwalls-home', name: L('Белый кафель и\u00a0тёплая краска'), seats: 0, cozy: 0, cost: 5_000, likes: [], style: 'home' },
+  { id: 'bwalls-loft', name: L('Красный кирпич'), seats: 0, cozy: 0, cost: 7_000, likes: [], style: 'loft' },
+  { id: 'bwalls-scandi', name: L('Штукатурка и\u00a0светлые рейки'), seats: 0, cozy: 0, cost: 6_500, likes: [], style: 'scandi' },
+  { id: 'bwalls-classic', name: L('Мятные стены с\u00a0хромом'), seats: 0, cozy: 0, cost: 7_500, likes: [], style: 'classic' },
+  { id: 'bfloor-home', name: L('Светлая плитка'), seats: 0, cozy: 0, cost: 4_500, likes: [], style: 'home' },
+  { id: 'bfloor-loft', name: L('Бетонный пол'), seats: 0, cozy: 0, cost: 6_000, likes: [], style: 'loft' },
+  { id: 'bfloor-scandi', name: L('Светлый дуб'), seats: 0, cozy: 0, cost: 6_500, likes: [], style: 'scandi' },
+  { id: 'bfloor-classic', name: L('Шахматная плитка'), seats: 0, cozy: 0, cost: 7_000, likes: [], style: 'classic' },
 ];
+
+/** Название стиля в зале этого вида */
+export const styleName = (id: StyleId, kind: HallKind): string => (kind === 'bistro' ? BISTRO_STYLE_NAME[id] : hallStyle(id).name);
+
+/** Как стиль называется в бистро: та же аудитория, своё оформление */
+export const BISTRO_STYLE_NAME: Record<StyleId, string> = {
+  home: L('Столовая'),
+  loft: L('Индустриальный'),
+  scandi: L('Офисный минимализм'),
+  classic: L('Ретро-закусочная'),
+};
 
 export const furniture = (id: FurnitureId): Furniture => FURNITURE.find((f) => f.id === id)!;
 
@@ -174,6 +202,8 @@ export const BISTRO_SLOTS: { id: string; accepts: FurnitureId[] }[] = [
   { id: 'b-door', accepts: ['coatstand', 'plant'] },
   { id: 'b-front-1', accepts: ['table2'] },
   { id: 'b-front-2', accepts: ['table2'] },
+  { id: 'walls', accepts: ['bwalls-home', 'bwalls-loft', 'bwalls-scandi', 'bwalls-classic'] },
+  { id: 'floor', accepts: ['bfloor-home', 'bfloor-loft', 'bfloor-scandi', 'bfloor-classic'] },
 ];
 
 export const hallSlots = (kind: HallKind) => (kind === 'bistro' ? BISTRO_SLOTS : HALL_SLOTS);
@@ -187,11 +217,13 @@ export const FINISH_SLOTS = ['walls', 'floor'];
 export const STYLE_SLOTS = ['walls', 'floor', 'feature', 'touch'];
 /** Места, которые не трогают готовые комплектации */
 const KEEP_SLOTS = [...STYLE_SLOTS, 'tree', 'garland'];
+/** Места стиля зала: у бистро стиль — это стены и пол */
+export const styleSlots = (kind: HallKind): string[] => (kind === 'bistro' ? ['walls', 'floor'] : STYLE_SLOTS);
 /** Полный набор стиля: стены, пол и две фирменные вещи */
-export function styleSet(id: StyleId): Layout {
+export function styleSet(id: StyleId, kind: HallKind = 'cafe'): Layout {
   const set: Layout = {};
-  for (const slot of STYLE_SLOTS) {
-    const f = HALL_SLOTS.find((s) => s.id === slot)!.accepts.find((a) => furniture(a).style === id);
+  for (const slot of styleSlots(kind)) {
+    const f = hallSlots(kind).find((s) => s.id === slot)!.accepts.find((a) => furniture(a).style === id);
     if (f) set[slot] = f;
   }
   return set;
@@ -199,6 +231,7 @@ export function styleSet(id: StyleId): Layout {
 
 /** Отделка по умолчанию — входит в открытие */
 export const DEFAULT_FINISH: Layout = { walls: 'walls-home', floor: 'floor-home' };
+const BISTRO_FINISH: Layout = { walls: 'bwalls-home', floor: 'bfloor-home' };
 
 export type Layout = Partial<Record<string, FurnitureId>>;
 
@@ -362,9 +395,18 @@ export class Interior {
     return this.kindOf();
   }
 
-  /** Есть ли у зала стиль (стены, пол, фирменные вещи): пока только у кафе */
+  /** Есть ли у зала стиль: у кафе — стены, пол и фирменные вещи, у бистро — стены и пол */
   get styled(): boolean {
-    return this.kind === 'cafe';
+    return true;
+  }
+
+  get styleSlots(): string[] {
+    return styleSlots(this.kind);
+  }
+
+  /** Сколько элементов нужно, чтобы стиль засчитался: у бистро — оба */
+  get styleNeed(): number {
+    return this.kind === 'bistro' ? 2 : INTERIOR.styleNeed;
   }
 
   get seats(): number {
@@ -382,8 +424,7 @@ export class Interior {
 
   /** Сколько элементов зала в этом стиле */
   styleCount(id: StyleId): number {
-    if (!this.styled) return 0;
-    return STYLE_SLOTS.filter((slot) => {
+    return this.styleSlots.filter((slot) => {
       const f = this.layout[slot];
       return f && furniture(f).style === id;
     }).length;
@@ -392,7 +433,7 @@ export class Interior {
   /** Стиль зала: у кого больше элементов, при минимуме INTERIOR.styleNeed; иначе зал без стиля */
   get style(): StyleId | null {
     let best: StyleId | null = null;
-    let most = INTERIOR.styleNeed - 1;
+    let most = this.styleNeed - 1;
     for (const s of STYLES) {
       const n = this.styleCount(s.id);
       if (n > most) [best, most] = [s.id, n];
@@ -409,7 +450,7 @@ export class Interior {
   styleFit(kind: ResidentKind): number {
     let partial = 0;
     // «Как дома» — общий фон, а не вкус: в смешанном зале его вещи не считаются
-    for (const s of STYLES) if (s.audience !== 'all') partial += (this.styleCount(s.id) / STYLE_SLOTS.length) * audienceShare(s, kind);
+    for (const s of STYLES) if (s.audience !== 'all') partial += (this.styleCount(s.id) / this.styleSlots.length) * audienceShare(s, kind);
     return Math.max(this.wholeFit(kind), partial * INTERIOR.partial);
   }
 
@@ -458,7 +499,7 @@ export class Interior {
   /** Во что обойдётся довести зал до полного стиля: недостающее покупается, заменённое продаётся */
   styleCost(id: StyleId): number {
     let cost = 0;
-    for (const [slot, f] of Object.entries(styleSet(id))) {
+    for (const [slot, f] of Object.entries(styleSet(id, this.kind))) {
       const now = this.layout[slot];
       if (!f || now === f) continue;
       cost += furniture(f).cost - (now ? Interior.refund(now) : 0);
@@ -481,6 +522,6 @@ export class Interior {
     this.layout = {};
     for (const [slot, id] of Object.entries(layout ?? {})) if (id && canPlace(slot, id, this.kind)) this.layout[slot] = id;
     // Старые сохранения и комплектации без отделки: стены и пол «Как дома»
-    if (this.styled) for (const [slot, id] of Object.entries(DEFAULT_FINISH)) if (!this.layout[slot]) this.layout[slot] = id;
+    for (const [slot, id] of Object.entries(this.kind === 'bistro' ? BISTRO_FINISH : DEFAULT_FINISH)) if (!this.layout[slot]) this.layout[slot] = id;
   }
 }
