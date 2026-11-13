@@ -67,8 +67,8 @@ export const RIVALS: Record<PremisesId, RivalTemplate> = {
     seats: true,
   },
   bistro: {
-    name: L('«Кофе на\u00a0бегу»'),
-    pitch: L('Сетевой киоск у\u00a0метро «Деловая»: дешёвый кофе и\u00a0сэндвичи с\u00a0собой, утро и\u00a0день'),
+    name: L('«Зерно и\u00a0пар»'),
+    pitch: L('Киоск у\u00a0метро «Деловая»: быстрый кофе и\u00a0сэндвичи для офисных, утро и\u00a0день'),
     premises: 'kiosk',
     placeId: 'kiosk',
     prices: { americano: 120, cappuccino: 170, latte: 180, croissant: 120, sandwich: 210 },

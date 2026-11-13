@@ -108,12 +108,14 @@ function swatch(id: FurnitureId): string {
     const pos = `${-(at.x - SWATCH_SPAN / 2) * k}px ${-(at.y - SWATCH_SPAN / 2) * k}px`;
     return `<span class="swatch" style="background:url(${art(id)}) ${pos}/${HALL_ROOM.w * k}px auto no-repeat #efe7da"></span>`;
   }
-  if (HALL_ITEMS[id]) return `<span class="swatch icon"><img src="${art(`item-${id}`)}" alt=""></span>`;
+  if (HALL_ITEMS[id]) return `<span class="swatch icon"><img src="${art(`thumb-${id}`) ?? art(`item-${id}`)}" alt=""></span>`;
   return `<img src="${thumb(id)}" alt="">`;
 }
 
-/** Картинка вещи для списка: первая, где она нарисована пустой */
+/** Картинка вещи для списка: вырезанная отдельно, целиком (scripts/cut_hall.py, THUMBS); иначе — первый кусок с ней */
 function thumb(id: FurnitureId): string {
+  const own = art(`thumb-${id}`);
+  if (own) return own;
   const key = Object.keys(HALL_FRAMES).find((k) => k.endsWith(`-${id}`));
   return key ? art(key) : '';
 }

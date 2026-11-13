@@ -98,6 +98,81 @@ SKIP = {'table-4-table4-full'}
 # Вещи, которые есть в нескольких раскладках, берутся из первой
 SEATED = {'table2', 'table4', 'sofa', 'bar'}
 
+# Кусочки, которые модель нарисовала с дырами (стол позади закрыт передними, у края места срезан):
+# берём ту же вещь с другого места, где она целая, и ставим по образцу. (кусок, донор, образец здесь, образец у донора):
+# масштаб — как у образца к его паре у донора, низ по центру — со сдвигом, как у донора к его образцу
+DONORS = [
+    ('table-1-table4', 'table-2-table4', 'table-1-table2', 'table-2-table2'),
+    ('table-1-table4-half', 'table-2-table4-half', 'table-1-table2', 'table-2-table2'),
+    ('table-1-table4-full', 'table-2-table4-full', 'table-1-table2', 'table-2-table2'),
+    ('table-1-table2-half', 'table-2-table2-half', 'table-1-table2', 'table-2-table2'),
+    ('table-1-table2-full', 'table-2-table2-full', 'table-1-table2', 'table-2-table2'),
+    ('table-3-table4', 'table-2-table4', 'table-3-table2', 'table-2-table2'),
+    ('table-3-table4-full', 'table-2-table4-full', 'table-3-table2', 'table-2-table2'),
+    ('table-4-table2', 'table-3-table2', 'table-4-table2-full', 'table-3-table2-full'),
+    ('table-4-table4', 'table-2-table4', 'table-4-table2-full', 'table-2-table2-full'),
+    ('nook-monstera', 'small-1-monstera', 'nook-plant', 'small-1-plant'),
+    # Абажур у входа срезан краем места
+    ('small-1-floorlamp', 'nook-floorlamp', 'small-1-plant', 'nook-plant'),
+]
+
+
+# Куски стены, которые удаление фона приняло за вещь (блик лампы, край подоконника): в пикселях комнаты
+CLEAR = {
+    'window': [(30, 180, 83, 250), (30, 250, 88, 330)],
+}
+
+# Картинка вещи для списка выбора: самый целый кусок — без гостей, без соседей, вещь целиком
+THUMBS = {
+    'table2': 'table-2-table2',
+    'table4': 'table-2-table4',
+    'sofa': 'corner-sofa',
+    'bar': 'window-bar',
+    'bookshelf': 'corner-bookshelf',
+    'games': 'corner-games',
+    'monstera': 'small-1-monstera',
+    'plant': 'small-1-plant',
+    'floorlamp': 'nook-floorlamp',
+    'picture': 'wall-1-picture',
+    'clock': 'wall-2-clock',
+    'rug': 'rug-rug',
+}
+
+
+def save_thumbs() -> None:
+    for item, frame in THUMBS.items():
+        im = Image.open(OUT / f'{frame}.webp').convert('RGBA')
+        a = np.asarray(im)[..., 3]
+        # Только сама вещь: крошки и полупрозрачная тень по краю — прочь, рамка — по вещи
+        lab, n = nd.label(a > 40)
+        if n > 1:
+            sizes = nd.sum(a > 40, lab, range(1, n + 1))
+            keep = nd.binary_dilation(np.isin(lab, np.nonzero(sizes >= sizes.max() * 0.05)[0] + 1), iterations=2)
+            im.putalpha(Image.fromarray((a * keep).astype(np.uint8)))
+        box = im.getbbox()
+        im.crop(box).save(OUT / f'thumb-{item}.webp', quality=92, alpha_quality=100)
+
+
+def apply_donors(frames: dict[str, tuple[int, int, int, int]]) -> None:
+    """Заменить дырявые кусочки целыми с других мест (см. DONORS)"""
+    original = dict(frames)
+    for target, donor, ref, donor_ref in DONORS:
+        if not all(k in original for k in (donor, ref, donor_ref)):
+            print('нет образца для', target)
+            continue
+        rx, ry, rw, rh = original[ref]
+        qx, qy, qw, qh = original[donor_ref]
+        dx, dy, dw, dh = original[donor]
+        k = (rw / qw + rh / qh) / 2
+        # Низ по центру образца и сдвиг донора от своего образца
+        ax, ay = rx + rw / 2, ry + rh
+        ox_, oy_ = (dx + dw / 2) - (qx + qw / 2), (dy + dh) - (qy + qh)
+        w, h = max(1, round(dw * k)), max(1, round(dh * k))
+        x, y = round(ax + ox_ * k - w / 2), round(ay + oy_ * k - h)
+        im = Image.open(OUT / f'{donor}.webp').convert('RGBA').resize((w, h), Image.LANCZOS)
+        im.save(OUT / f'{target}.webp', quality=92, alpha_quality=100)
+        frames[target] = (x, y, w, h)
+
 
 def load(name: str) -> np.ndarray:
     return np.asarray(Image.open(SRC / f'{name}.png').convert('RGB')).astype(np.int32)
@@ -225,7 +300,7 @@ def main() -> None:
     img, (ox, oy, ox1, oy1) = room(empty)
     img = split_barista(empty, img, (ox, oy, ox1, oy1))
     img.save(OUT / 'room.webp', quality=90)
-    frames: list[str] = []
+    frames: dict[str, tuple[int, int, int, int]] = {}
     seen: set[str] = set()
     for layout in LAYOUTS.values():
         slots = layout['slots']
@@ -294,6 +369,25 @@ def main() -> None:
                     m = Image.open(matte).convert('RGBA').resize((cx1 - cx0, cy1 - cy0), Image.LANCZOS)
                     a[cy0:cy1, cx0:cx1] = np.asarray(m)[..., 3] / 255.0
                     a *= nd.binary_dilation(mask, iterations=3)
+                    # Что совпадает с пустой комнатой — её стена или пол, а не вещь: прозрачно. Иначе на другой
+                    # отделке (кирпич, плитка) у вещи остаётся кусок старых обоев или пола
+                    # Только у края вырезки: внутри вещи дерево сиденья может совпасть по цвету с паркетом комнаты
+                    rim = (a > 0) & ~nd.binary_erosion(a > 0.5, iterations=6)
+                    # Столы стоят посреди пола: дерево столешницы похоже на паркет — их не трогаем
+                    if slot.startswith('table'):
+                        rim[:] = False
+                    a[rim & (np.abs(blur(empty) - blur(pic)).sum(2) < 16) & ~nd.binary_dilation(guests == i + 1, iterations=2)] = 0
+                    # Тень вещи на стене и полу комнаты — та же стена, только темнее: на другой отделке она
+                    # выглядела бы куском старых обоев. Делаем её полупрозрачной чёрной — тень ляжет на любую отделку
+                    ea, pb = blur(empty) + 1, blur(pic) + 1
+                    ratio = pb.sum(2) / ea.sum(2)
+                    resid = np.abs(pb - ea * ratio[..., None]).max(2)
+                    shade = (nd.maximum_filter(resid, size=5) < 9) & (ratio > 0.72) & (ratio < 1.02) & rim
+                    shade &= ~nd.binary_dilation(guests == i + 1, iterations=2)
+                    shadow_a = np.clip((1 - ratio) * 1.2, 0, 1)
+                    col = pic.copy()
+                    col[shade] = 0
+                    a[shade] = np.minimum(a[shade], shadow_a[shade])
                     # Дыры внутри вырезки: если там не пол (заметно отличается от пустой комнаты) — это вещь
                     # (столешница цвета пола), заливаем; пол между ножками остаётся прозрачным
                     solid = a > 0.5
@@ -307,6 +401,8 @@ def main() -> None:
                         # Столешница и сиденья — в верхней части вещи; просветы между ножками — внизу, там пол
                         fillers = [k + 1 for k in range(n_h) if means[k] > 25 or cy[k] < top + 0.62 * (bottom - top)]
                         a[np.isin(holes, fillers)] = 1
+                    for rx0, ry0, rx1, ry1 in CLEAR.get(slot, []):
+                        a[oy + ry0:oy + ry1, ox + rx0:ox + rx1] = 0
                     # Оторванные кусочки (край соседнего стула, макушка соседа) — прочь: остаются крупные части
                     lab_a, n_a = nd.label(a > 0.3)
                     if n_a:
@@ -315,22 +411,34 @@ def main() -> None:
                         a *= nd.binary_dilation(np.isin(lab_a, big), iterations=2)
                     ys, xs = np.nonzero(a > 0.02)
                     x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
-                    out = np.dstack([pic.astype(np.uint8), (np.clip(a, 0, 1) * 255).round().astype(np.uint8)])[y0:y1, x0:x1]
+                    out = np.dstack([col.astype(np.uint8), (np.clip(a, 0, 1) * 255).round().astype(np.uint8)])[y0:y1, x0:x1]
                     Image.fromarray(out).save(OUT / f'{name}.webp', quality=92, alpha_quality=100)
-                    frames.append(f"  '{name}': [{x0 - ox}, {y0 - oy}, {x1 - x0}, {y1 - y0}],")
+                    frames[name] = (x0 - ox, y0 - oy, x1 - x0, y1 - y0)
                     continue
                 # Столы стоят на коврике — им нужен ещё вариант с прозрачным полом
                 for soft in (False, True) if slot.startswith('table') else (False,):
                     piece = rgba(empty, src_img, mask, soft, nd.binary_dilation(guests == i + 1, iterations=2))[y0:y1, x0:x1]
                     file = name + ('~rug' if soft else '')
                     Image.fromarray(piece).save(OUT / f'{file}.webp', quality=92, alpha_quality=100)
-                    frames.append(f"  '{file}': [{x0 - ox}, {y0 - oy}, {x1 - x0}, {y1 - y0}],")
+                    frames[file] = (x0 - ox, y0 - oy, x1 - x0, y1 - y0)
+    apply_donors(frames)
+    # Почищенные руками кусочки (art-src/v2/hall3/fixed/<имя>.png, тот же размер, что у выгруженного) — вместо вырезки
+    for f in sorted((SRC / 'fixed').glob('*.png')):
+        if f.stem in frames:
+            Image.open(f).convert('RGBA').save(OUT / f'{f.stem}.webp', quality=92, alpha_quality=100)
+            print('руками:', f.stem)
+    # Цветы: кусок стены между листьями — прочь
+    from hall_leaves import clean_leaves
+    for name in frames:
+        if ('plant' in name or 'monstera' in name) and name != 'shelf-monstera' and not (SRC / 'fixed' / f'{name}.png').exists():
+            clean_leaves(OUT / f'{name}.webp')
+    save_thumbs()
     ts = [
         '// Сгенерировано scripts/cut_hall.py — не править руками',
         f'export const HALL_ROOM = {{ w: {ox1 - ox}, h: {oy1 - oy} }};',
         '/** Кусочки зала «место-вещь[-half|-full]»: x, y, w, h в пикселях комнаты */',
         'export const HALL_FRAMES: Record<string, [number, number, number, number]> = {',
-        *sorted(frames),
+        *sorted(f"  '{n}': [{x}, {y}, {w}, {h}]," for n, (x, y, w, h) in frames.items()),
         '};',
         '',
     ]

@@ -182,255 +182,255 @@
   },
   {
    "key": "Пол в центре",
-   "at": "src/game/hall.ts:122"
-  },
-  {
-   "key": "Стена над диваном",
-   "at": "src/game/hall.ts:123"
-  },
-  {
-   "key": "Стена повыше",
    "at": "src/game/hall.ts:124"
   },
   {
-   "key": "У стены слева",
+   "key": "Стена над диваном",
    "at": "src/game/hall.ts:125"
   },
   {
-   "key": "У стены справа",
+   "key": "Стена повыше",
    "at": "src/game/hall.ts:126"
   },
   {
-   "key": "Угол у окна",
+   "key": "У стены слева",
    "at": "src/game/hall.ts:127"
   },
   {
-   "key": "Под окном",
+   "key": "У стены справа",
    "at": "src/game/hall.ts:128"
   },
   {
-   "key": "Угол у входа в зал",
+   "key": "Угол у окна",
    "at": "src/game/hall.ts:129"
   },
   {
-   "key": "Стол у стойки",
+   "key": "Под окном",
    "at": "src/game/hall.ts:130"
   },
   {
-   "key": "Стол слева",
+   "key": "Угол у входа в зал",
    "at": "src/game/hall.ts:131"
   },
   {
-   "key": "Стол в центре",
+   "key": "Стол у стойки",
    "at": "src/game/hall.ts:132"
   },
   {
-   "key": "Стол у витрины",
+   "key": "Стол слева",
    "at": "src/game/hall.ts:133"
   },
   {
-   "key": "Стены",
+   "key": "Стол в центре",
    "at": "src/game/hall.ts:134"
   },
   {
-   "key": "Пол",
+   "key": "Стол у витрины",
    "at": "src/game/hall.ts:135"
   },
   {
-   "key": "Акцент на стене",
+   "key": "Стены",
    "at": "src/game/hall.ts:136"
   },
   {
-   "key": "Деталь",
+   "key": "Пол",
    "at": "src/game/hall.ts:137"
   },
   {
-   "key": "Угол у двери",
+   "key": "Акцент на стене",
    "at": "src/game/hall.ts:138"
   },
   {
-   "key": "Окно",
+   "key": "Деталь",
    "at": "src/game/hall.ts:139"
   },
   {
+   "key": "Угол у двери",
+   "at": "src/game/hall.ts:140"
+  },
+  {
+   "key": "Окно",
+   "at": "src/game/hall.ts:141"
+  },
+  {
    "key": "офисным",
-   "at": "src/game/hall.ts:143"
-  },
-  {
-   "key": "студентам",
-   "at": "src/game/hall.ts:144"
-  },
-  {
-   "key": "пенсионерам",
    "at": "src/game/hall.ts:145"
   },
   {
-   "key": "продавцам",
+   "key": "студентам",
    "at": "src/game/hall.ts:146"
   },
   {
-   "key": "фрилансерам",
+   "key": "пенсионерам",
    "at": "src/game/hall.ts:147"
   },
   {
-   "key": "молодёжи",
+   "key": "продавцам",
    "at": "src/game/hall.ts:148"
   },
   {
-   "key": "ночной смене",
+   "key": "фрилансерам",
    "at": "src/game/hall.ts:149"
   },
   {
-   "key": "пассажирам",
+   "key": "молодёжи",
    "at": "src/game/hall.ts:150"
   },
   {
-   "key": "гостям района",
+   "key": "ночной смене",
    "at": "src/game/hall.ts:151"
   },
   {
+   "key": "пассажирам",
+   "at": "src/game/hall.ts:152"
+  },
+  {
+   "key": "гостям района",
+   "at": "src/game/hall.ts:153"
+  },
+  {
    "key": "{0} мест{1}",
-   "at": "src/game/hall.ts:160"
-  },
-  {
-   "key": "о",
-   "at": "src/game/hall.ts:160"
-  },
-  {
-   "key": "а",
-   "at": "src/game/hall.ts:160"
-  },
-  {
-   "key": "уют +{0}",
-   "at": "src/game/hall.ts:161"
-  },
-  {
-   "key": "для вида",
    "at": "src/game/hall.ts:162"
   },
   {
+   "key": "о",
+   "at": "src/game/hall.ts:162"
+  },
+  {
+   "key": "а",
+   "at": "src/game/hall.ts:162"
+  },
+  {
+   "key": "уют +{0}",
+   "at": "src/game/hall.ts:163"
+  },
+  {
+   "key": "для вида",
+   "at": "src/game/hall.ts:164"
+  },
+  {
    "key": "<div class=\"hall-board\" style=\"{0}\" aria-label=\"Меню на доске\"><ul>{1}</ul></div>",
-   "at": "src/game/hall.ts:195"
+   "at": "src/game/hall.ts:197"
   },
   {
    "key": "<img class=\"hall-barista\" src=\"{0}\" alt=\"Бариста за стойкой\">",
-   "at": "src/game/hall.ts:199"
+   "at": "src/game/hall.ts:201"
   },
   {
    "key": "<div class=\"kpis\">\n      <div><small>Мест</small><b>{0}</b></div>\n      <div><small>Уют</small><b>{1} из {2}</b></div>\n      <div><small>Сидят сейчас</small><b>{3}</b></div>\n    </div>\n    <p class=\"hint-line\">{4}</p>",
-   "at": "src/game/hall.ts:231"
+   "at": "src/game/hall.ts:233"
   },
   {
    "key": "Сегодня {0} {1} не хватило места — взяли с собой.",
-   "at": "src/game/hall.ts:238"
+   "at": "src/game/hall.ts:240"
   },
   {
    "key": "гостю",
-   "at": "src/game/hall.ts:238"
+   "at": "src/game/hall.ts:240"
   },
   {
    "key": "гостям",
-   "at": "src/game/hall.ts:238"
+   "at": "src/game/hall.ts:240"
   },
   {
    "key": "Места ограничивают, сколько гостей сидит сразу. Уют: гости чаще заходят посидеть, заказывают ещё, советуют кафе знакомым и быстрее становятся постоянными.",
-   "at": "src/game/hall.ts:239"
+   "at": "src/game/hall.ts:241"
   },
   {
    "key": "Стоит сейчас",
-   "at": "src/game/hall.ts:247"
+   "at": "src/game/hall.ts:249"
   },
   {
    "key": "Поставить за {0}",
-   "at": "src/game/hall.ts:247"
+   "at": "src/game/hall.ts:249"
   },
   {
    "key": "Поставить, вернётся {0}",
-   "at": "src/game/hall.ts:247"
+   "at": "src/game/hall.ts:249"
   },
   {
    "key": "Не хватает денег",
-   "at": "src/game/hall.ts:253"
+   "at": "src/game/hall.ts:255"
   },
   {
    "key": "<small>Нажми на место в зале — пустое (+) или занятое, — чтобы поставить, заменить или продать вещь.</small>",
-   "at": "src/game/hall.ts:258"
+   "at": "src/game/hall.ts:260"
   },
   {
    "key": "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}{3}{4}</div>\n    {5}\n    {6}\n    <h4>Готовые комплектации</h4>\n    <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>\n    <ul class=\"menu presets\">{7}</ul>\n    {8}\n    <h4>Свой дизайн</h4>\n    <div class=\"row wrap\">{9}</div>\n    {10}",
-   "at": "src/game/hall.ts:262"
+   "at": "src/game/hall.ts:264"
   },
   {
    "key": "<h4>Новогодний декор 🎄</h4><p class=\"hint-line\">До 12 января: ёлка и гирлянда — уют, а в праздники в такой зал чаще заходят посидеть. Нажми на место в зале — у двери или на окне.</p>",
-   "at": "src/game/hall.ts:269"
+   "at": "src/game/hall.ts:271"
   },
   {
    "key": " · нравится {0}",
-   "at": "src/game/hall.ts:286"
-  },
-  {
-   "key": " и ",
-   "at": "src/game/hall.ts:286"
-  },
-  {
-   "key": " · стиль «{0}»",
    "at": "src/game/hall.ts:288"
   },
   {
+   "key": " и ",
+   "at": "src/game/hall.ts:288"
+  },
+  {
+   "key": " · стиль «{0}»",
+   "at": "src/game/hall.ts:290"
+  },
+  {
    "key": "<span class=\"badge on\">стоит</span>",
-   "at": "src/game/hall.ts:295"
+   "at": "src/game/hall.ts:297"
   },
   {
    "key": "<button class=\"small secondary\" data-action=\"hall-sell\" data-item=\"{0}\">Продать за {1}</button>",
-   "at": "src/game/hall.ts:303"
-  },
-  {
-   "key": "<small>Замена: старая вещь продаётся за полцены.</small>",
    "at": "src/game/hall.ts:305"
   },
   {
+   "key": "<small>Замена: старая вещь продаётся за полцены.</small>",
+   "at": "src/game/hall.ts:307"
+  },
+  {
    "key": "всем понемногу",
-   "at": "src/game/hall.ts:311"
-  },
-  {
-   "key": "молодёжи, фрилансерам и студентам",
-   "at": "src/game/hall.ts:312"
-  },
-  {
-   "key": "офисным и фрилансерам",
    "at": "src/game/hall.ts:313"
   },
   {
-   "key": "пенсионерам и гостям района",
+   "key": "молодёжи, фрилансерам и студентам",
    "at": "src/game/hall.ts:314"
   },
   {
+   "key": "офисным и фрилансерам",
+   "at": "src/game/hall.ts:315"
+  },
+  {
+   "key": "пенсионерам и гостям района",
+   "at": "src/game/hall.ts:316"
+  },
+  {
    "key": "<p class=\"hint-line\">Стиль зала: <b>{0}</b> — нравится {1}. Они чаще замечают кафе, садятся в зале и советуют его своим.</p>",
-   "at": "src/game/hall.ts:323"
+   "at": "src/game/hall.ts:325"
   },
   {
    "key": "<p class=\"hint-line\">Стиля пока нет. Стиль засчитывается с {0} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим. Смешанный зал тоже работает, но слабее: каждая вещь нравится своим понемногу.</p>",
-   "at": "src/game/hall.ts:324"
+   "at": "src/game/hall.ts:326"
   },
   {
    "key": "{0} · вокруг таких {1}",
-   "at": "src/game/hall.ts:330"
+   "at": "src/game/hall.ts:332"
   },
   {
    "key": "<li class=\"style-card{0}\">\n      <div class=\"row\"><b class=\"grow\">{1}</b><span class=\"badge{2}\">{3} из 4</span></div>\n      <div class=\"swatches\">{4}</div>\n      <small>Нравится {5}</small>\n      <button class=\"small\" data-action=\"hall-style\" data-item=\"{6}\" {7}>{8}</button>\n    </li>",
-   "at": "src/game/hall.ts:331"
+   "at": "src/game/hall.ts:333"
   },
   {
    "key": "Собран",
-   "at": "src/game/hall.ts:336"
+   "at": "src/game/hall.ts:338"
   },
   {
    "key": "Собрать за {0}",
-   "at": "src/game/hall.ts:336"
+   "at": "src/game/hall.ts:338"
   },
   {
    "key": "<h4>Стиль зала</h4>{0}<ul class=\"menu styles\">{1}</ul>",
-   "at": "src/game/hall.ts:340"
+   "at": "src/game/hall.ts:342"
   },
   {
    "key": "Ночь",
@@ -4969,7 +4969,11 @@
    "at": "src/sim/rival.ts:61"
   },
   {
-   "key": "Сетевой киоск у метро «Деловая»: дешёвый кофе и сэндвичи с собой, утро и день",
+   "key": "«Зерно и пар»",
+   "at": "src/sim/rival.ts:70"
+  },
+  {
+   "key": "Киоск у метро «Деловая»: быстрый кофе и сэндвичи для офисных, утро и день",
    "at": "src/sim/rival.ts:71"
   },
   {

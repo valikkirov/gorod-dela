@@ -56,6 +56,28 @@ def save(img: np.ndarray, a: np.ndarray, name: str, box) -> tuple[int, int, int,
     return (int(x0 - bx), int(y0 - by), int(x1 - x0), int(y1 - y0))
 
 
+# Вещи на стене, у которых разница с залом захватывает кусок стены (тень полки, светлый фон):
+# альфа — из Magnific «удалить фон» по кадру исходника. Кадр: прямоугольник в пикселях 1024×768,
+# увеличенный в 3 раза; маска лежит в items/matte/<id>.png
+MATTE_DIR = SRC / 'matte'
+MATTE_BOX = {
+    'rack': (238, 147, 403, 299),
+    'samovar': (274, 108, 404, 257),
+    'mirror': (267, 118, 402, 286),
+}
+
+
+def matte_alpha(name: str, shape) -> np.ndarray | None:
+    f = MATTE_DIR / f'{name}.png'
+    if name not in MATTE_BOX or not f.exists():
+        return None
+    x0, y0, x1, y1 = MATTE_BOX[name]
+    m = Image.open(f).convert('RGBA').resize((x1 - x0, y1 - y0), Image.LANCZOS)
+    a = np.zeros(shape, np.float32)
+    a[y0:y1, x0:x1] = np.asarray(m)[..., 3] / 255.0
+    return a
+
+
 def lamps(clean: np.ndarray, nolamp: np.ndarray) -> np.ndarray:
     """Где штатные лампы со шнурами: разница пустой комнаты и той же комнаты без ламп"""
     m = diff(clean, nolamp) > 30
@@ -101,9 +123,33 @@ def main() -> None:
             lum = img.mean(2)
             keep = new | (old & (bare > 40) & (lum < 110))
             keep = nd.binary_fill_holes(nd.binary_closing(keep, iterations=2))
+            # У правой лампы — полочка со шкафа и листья цветка. Лампы одинаковые: правая — это левая,
+            # сдвинутая на расстояние между штатными лампами; берём только то, что ложится на её контур
+            ol, on = nd.label(old)
+            if on >= 2:
+                cs = sorted(nd.center_of_mass(old, ol, range(1, on + 1)), key=lambda c: c[1])
+                dy, dx = round(cs[-1][0] - cs[0][0]), round(cs[-1][1] - cs[0][1])
+                mid = round((cs[0][1] + cs[-1][1]) / 2)
+                left = keep.copy()
+                left[:, mid:] = False
+                shifted = np.roll(np.roll(left, dy, axis=0), dx, axis=1)
+                # Правая — копия левой целиком: со шнуром до потолка и без чужих кусков
+                moved = np.roll(np.roll(img, dy, axis=0), dx, axis=1)
+                img = np.where(shifted[..., None], moved, img)
+                keep = left | shifted
+            # Отдельные крошки рядом с лампой (край шкафа, блик) — прочь: остаются лампа со шнуром
+            lab, n = nd.label(nd.binary_dilation(keep, iterations=2))
+            if n > 1:
+                sizes = nd.sum(keep, lab, range(1, n + 1))
+                keep &= np.isin(lab, np.nonzero(sizes >= sizes.max() * 0.15)[0] + 1)
             a = np.maximum(keep.astype(float) * 1.0, nd.gaussian_filter(keep.astype(float), 0.8))
             # Без ореола: он вырезан с обычной стены и на кирпиче или обоях лёг бы бежевым пятном
             frames[f.stem] = save(img, a, f'item-{f.stem}', box)
+            # Для списка — одна лампа (левая), а не две через всю стену
+            if on >= 2:
+                one = a.copy()
+                one[:, mid:] = 0
+                save(img, one, f'thumb-{f.stem}', box)
             print(f.stem, frames[f.stem])
             continue
         base = furnished if f.stem in FURNISHED else clean
@@ -144,6 +190,25 @@ def main() -> None:
                 near &= False
         a = np.where(keep, 1.0, np.clip((d - 12) / 60, 0, 0.85) * near)
         a = np.maximum(a, nd.gaussian_filter(keep.astype(float), 0.8) * keep.max())
+        cut = matte_alpha(f.stem, keep.shape)
+        if cut is not None:
+            # Чистая вырезка, но только рядом с самой вещью и без штатной лампы (она уже есть в комнате)
+            # Полка с посудой висит за штатной лампой: лампу берём вместе с полкой (та же, что в комнате),
+            # иначе на месте лампы в полке дыра
+            behind = f.stem == 'rack'
+            cut *= nd.binary_dilation(keep | (old if behind else False), iterations=6)
+            if not behind:
+                cut[old] = 0
+            lab_c, n_c = nd.label(cut > 0.3)
+            if n_c > 1:
+                sizes = nd.sum(cut > 0.3, lab_c, range(1, n_c + 1))
+                cut *= nd.binary_dilation(np.isin(lab_c, np.nonzero(sizes >= sizes.max() * 0.1)[0] + 1), iterations=2)
+            a = cut
+            if behind:
+                # В списке полка без штатной лампы
+                bare_cut = a.copy()
+                bare_cut[old] = 0
+                save(img, bare_cut, f'thumb-{f.stem}', box)
         if f.stem == 'neon':
             # Свечение неона — ровный тёплый ореол вокруг трубок, а не пиксели обычной стены:
             # иначе на кирпиче и обоях у буквы «к» видно светлое пятно от соседней лампы

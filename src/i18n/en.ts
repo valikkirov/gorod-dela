@@ -1446,5 +1446,7 @@ export const EN: Record<string, string> = {
  " — больше всего ушло на {0} ({1})": " — the biggest cost was {0} ({1})",
  "{0} — главный источник прибыли: {1}{2}% прибыли точек.": "{0} is the main source of profit: {1}{2}% of venue profit.",
  "{0}: {1} гостей ушли, потому что {2}.": "{0}: {1} guests left because {2}.",
- "{0} работала {1} из {2} дней периода — её итог неполный.": "{0} was open {1} of {2} days of the period — its result is partial."
+ "{0} работала {1} из {2} дней периода — её итог неполный.": "{0} was open {1} of {2} days of the period — its result is partial.",
+ "«Зерно и пар»": "«Bean & Steam»",
+ "Киоск у метро «Деловая»: быстрый кофе и сэндвичи для офисных, утро и день": "Kiosk at Delovaya metro: quick coffee and sandwiches for office workers, morning and afternoon"
 };
