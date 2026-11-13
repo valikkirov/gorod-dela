@@ -68,6 +68,7 @@ def to_room(x: float, y: float) -> tuple[float, float]:
 
 
 MATTE = SRC / 'matte'
+EMPTY = np.zeros((896, 1200, 3), np.float32)
 MATTE_PAD = 12
 # Где кусок на исходнике (для вырезки фона в Magnific): имя → x0, y0, x1, y1
 # (берутся из boxes.json, если он есть: маски сделаны по этим кадрам)
@@ -94,13 +95,12 @@ def matted(name: str, alpha: np.ndarray) -> np.ndarray:
 
 # Что вырезать из кусочка (в пикселях исходника) — чужое, что маска фона приняла за своё:
 # край лавки общего стола у передних столиков, спинки их стульев у общего стола, коврик у вешалки,
-# подвесная лампа перед полкой (она есть в пустом зале). Гостей это не трогает
+# Гостей это не трогает
 CARVE: dict[str, list[tuple[int, int, int, int]]] = {
     'b-front-1-table2': [(360, 500, 714, 577), (362, 577, 396, 592), (676, 577, 714, 592)],
     'b-front-2-table2': [(360, 500, 714, 577), (362, 577, 396, 592), (676, 577, 714, 592)],
     'b-center-commune': [(450, 575, 478, 640), (528, 575, 558, 640)],
     'b-door-coatstand': [(1036, 520, 1076, 640)],
-    'b-wall-l-herbs': [(278, 210, 331, 265), (296, 140, 307, 212)],
 }
 
 
@@ -125,7 +125,26 @@ def save_piece(pic: np.ndarray, alpha: np.ndarray, name: str, keep: np.ndarray |
     if (MATTE / f'{name}.png').exists() and orig is not None:
         # Маска фона теней не держит: чёрная «тень» по краю стала бы рваной обводкой — берём родные цвета
         pic = orig
+    has_matte = (MATTE / f'{name}.png').exists()
     alpha = carve(name, matted(name, alpha), keep)
+    if has_matte:
+        # Маска фона держит и кусок стены или пола рядом с вещью — там, где картинка не отличается от пустого
+        # зала, прозрачно (лампа перед полкой, стена вокруг часов и вешалки, пол у столиков)
+        e, p = blur(EMPTY) + 1, blur(pic) + 1
+        ratio = p.sum(2) / e.sum(2)
+        # Тот же фон или он же в тени вещи (те же цвета, только темнее)
+        shaded = (np.abs(p - e * ratio[..., None]).max(2) < 9) & (ratio > 0.4) & (ratio < 1.08)
+        # …тень — только у края вещи: белый кулер на белой плитке или салфетница — не тень
+        shaded &= ~nd.binary_erosion(alpha > 0.9, iterations=8)
+        same = nd.binary_opening((np.abs(p - e).sum(2) < 20) | shaded, iterations=2)
+        if keep is not None:
+            same &= ~nd.binary_dilation(keep, iterations=2)
+        alpha = np.where(same, 0, alpha)
+        # Крошки
+        lab, n = nd.label(alpha > 0.1)
+        if n > 1:
+            sizes = nd.sum(alpha > 0.1, lab, range(1, n + 1))
+            alpha = np.where(np.isin(lab, np.nonzero(sizes < 60)[0] + 1), 0, alpha)
     ys, xs = np.nonzero(alpha > 0.04)
     if not len(ys):
         return None
@@ -211,12 +230,14 @@ def guests(base: dict, picture: str, furnished: np.ndarray, frames: dict, suffix
         alpha, col = base[slot]
         a = np.maximum(alpha, nd.gaussian_filter(mine.astype(np.float32), 0.7) * mine.max())
         c = np.where(mine[..., None], pic, col)
-        fr = save_piece(c, a, f'{slot}-{item}{suffix}', mine, np.where(mine[..., None], pic, rgb('L1')))
+        fr = save_piece(c, a, f'{slot}-{item}{suffix}', mine, pic)
         if fr:
             frames[f'{slot}-{item}{suffix}'] = fr
 
 
 def main() -> None:
+    global EMPTY
+    EMPTY = rgb('empty')
     OUT.mkdir(parents=True, exist_ok=True)
     for f in OUT.glob('*.webp'):
         f.unlink()
