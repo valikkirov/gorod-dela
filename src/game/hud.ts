@@ -36,6 +36,7 @@ import { cashDiagnosis, LOAN, LOAN_LABEL, LOAN_TERMS, paymentLeft, totalInterest
 import { menuAddWarning, orderWarning, priceWarning, staffWarnings, uncoveredMinutes } from '../sim/warnings';
 import { chronicle, type Chronicle } from '../sim/chronicle';
 import { COST_LINES, compareLine, funnel, insights, periodByIndex, periodOf, summarize, type Period, type PeriodKind } from '../sim/periods';
+import { business, businessNotes, payback, reserveDays, type PointInput } from '../sim/business';
 import { iconImg, namedIcon } from './icons';
 import { compositionOf } from '../sim/composition';
 import { placeInterior, portrait } from './portraits';
@@ -55,7 +56,7 @@ import { clearSave, exportSave, importSave } from './save';
 import { openFeedback } from './feedback';
 import { IS_PORTAL, PLATFORM } from './platform';
 
-/** Страница игры на Boosty: только в веб-версии (на порталах внешних ссылок нет) */
+/** Страница игры на Boosty: только в веб-версии (на порталах внешних ссылок нет) */
 const BOOSTY_URL = 'https://boosty.to/goroddela';
 import { switchLang } from './lang';
 import { showTutorial } from './tutorial';
@@ -74,8 +75,8 @@ import { getLang, translit, L, tr } from '../sim/i18n';
 import { FIRST_STEPS, type StepId } from '../sim/firstSteps';
 const PREMISES_PIC: Record<PremisesId, string> = { kiosk: cardKiosk, cafe: cardCafe, bistro: cardCafe, bakery: cardBakery };
 
-// Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
-// и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.
+// Интерфейс — обычный DOM поверх канваса: чёткий текст на любом экране
+// и привычная вёрстка для правок дизайнера. Все кнопки — через data-action.
 
 const NB = ' ';
 export const SPEEDS = [0, 1, 2, 4] as const;
@@ -89,7 +90,7 @@ const $ = <T extends HTMLElement>(sel: string): T => {
   return el;
 };
 
-/** Подсказка под картой: что сейчас происходит на улице в это время суток */
+/** Подсказка под картой: что сейчас происходит на улице в это время суток */
 function streetNote(minute: number, weekend: boolean): string {
   const h = minute / 60;
   const [title, text] =
@@ -113,7 +114,7 @@ function streetNote(minute: number, weekend: boolean): string {
   return `<b>${title}</b> <span>${text}</span>`;
 }
 
-/** Сколько осталось до открытия делового квартала */
+/** Сколько осталось до открытия делового квартала */
 export function unlockText(city: City): string {
   const p = city.unlockProgress();
   const goal = formatMoney(UNLOCK.weeklyProfit).replace(' ', NB);
@@ -122,7 +123,7 @@ export function unlockText(city: City): string {
     <div>Подряд: ${p.weeks} из ${UNLOCK.weeks} · ${now}</div>`;
 }
 
-/** Английские формы для plural: единственное и множественное число */
+/** Английские формы для plural: единственное и множественное число */
 const PLURAL_EN: Record<string, [string, string]> = {
   гость: ['guest', 'guests'],
   человек: ['person', 'people'],
@@ -143,7 +144,7 @@ const plural = (n: number, one: string, few: string, many: string): string => {
   return many;
 };
 
-/** Маленькие числа словом — «два гостя», остальные цифрами */
+/** Маленькие числа словом — «два гостя», остальные цифрами */
 const numWord = (n: number): string => ({ 2: L('два'), 3: L('три'), 4: L('четыре') })[n] ?? String(n);
 
 const escapeHtml = (s: string): string =>
@@ -165,14 +166,14 @@ const WANT_VISIT: Record<WantKind, string> = {
 };
 
 const isFemale = (r: Resident): boolean => femaleName(r.name);
-/** 1 186 → «1 186» с неразрывным пробелом */
+/** 1 186 → «1 186» с неразрывным пробелом */
 const num = (n: number): string => Math.round(n).toLocaleString(getLang() === 'ru' ? 'ru-RU' : 'en-US').replace(/\s/g, NB);
 const capitalize = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Свои блюда игрока — для названий; обновляется при каждой отрисовке */
+/** Свои блюда игрока — для названий; обновляется при каждой отрисовке */
 let OWN: MenuItem[] = [];
 const itemName = (id: string): string => CATALOG.find((c) => c.id === id)?.name ?? OWN.find((m) => m.id === id)?.name ?? id;
-/** «не зашли, потому что …» — для выводов отчёта за период */
+/** «не зашли, потому что …» — для выводов отчёта за период */
 const REASON_BECAUSE: Partial<Record<RejectReason, string>> = {
   closed: L('было закрыто'),
   'no-item': tr`не было нужного в меню`,
@@ -186,7 +187,7 @@ const REASON_BECAUSE: Partial<Record<RejectReason, string>> = {
   'no-staff': tr`некому было обслужить`,
 };
 
-/** «студентам», «молодёжи» — кому блюдо по вкусу */
+/** «студентам», «молодёжи» — кому блюдо по вкусу */
 const FANS_DATIVE: Record<ResidentKind, string> = {
   office: L('офисным'),
   student: L('студентам'),
@@ -198,22 +199,22 @@ const FANS_DATIVE: Record<ResidentKind, string> = {
   passenger: L('пассажирам'),
   visitor: tr`гостям района`,
 };
-/** Вкус позиции словами: «сладкое, необычное» — по нему подбирают меню под гостей */
+/** Вкус позиции словами: «сладкое, необычное» — по нему подбирают меню под гостей */
 const itemTaste = (id: string): string => {
   const p = profileOf(id);
   return AXES.filter((a) => p[a] >= 0.55).map((a) => AXIS_LABEL[a]).join(', ');
 };
 
 const REASON_HINT: Record<RejectReason, string> = {
-  'not-open': L('Хотели зайти, но кафе ещё не работает'),
-  closed: tr`Хотели зайти, когда было закрыто — подумай о часах работы`,
+  'not-open': L('Хотели зайти, но кафе ещё не работает'),
+  closed: tr`Хотели зайти, когда было закрыто — подумай о часах работы`,
   expensive: L('Цена выше, чем готовы платить'),
-  'off-route': tr`Кафе не по пути — делать крюк не захотели`,
+  'off-route': tr`Кафе не по пути — делать крюк не захотели`,
   'no-item': tr`Не нашли нужного в меню`,
-  queue: tr`Не стали стоять в очереди — нужен бариста`,
+  queue: tr`Не стали стоять в очереди — нужен бариста`,
   'no-time': tr`Не дождались заказа и ушли`,
-  unaware: tr`Хотели зайти куда-нибудь, но о твоём кафе не знают. Помогут вывеска, листовки и соцсети — вкладка «Гости»`,
-  'out-of-stock': tr`Позиция закончилась на складе. Гость ушёл недовольным — закажи больше или подними автозаказ`,
+  unaware: tr`Хотели зайти куда-нибудь, но о твоём кафе не знают. Помогут вывеска, листовки и соцсети — вкладка «Гости»`,
+  'out-of-stock': tr`Позиция закончилась на складе. Гость ушёл недовольным — закажи больше или подними автозаказ`,
   mood: tr`Цена и дорога устраивали, но не каждый день хочется в кафе. Постоянные гости заходят чаще`,
   rival: tr`Готовы были зайти, но выбрали конкурента: у него дешевле, ближе по пути или нужная позиция`,
   taste: tr`Цена и дорога устраивали, но в меню не нашлось ничего на их вкус. Посмотри, что любят твои гости, в их карточках`,
@@ -229,11 +230,11 @@ const USUAL: Record<WantKind, string> = {
   bar: tr`пиво или сидр`,
 };
 
-const OPEN_OPTIONS = Array.from({ length: 25 }, (_, i) => hm(6) + i * 30); // 06:00…18:00 — бар может открываться вечером
-// 14:00…04:00 следующего дня: после 24:00 — работа через полночь
+const OPEN_OPTIONS = Array.from({ length: 25 }, (_, i) => hm(6) + i * 30); // 06:00…18:00 — бар может открываться вечером
+// 14:00…04:00 следующего дня: после 24:00 — работа через полночь
 const CLOSE_OPTIONS = Array.from({ length: 15 }, (_, i) => hm(14) + i * 60);
 const ALL_DAY = 'all-day';
-/** Откуда узнали о точке — иконка */
+/** Откуда узнали о точке — иконка */
 const AWARE_ICON: Record<AwareSource, string> = {
   start: 'aware-start',
   walk: 'aware-walk',
@@ -241,12 +242,12 @@ const AWARE_ICON: Record<AwareSource, string> = {
   social: 'mk-social',
   word: 'mk-word',
 };
-/** «Состав: вода, молотый кофе из зёрен, …» — пока только описание */
+/** «Состав: вода, молотый кофе из зёрен, …» — пока только описание */
 const compositionLine = (id: string): string => {
   const list = compositionOf(id);
   return list.length ? tr`<small class="comp">Состав: ${list.join(', ')}</small>` : '';
 };
-/** Предупреждение до решения: «⚠ …» отдельной строкой под пунктом */
+/** Предупреждение до решения: «⚠ …» отдельной строкой под пунктом */
 const warnLine = (text: string | null): string => (text ? `<small class="warn">⚠ ${text}</small>` : '');
 /** «упирается в …» */
 const INGREDIENT_ACC: Record<IngredientId, string> = {
@@ -254,9 +255,9 @@ const INGREDIENT_ACC: Record<IngredientId, string> = {
   milk: L('молоко'),
   bakery: L('выпечку'),
   oven: L('свою выпечку'),
-  kitchen: L('продукты для кухни'),
-  drinks: L('чай и лимонад'),
-  bar: L('пиво и сидр'),
+  kitchen: L('продукты для кухни'),
+  drinks: L('чай и лимонад'),
+  bar: L('пиво и сидр'),
   syrup: L('сиропы'),
   chocolate: L('шоколад'),
   honey: L('мёд'),
@@ -295,47 +296,49 @@ export class Hud {
   private readonly note = $('#street-note');
   private readonly nightSkip = $('#night-skip') as HTMLButtonElement;
   private readonly district = $<HTMLButtonElement>('#district');
-  /** Окно поверх игры: каталог меню и конструктор блюда — чтобы не открывались внизу длинной панели */
+  /** Окно поверх игры: каталог меню и конструктор блюда — чтобы не открывались внизу длинной панели */
   private readonly modal = document.createElement('div');
   private modalHtml = '';
   private lastModal = '';
   private catalogOpen = false;
-  /** Отчёт: за какой период и какой именно (null — последний) */
+  /** Отчёт: за какой период и какой именно (null — последний) */
   private reportPeriod: 'day' | PeriodKind = 'day';
-  /** Раскрыты часы по дням недели */
+  /** Раскрыты часы по дням недели */
   private hoursByDay = false;
-  /** Выбранная вещь на стойке киоска */
+  /** Выбранная вещь на стойке киоска */
   private standPick: UpgradeId | null = null;
-  /** Почасовые бариста, у которых раскрыты часы по дням */
+  /** Почасовые бариста, у которых раскрыты часы по дням */
   private staffByDay = new Set<number>();
   private reportAt: number | null = null;
-  /** Последний прочитанный выпуск хроники (только в интерфейсе) */
+  /** Чей отчёт: 'all' — весь бизнес, иначе ключ точки «район:помещение» */
+  private reportOwner = 'all';
+  /** Последний прочитанный выпуск хроники (только в интерфейсе) */
   private chronicleRead = 0;
-  /** Сколько хочет взять в кредит — по источнику */
+  /** Сколько хочет взять в кредит — по источнику */
   private loanAmount: Partial<Record<LoanSource, number>> = {};
-  /** Конструктор своего блюда: null — закрыт */
+  /** Конструктор своего блюда: null — закрыт */
   private dish: { base: BaseId | null; addIns: AddInId[]; name: string | null; price: number | null } | null = null;
-  /** Игрок вводит название заведения; на это время игра на паузе */
+  /** Игрок вводит название заведения; на это время игра на паузе */
   private renaming: { resume: number; draft: string } | null = null;
-  /** Развернуть нижний лист на телефоне — подставляет main */
+  /** Развернуть нижний лист на телефоне — подставляет main */
   onExpand: () => void = () => {};
   private confirmRestart = false;
-  /** Открыт блок «Перенести игру»; transferError — что не так с загруженным файлом */
+  /** Открыт блок «Перенести игру»; transferError — что не так с загруженным файлом */
   private transfer = false;
   private transferError = '';
   private tab: CafeTab = 'overview';
-  /** Какая вкладка была открыта в каждом разделе — чтобы вернуться туда же */
+  /** Какая вкладка была открыта в каждом разделе — чтобы вернуться туда же */
   private lastInGroup = new Map<string, CafeTab>();
-  /** Какая позиция меню раскрыта для правки цены */
+  /** Какая позиция меню раскрыта для правки цены */
   private openItem: string | null = null;
-  /** Выбранное место в зале (свой дизайн) */
+  /** Выбранное место в зале (свой дизайн) */
   private hallSlot: string | null = null;
-  /** Какое событие уже показали карточкой — второй раз сама не всплывает */
+  /** Какое событие уже показали карточкой — второй раз сама не всплывает */
   private eventShown = '';
 
-  /** Точка, на которую сейчас смотрит игрок */
+  /** Точка, на которую сейчас смотрит игрок */
   private sim: Simulation;
-  /** Перейти в другой район — подставляет main */
+  /** Перейти в другой район — подставляет main */
   onSwitch: (district: DistrictId) => void = () => {};
 
   constructor(
@@ -345,7 +348,7 @@ export class Hud {
     private readonly challenge = false,
   ) {
     this.sim = city.main;
-    // Скорость — одна тёмная кнопка из двух половин: пауза/пуск и ×1 → ×2 → ×4 по кругу (UI 2.1)
+    // Скорость — одна тёмная кнопка из двух половин: пауза/пуск и ×1 → ×2 → ×4 по кругу (UI 2.1)
     const speeds = $('#speeds');
     const pill = document.createElement('div');
     pill.className = 'speed-pill';
@@ -357,24 +360,24 @@ export class Hud {
     cycle.title = L('Скорость: ×1, ×2, ×4');
     cycle.addEventListener('click', () => {
       const run = SPEEDS.filter((v) => v > 0);
-      // На паузе — просто продолжить; иначе — следующая скорость
+      // На паузе — просто продолжить; иначе — следующая скорость
       this.setSpeed(this.speed === 0 ? this.lastSpeed : run[(run.indexOf(this.speed as (typeof run)[number]) + 1) % run.length]);
     });
     pill.append(pause, cycle);
     speeds.append(pill);
-    // Ночью, когда всё закрыто, — заметная кнопка над картой: новичок не ищет ⏭ в шапке
-    this.nightSkip.innerHTML = tr`🌙 Всё закрыто до утра · <b>Промотать ⏭</b>`;
+    // Ночью, когда всё закрыто, — заметная кнопка над картой: новичок не ищет ⏭ в шапке
+    this.nightSkip.innerHTML = tr`🌙 Всё закрыто до утра · <b>Промотать ⏭</b>`;
     this.nightSkip.addEventListener('click', () => {
       if (this.sim.bankrupt) return;
       goal('night_skip');
       this.city.skipToMorning();
       this.render(true);
     });
-    // Промотать до 6:00 утра: ночь и пустые часы не нужно ждать
+    // Промотать до 6:00 утра: ночь и пустые часы не нужно ждать
     const skip = document.createElement('button');
     skip.textContent = '⏭';
-    skip.title = L('Промотать до 6:00 утра');
-    skip.setAttribute('aria-label', L('Промотать до утра'));
+    skip.title = L('Промотать до 6:00 утра');
+    skip.setAttribute('aria-label', L('Промотать до утра'));
     skip.className = 'skip';
     skip.addEventListener('click', () => {
       if (this.sim.bankrupt) return;
@@ -396,7 +399,7 @@ export class Hud {
     this.modal.hidden = true;
     document.body.append(this.modal);
     this.modal.addEventListener('click', (ev) => {
-      // Нажали мимо окна — закрыть
+      // Нажали мимо окна — закрыть
       if (ev.target === this.modal) {
         this.catalogOpen = false;
         this.dish = null;
@@ -408,9 +411,9 @@ export class Hud {
     this.modal.addEventListener('change', (ev) => this.onChange(ev));
     this.modal.addEventListener('focusout', () => setTimeout(() => this.render(), 0));
     this.panel.addEventListener('change', (ev) => this.onChange(ev));
-    // Ушли со списка, ничего не выбрав, — догоняем отложенную пересборку
+    // Ушли со списка, ничего не выбрав, — догоняем отложенную пересборку
     this.panel.addEventListener('focusout', () => setTimeout(() => this.render(), 0));
-    // Набранное название помним: если панель пересоберётся (конец дня, событие), текст не пропадёт
+    // Набранное название помним: если панель пересоберётся (конец дня, событие), текст не пропадёт
     this.panel.addEventListener('input', (ev) => {
       const t = ev.target as HTMLInputElement;
       if (t.dataset.action === 'rename-input' && this.renaming) this.renaming.draft = t.value;
@@ -425,7 +428,7 @@ export class Hud {
       const other: DistrictId = this.sim.district === 'klenovaya' ? 'delovoy' : 'klenovaya';
       if (this.city.unlocked) this.onSwitch(other);
       else {
-        // Ещё закрыт: карточка метро — там условие и сколько осталось
+        // Ещё закрыт: карточка метро — там условие и сколько осталось
         this.selectPlace(this.sim.at('metro'));
         this.onExpand();
       }
@@ -434,7 +437,7 @@ export class Hud {
     this.render(true);
   }
 
-  /** Кнопка района над картой: где ты сейчас и куда можно поехать */
+  /** Кнопка района над картой: где ты сейчас и куда можно поехать */
   private districtPill(): void {
     const el = this.district;
     const show = this.city.unlocked || this.sim.cafe.opened;
@@ -451,7 +454,7 @@ export class Hud {
     if (el.innerHTML !== html) el.innerHTML = html;
   }
 
-  /** Квартал только что открылся: карточка с предложением поехать */
+  /** Квартал только что открылся: карточка с предложением поехать */
   private unlockCard(): void {
     if (!this.city.justUnlocked || document.querySelector('.overlay')) return;
     this.city.justUnlocked = false;
@@ -482,7 +485,7 @@ export class Hud {
     });
   }
 
-  /** Скорость сменилась — площадке нужно знать, идёт ли игра */
+  /** Скорость сменилась — площадке нужно знать, идёт ли игра */
   onSpeedChange: () => void = () => {};
 
   setSpeed(s: number): void {
@@ -503,8 +506,8 @@ export class Hud {
     }
   }
 
-  /** Переключиться на точку в другом районе: панель — с обзора */
-  /** Какая точка сейчас в панели */
+  /** Переключиться на точку в другом районе: панель — с обзора */
+  /** Какая точка сейчас в панели */
   get current(): Simulation {
     return this.sim;
   }
@@ -523,7 +526,7 @@ export class Hud {
     this.render(true);
   }
 
-  /** Скорость до паузы — с неё продолжаем */
+  /** Скорость до паузы — с неё продолжаем */
   private lastSpeed = 1;
 
   select(r: Resident | null): void {
@@ -534,11 +537,11 @@ export class Hud {
     this.render(true);
   }
 
-  /** Нажали на здание: название, кто там живёт или работает, кто сейчас внутри */
+  /** Нажали на здание: название, кто там живёт или работает, кто сейчас внутри */
   selectPlace(p: Place | null): void {
-    // Нажал на свою другую точку в этом районе — панель переключается на неё
+    // Нажал на свою другую точку в этом районе — панель переключается на неё
     const owner = p ? this.city.points.find((s) => s.district === this.sim.district && s.cafe.opened && s.shopId === p.id) : null;
-    // Своя пекарня (помещение без отдельной карточки) — сразу её управление
+    // Своя пекарня (помещение без отдельной карточки) — сразу её управление
     if (owner && (owner !== this.sim || p!.kind === 'vacant')) {
       this.show(owner);
       return;
@@ -549,7 +552,7 @@ export class Hud {
     this.render(true);
   }
 
-  /** Ночь и все точки закрыты до утра: ждать нечего — предлагаем промотать */
+  /** Ночь и все точки закрыты до утра: ждать нечего — предлагаем промотать */
   private isQuietNight(): boolean {
     const m = this.sim.minute;
     if (this.sim.bankrupt || this.speed === 0 || !(m >= 20 * 60 || m < 5 * 60)) return false;
@@ -557,7 +560,7 @@ export class Hud {
     return points.length > 0 && points.every((s) => !s.cafe.isOpenAt(m));
   }
 
-  /** Выполнен шаг «Первых шагов»: звук, цель Метрики и обновлённая карточка */
+  /** Выполнен шаг «Первых шагов»: звук, цель Метрики и обновлённая карточка */
   onStep(id: StepId): void {
     goal('first_step', { id });
     sound.play('ui-milestone', 0.6);
@@ -569,26 +572,26 @@ export class Hud {
   /** Все шаги только что пройдены: один раз показываем поздравление вместо карточки */
   private stepsJustDone = false;
 
-  /** Карточка «Первые шаги» в обзоре: пока новичок их не прошёл */
+  /** Карточка «Первые шаги» в обзоре: пока новичок их не прошёл */
   private firstStepsCard(): string {
     const sim = this.sim;
     if (sim.isBranch || !sim.cafe.opened) return '';
     const done = FIRST_STEPS.filter((s) => sim.steps[s.id] !== undefined).length;
     if (done === FIRST_STEPS.length) {
       if (!this.stepsJustDone) return '';
-      return `<div class="first-steps done"><b>${L('Первые шаги пройдены!')}</b> ${L('Дальше — вехи во вкладке «Развитие».')}</div>`;
+      return `<div class="first-steps done"><b>${L('Первые шаги пройдены!')}</b> ${L('Дальше — вехи во вкладке «Развитие».')}</div>`;
     }
     const items = FIRST_STEPS.map((s) => {
       const ok = sim.steps[s.id] !== undefined;
       return `<li class="${ok ? 'ok' : ''}"><span class="mark">${ok ? '✓' : ''}</span><div><b>${s.title}</b>${ok ? '' : `<small>${s.hint}</small>`}</div></li>`;
     }).join('');
-    return `<div class="first-steps"><h4>${tr`Первые шаги · ${done} из ${FIRST_STEPS.length}`}</h4><ul>${items}</ul></div>`;
+    return `<div class="first-steps"><h4>${tr`Первые шаги · ${done} из ${FIRST_STEPS.length}`}</h4><ul>${items}</ul></div>`;
   }
 
   onDayEnd(): void {
     this.stepsJustDone = false;
     this.checkChallenge();
-    // Сколько дней прожило заведение — главный показатель удержания
+    // Сколько дней прожило заведение — главный показатель удержания
     const opened = this.sim.reports.filter((r) => r.opened).length;
     if ([1, 3, 7, 14, 28].includes(opened)) goal(`day_${opened}`, { premises: this.sim.cafe.premisesId });
     for (const id of this.sim.reports.at(-1)?.milestones ?? []) goal('milestone', { id });
@@ -598,11 +601,13 @@ export class Hud {
       this.view = 'report';
       this.reportPeriod = 'day';
       this.reportAt = null;
+      // Несколько точек — в конце дня сначала весь бизнес
+      this.reportOwner = 'all';
     }
     this.render(true);
   }
 
-  /** Испытание закончилось — один раз показываем итог */
+  /** Испытание закончилось — один раз показываем итог */
   private checkChallenge(): void {
     if (!this.challenge || savedResult()) return;
     const r = resultIfFinished(this.sim);
@@ -625,7 +630,7 @@ export class Hud {
     const dayText = !this.challenge ? tr`День ${day}` : day <= CHALLENGE.days ? tr`День ${day} из ${CHALLENGE.days}` : tr`День ${day} · итог записан`;
     const clock = `<b>${WEEKDAY_SHORT[weekday(day)]} · ${formatClock(this.sim.time)}</b><small>${dayText} · ${weatherShort(this.sim.weather)}</small>`;
     if (this.clock.innerHTML !== clock) this.clock.innerHTML = clock;
-    // Касса нейтральная: цветом только минус (UI 2.1, «касса не равна прибыли»)
+    // Касса нейтральная: цветом только минус (UI 2.1, «касса не равна прибыли»)
     const cash = tr`<small>В кассе</small><b>${money(this.sim.cash)}</b>`;
     if (this.cash.innerHTML !== cash) this.cash.innerHTML = cash;
     const note = streetNote(this.sim.minute, isWeekend(day));
@@ -633,7 +638,7 @@ export class Hud {
     const night = this.isQuietNight();
     if (this.nightSkip.hidden === night) this.nightSkip.hidden = !night;
     this.cash.classList.toggle('neg', this.sim.cash < 0);
-    // События всех точек: в бистро сломалась кофемашина — узнаёшь, даже если смотришь на Кленовую
+    // События всех точек: в бистро сломалась кофемашина — узнаёшь, даже если смотришь на Кленовую
     const owner = [this.sim, ...this.city.points].find((p) => p.pendingEvent);
     const e = owner?.pendingEvent;
     const key = e ? `${owner!.district}:${owner!.cafe.premisesId}:${e.id}:${e.day}` : '';
@@ -643,7 +648,7 @@ export class Hud {
       showEventCard(owner, this, () => this.render(true), many ? `${owner.cafe.title} · ${DISTRICTS[owner.district].name}` : '');
       sound.play('ui-event');
     }
-    // Касса ушла в минус — тихое предупреждение
+    // Касса ушла в минус — тихое предупреждение
     const negative = this.sim.cash < 0;
     if (negative && !this.wasNegative) sound.play('ui-money-low');
     this.wasNegative = negative;
@@ -654,7 +659,7 @@ export class Hud {
 
   // ——— Действия ———
 
-  /** Поле названия в фокусе, курсор в конце — можно сразу дописывать или стирать */
+  /** Поле названия в фокусе, курсор в конце — можно сразу дописывать или стирать */
   private focusRename(): void {
     const input = this.panel.querySelector<HTMLInputElement>('input[data-action="rename-input"]');
     if (!input) return;
@@ -675,7 +680,7 @@ export class Hud {
 
   private onClick(ev: Event): void {
     const btn = (ev.target as HTMLElement).closest<HTMLElement>('[data-action]');
-    // Нажатие в поле ввода или списке — не действие: пересборка панели сбросила бы набранный текст и курсор
+    // Нажатие в поле ввода или списке — не действие: пересборка панели сбросила бы набранный текст и курсор
     if (!btn || btn.tagName === 'SELECT' || btn.tagName === 'INPUT' || btn.tagName === 'TEXTAREA') return;
     const { action, item } = btn.dataset;
     const sim = this.sim;
@@ -695,7 +700,7 @@ export class Hud {
         const [district, premises] = (item ?? '').split(':');
         const target = this.city.points.find((s) => s.district === district && s.cafe.premisesId === premises);
         if (!target) return;
-        // В другой район — камера едет туда же
+        // В другой район — камера едет туда же
         if (target.district !== sim.district) this.onSwitch(target.district);
         this.show(target);
         return;
@@ -769,7 +774,7 @@ export class Hud {
         this.dish = null;
         break;
       case 'dish-base':
-        // Новая основа — новые добавки, название и цена по умолчанию
+        // Новая основа — новые добавки, название и цена по умолчанию
         if (this.dish) this.dish = { base: item as BaseId, addIns: [], name: null, price: null };
         break;
       case 'dish-addin':
@@ -777,7 +782,7 @@ export class Hud {
           const a = item as AddInId;
           const on = this.dish.addIns.includes(a);
           if (on || this.dish.addIns.length < MAX_ADDINS) {
-            // Своё название сохраняем, название по умолчанию пересчитается под новые добавки
+            // Своё название сохраняем, название по умолчанию пересчитается под новые добавки
             this.keepDishName();
             this.dish.addIns = on ? this.dish.addIns.filter((x) => x !== a) : [...this.dish.addIns, a];
             this.dish.price = null;
@@ -848,7 +853,7 @@ export class Hud {
         this.finishRename(false);
         return;
       case 'insight':
-        // Кнопка под «Что происходит»: открыть нужный раздел управления
+        // Кнопка под «Что происходит»: открыть нужный раздел управления
         this.tab = item as CafeTab;
         this.panel.scrollTop = 0;
         this.onExpand();
@@ -950,6 +955,8 @@ export class Hud {
         this.view = 'report';
         this.reportPeriod = 'day';
         this.reportAt = null;
+        // Из обзора точки — её отчёт
+        this.reportOwner = this.pointKey(sim);
         break;
       case 'hours-by-day':
         this.hoursByDay = true;
@@ -963,12 +970,18 @@ export class Hud {
       case 'chronicle': {
         const week = Number(item);
         this.chronicleRead = Math.max(this.chronicleRead, week);
+        this.reportOwner = this.pointKey(sim);
         this.view = 'report';
         this.reportPeriod = 'week';
         this.reportAt = week;
         this.panel.scrollTop = 0;
         break;
       }
+      case 'report-owner':
+        this.reportOwner = item ?? 'all';
+        this.reportAt = null;
+        this.panel.scrollTop = 0;
+        break;
       case 'report-period':
         this.reportPeriod = item as 'day' | PeriodKind;
         this.reportAt = null;
@@ -1057,7 +1070,7 @@ export class Hud {
     if (el.dataset.action === 'open-at') {
       const open = Number(el.value);
       const h = cafe.week[0] ?? { openAt: cafe.openAt, closeAt: cafe.closeAt };
-      // Круглосуточный режим сохраняем; иначе не даём закрытию оказаться раньше открытия
+      // Круглосуточный режим сохраняем; иначе не даём закрытию оказаться раньше открытия
       const close = h.closeAt - h.openAt >= MINUTES_PER_DAY ? open + MINUTES_PER_DAY : Math.max(h.closeAt, open + 60);
       this.sim.setHours(open, close);
     }
@@ -1102,7 +1115,7 @@ export class Hud {
         if (to <= from) to = from + 60;
         if (to - from > MINUTES_PER_DAY) from = to - MINUTES_PER_DAY;
         const windows = Array.from({ length: 7 }, (_, k) => st.schedule.windows?.[k] ?? null);
-        // Совпало с обычными часами — свой день не нужен
+        // Совпало с обычными часами — свой день не нужен
         windows[d] = from === st.schedule.from && to === st.schedule.to ? null : { from, to };
         this.sim.setStaffSchedule(id, { ...st.schedule, windows });
       }
@@ -1114,7 +1127,7 @@ export class Hud {
     if (el.dataset.action === 'day-open') {
       const d = Number(el.dataset.item);
       const h = cafe.week[d];
-      // Последний рабочий день выходным не сделать — sim откажет, а список вернётся как был
+      // Последний рабочий день выходным не сделать — sim откажет, а список вернётся как был
       if (el.value === DAY_OFF) this.sim.setDayHours(d, null);
       else {
         const open = Number(el.value);
@@ -1131,12 +1144,12 @@ export class Hud {
     this.render(true);
   }
 
-  /** Новая игра: стереть сохранение и перезапустить */
+  /** Новая игра: стереть сохранение и перезапустить */
   private restart(): void {
     goal('restart', { day: this.sim.today });
     window.dispatchEvent(new Event('gorod-dela:reset'));
     clearSave(saveKeyFor(this.challenge));
-    // В Яндекс Играх адрес не трогаем: в нём параметры площадки
+    // В Яндекс Играх адрес не трогаем: в нём параметры площадки
     if (IS_PORTAL) location.reload();
     else location.href = this.challenge ? challengeUrl() : location.pathname;
   }
@@ -1158,9 +1171,9 @@ export class Hud {
         : this.view === 'report' && this.sim.reports.length > 0
           ? this.reportScreen()
           : this.cafeView();
-    // Пересобираем DOM только когда изменилась структура — иначе обновляем «живые» числа.
-    // Так не сбиваются клики, прокрутка и открытые списки.
-    // Пока открыт выпадающий список или идёт ввод — не трогаем DOM: на телефоне пересборка
+    // Пересобираем DOM только когда изменилась структура — иначе обновляем «живые» числа.
+    // Так не сбиваются клики, прокрутка и открытые списки.
+    // Пока открыт выпадающий список или идёт ввод — не трогаем DOM: на телефоне пересборка
     // закрывает системное окно выбора времени. Пересоберём сразу после выбора (change) или ухода фокуса.
     const active = document.activeElement;
     const editing =
@@ -1175,7 +1188,7 @@ export class Hud {
     }
     if (!editing && (force || html !== this.lastHtml)) {
       this.lastHtml = html;
-      // Пересборка во время ввода названия (конец дня, событие) не должна выбивать из поля
+      // Пересборка во время ввода названия (конец дня, событие) не должна выбивать из поля
       const typing = document.activeElement instanceof HTMLInputElement && document.activeElement.dataset.action === 'rename-input';
       this.panel.innerHTML = html;
       if (typing && this.renaming) this.focusRename();
@@ -1203,9 +1216,9 @@ export class Hud {
     return tr`<li class="premises">
       <img class="premises-pic" src="${PREMISES_PIC[id]}" alt="" width="300" height="100" />
       <div class="row"><b class="grow">${pr.name}</b><span class="badge">аренда ${money(pr.rentPerDay * 30)}/мес</span></div>
-      <small>${pr.about}. Коммуналка — за часы работы, налог 6 % с выручки.</small>
+      <small>${pr.about}. Коммуналка — за часы работы, налог 6 % с выручки.</small>
       <button class="primary" data-action="${id === 'bakery' ? 'open-bakery' : 'open-cafe'}" data-item="${id}" ${canAfford ? '' : 'disabled'}>Открыть · ${money(pr.openingCost)}</button>
-      ${canAfford ? '' : tr`<small class="muted">Не хватает ${money(pr.openingCost - this.sim.cash)}</small>`}
+      ${canAfford ? '' : tr`<small class="muted">Не хватает ${money(pr.openingCost - this.sim.cash)}</small>`}
     </li>`;
   }
 
@@ -1219,7 +1232,7 @@ export class Hud {
         <div><b>${title}</b><small>${sub}</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button>
       </div>${placeInterior(p)}`;
-    // Тёзки в одном списке — с первой буквой фамилии: «Вера И.» и «Вера П.»
+    // Тёзки в одном списке — с первой буквой фамилии: «Вера И.» и «Вера П.»
     const short = (list: Resident[]) => {
       const n = new Map<string, number>();
       for (const r of list) n.set(r.name.split(' ')[0], (n.get(r.name.split(' ')[0]) ?? 0) + 1);
@@ -1316,7 +1329,7 @@ export class Hud {
     return `${head(p.name, sub)}${people(here, p.kind === 'park' ? L('Сейчас гуляют') : L('Сейчас здесь'))}`;
   }
 
-  /** Метро: поездка в другой район или сколько осталось до открытия квартала */
+  /** Метро: поездка в другой район или сколько осталось до открытия квартала */
   private metroTrip(): string {
     if (this.sim.isBranch) return tr`<button class="primary" data-action="go-district" data-item="klenovaya">Вернуться на Кленовую</button>`;
     if (this.city.unlocked) return tr`<button class="primary" data-action="go-district" data-item="delovoy">Поехать в Деловой квартал</button>`;
@@ -1338,10 +1351,10 @@ export class Hud {
       }
       return tr`
         <div class="row head"><b>Свободные помещения</b><span class="badge">Сдаются</span></div>
-        <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Посмотри, кто и когда, — нажми на жителя.</p>
+        <p class="demand">Сегодня зайти хотели: <b data-live="wanted"></b>. Посмотри, кто и когда, — нажми на жителя.</p>
         ${this.challengeBanner()}
         <ul class="menu premises-list">${card('kiosk')}${card('cafe')}</ul>
-        <small>Формат начинается с места: у метро — поток пассажиров, в кафе с залом гости сидят и дозаказывают.</small>
+        <small>Формат начинается с места: у метро — поток пассажиров, в кафе с залом гости сидят и дозаказывают.</small>
         ${this.sim.time > hm(7) ? this.restartBlock() : (this.challenge || IS_PORTAL ? '' : this.transferBlock()) + this.langLink()}`;
     }
 
@@ -1357,10 +1370,10 @@ export class Hud {
       ? L('кафе закрыто')
       : cafe.ownerAtCounter
         ? cafe.baristas > 0
-          ? L('за стойкой вместе с персоналом')
-          : L('за стойкой')
+          ? L('за стойкой вместе с персоналом')
+          : L('за стойкой')
         : cafe.ownerTired
-          ? L('отработал своё на сегодня')
+          ? L('отработал своё на сегодня')
           : L('отдыхаешь');
 
     const items = cafe.menu
@@ -1404,17 +1417,17 @@ export class Hud {
     const catalog = this.catalogOpen
       ? (Object.keys(KIND_TITLE) as ItemKind[])
           .map((kind) => {
-            // Сезонное видно только в свой сезон (или если уже стоит в меню)
+            // Сезонное видно только в свой сезон (или если уже стоит в меню)
             const rows = CATALOG.filter((c) => c.kind === kind && (!c.seasonal || this.sim.holiday || cafe.hasItem(c.id)))
               .map((c) => {
                 const inMenu = cafe.hasItem(c.id);
                 const fits = cafe.fits(c.id);
                 const noEquip = fits && !!cafe.missingEquipment(c.id);
                 return tr`<li>${iconImg(c.id)}<div class="grow"><b>${c.name}</b>${c.seasonal ? L(' <span class="badge season">🎄 сезон</span>') : ''}
-                  <small>${itemTaste(c.id) ? `${itemTaste(c.id)} · ` : ''}от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
+                  <small>${itemTaste(c.id) ? `${itemTaste(c.id)} · ` : ''}от ${money(c.price)} · себестоимость ${money(c.cost)}</small></div>
                   ${
                     inMenu
-                      ? L('<span class="badge on">в меню</span>')
+                      ? L('<span class="badge on">в меню</span>')
                       : !fits
                         ? tr`<span class="badge">не здесь</span>`
                         : noEquip
@@ -1424,8 +1437,8 @@ export class Hud {
               })
               .join('');
             const legal =
-              kind === 'bar' ? tr`<small class="note">ИП может продавать только пиво и сидр. Вино и крепкое — с лицензией ООО, позже</small>` : '';
-            // Оборудование под категорию: плита для обедов, кран для пива
+              kind === 'bar' ? tr`<small class="note">ИП может продавать только пиво и сидр. Вино и крепкое — с лицензией ООО, позже</small>` : '';
+            // Оборудование под категорию: плита для обедов, кран для пива
             const need = equipmentFor(kind);
             const eq = need ? EQUIPMENT[need] : null;
             const fitsKind = cafe.premises.kinds.includes(kind);
@@ -1478,11 +1491,11 @@ export class Hud {
     const staffRows = cafe.staff.map((st, i) => this.staffRow(st, i, open)).join('');
     const last = this.sim.reports.at(-1);
 
-    // Меню управления: пять разделов, в разделе — свои вкладки (подменю). Сгруппированы по смыслу:
+    // Меню управления: пять разделов, в разделе — свои вкладки (подменю). Сгруппированы по смыслу:
     // что продаём (меню, склад), кто работает (персонал, часы), кто приходит (гости, реклама, акции), как растём
     const groups: { label: string; tabs: [CafeTab, string][] }[] = [
       { label: L('Обзор'), tabs: [['overview', L('Обзор')]] },
-      { label: L('Меню'), tabs: [['menu', L('Меню и цены')], ['stock', L('Склад')]] },
+      { label: L('Меню'), tabs: [['menu', L('Меню и цены')], ['stock', L('Склад')]] },
       { label: L('Команда'), tabs: [['staff', L('Персонал')], ['hours', L('Часы работы')]] },
       { label: L('Гости'), tabs: [['guests', L('Знакомые')], ['ads', L('Реклама')], ['promo', L('Акции')]] },
       {
@@ -1490,7 +1503,7 @@ export class Hud {
         tabs: [
           ...(this.sim.hasHall ? ([['hall', L('Зал')]] as [CafeTab, string][]) : []),
           ...(cafe.premisesId === 'kiosk' ? ([['stand', L('Стойка')]] as [CafeTab, string][]) : []),
-          ['growth', L('Вехи и улучшения')],
+          ['growth', L('Вехи и улучшения')],
         ],
       },
     ];
@@ -1532,7 +1545,7 @@ export class Hud {
       body = tr`
       <div class="menu-head"><h4>Меню и цены</h4>
         <button class="small" data-action="toggle-catalog">${L('+ Добавить')}</button></div>
-      <p class="hint-line">${cafe.menu.length} из ${MAX_MENU} позиций${full ? tr` — мест нет, сначала убери позицию` : ''} · нажми позицию, чтобы поменять цену</p>
+      <p class="hint-line">${cafe.menu.length} из ${MAX_MENU} позиций${full ? tr` — мест нет, сначала убери позицию` : ''} · нажми позицию, чтобы поменять цену</p>
       <p class="hint-line">${this.focusLine()}</p>
       <ul class="menu items">${items}</ul>
       ${this.ownDishesBlock()}`;
@@ -1553,7 +1566,7 @@ export class Hud {
       body = this.growthTab();
     } else if (this.tab === 'hall') {
       body = hallTab(this.sim, this.hallSlot);
-      // Выбор вещи — окном поверх: список длинный, внизу панели его не видно
+      // Выбор вещи — окном поверх: список длинный, внизу панели его не видно
       if (this.hallSlot) {
         const pick = hallPicker(this.sim, this.hallSlot);
         this.modalHtml = this.modalSheet(pick.title, pick.body, 'hall-close');
@@ -1576,7 +1589,7 @@ export class Hud {
         <button class="small" data-action="hire-shift">На смену · ${money(ECONOMY.shiftWage)}</button>
         <button class="small" data-action="hire-hourly">Почасово · ${money(ECONOMY.baristaWagePerHour)}/ч</button>
       </div>
-      <small>Смена — до ${ECONOMY.shiftHours} часов с открытия, платишь всю сумму в дни по графику. Почасовой работает в окне графика — сузь его до пиков.</small>`
+      <small>Смена — до ${ECONOMY.shiftHours} часов с открытия, платишь всю сумму в дни по графику. Почасовой работает в окне графика — сузь его до пиков.</small>`
           : ''
       }
       <p class="wages">Сегодня на зарплату: <b data-live="wages"></b> <small>ночью (22:00–6:00) +20 %</small></p>`;
@@ -1589,13 +1602,13 @@ export class Hud {
   }
 
   /**
-   * Шапка заведения. На телефоне в свёрнутом листе видна только она: название, статус,
-   * итог дня на этот момент и кнопка «Открыть управление».
+   * Шапка заведения. На телефоне в свёрнутом листе видна только она: название, статус,
+   * итог дня на этот момент и кнопка «Открыть управление».
    */
   private bizHeader(open: boolean): string {
     const cafe = this.sim.cafe;
     const t = cafe.today;
-    // Итог «на сейчас»: аренда и коммуналка за весь день уже вычтены, чтобы утренний плюс не обманывал
+    // Итог «на сейчас»: аренда и коммуналка за весь день уже вычтены, чтобы утренний плюс не обманывал
     const running = Math.round(
       t.revenue - foodCost(t) - cafe.wagesSoFar - t.revenue * ECONOMY.taxRate - t.marketing - (t.other ?? 0) - cafe.premises.rentPerDay - cafe.utilitiesPerDay,
     );
@@ -1619,8 +1632,8 @@ export class Hud {
   }
 
   /**
-   * «Что происходит»: главное наблюдение за последние два часа и один следующий шаг.
-   * Только факты — кто и почему не зашёл; вывод делает игрок.
+   * «Что происходит»: главное наблюдение за последние два часа и один следующий шаг.
+   * Только факты — кто и почему не зашёл; вывод делает игрок.
    */
   private insightBlock(): string {
     const sim = this.sim;
@@ -1631,7 +1644,7 @@ export class Hud {
     const from = (h + 23) % 24;
     const hours = [from, h];
     const span = tr`С ${fmtMinute(from * 60)} до ${fmtMinute(((h + 1) % 24) * 60)}`;
-    // Гости — те, кто зашёл и купил. Кто пришёл и ушёл ни с чем — «люди», кто прошёл мимо — «прохожие»
+    // Гости — те, кто зашёл и купил. Кто пришёл и ушёл ни с чем — «люди», кто прошёл мимо — «прохожие»
     const persons = (n: number) => `${numWord(n)} ${plural(n, 'человек', 'человека', 'человек')}`;
     const passers = (n: number) => `${numWord(n)} ${plural(n, 'прохожий', 'прохожих', 'прохожих')}`;
     const count = (reason: RejectReason) => hours.reduce((n, x) => n + (t.lostHour?.[reason]?.[x] ?? 0), 0);
@@ -1649,7 +1662,7 @@ export class Hud {
       const n = rule.reasons.reduce((sum, r) => sum + count(r), 0);
       if (n >= 2 && (!best || n > best.n)) best = { n, rule };
     }
-    // Время — отдельно, жирным
+    // Время — отдельно, жирным
     let time = '';
     let text: string;
     let button = '';
@@ -1666,7 +1679,7 @@ export class Hud {
         ? tr`обслужено ${served} ${plural(served, 'гость', 'гостя', 'гостей')}, без заметных потерь.`
         : tr`гостей не было. Посмотри, кто сейчас на улице и куда идёт.`;
     }
-    // Текст — «живой»: числа меняются каждую минуту, а пересобирать из-за них панель незачем
+    // Текст — «живой»: числа меняются каждую минуту, а пересобирать из-за них панель незачем
     this.live.insight = text.replace(/&nbsp;|\u00a0/g, NB);
     this.live['insight-time'] = time;
     return tr`<section class="insight-now"><h4>Что происходит</h4><p><b data-live="insight-time"></b> <span data-live="insight"></span></p>${button}</section>`;
@@ -1682,7 +1695,7 @@ export class Hud {
     const where = t.premises === 'kiosk' ? tr`в киоске у метро` : tr`в кафе напротив`;
     if (day < rival.opensDay) {
       const n = rival.opensDay - day;
-      return tr`<div class="rival soon"><b>Через ${n} дн. ${where} откроется ${t.name}</b><small>${t.pitch}. Цены ниже твоих — подумай, чем ты будешь отличаться.</small></div>`;
+      return tr`<div class="rival soon"><b>Через ${n} дн. ${where} откроется ${t.name}</b><small>${t.pitch}. Цены ниже твоих — подумай, чем ты будешь отличаться.</small></div>`;
     }
     const menu = rival.menu(day).map((m) => `${m.name} ${money(m.price)}`).join(' · ');
     const promo = rival.promo(day)
@@ -1695,8 +1708,8 @@ export class Hud {
       <small>Сегодня у него гостей: <b data-live="rival-today"></b>${rival.promo(day) ? '' : ` · ${promo.replace(/<\/?small>/g, '')}`}</small></div>`;
   }
 
-  /** Понятность формата: узкое меню привлекает сильнее, «всё подряд» — слабее */
-  /** Свои блюда: список придуманных и конструктор нового (основа + добавки → вкус, себестоимость, кому понравится) */
+  /** Понятность формата: узкое меню привлекает сильнее, «всё подряд» — слабее */
+  /** Свои блюда: список придуманных и конструктор нового (основа + добавки → вкус, себестоимость, кому понравится) */
   private ownDishesBlock(): string {
     const cafe = this.sim.cafe;
     const own = cafe.own
@@ -1708,14 +1721,14 @@ export class Hud {
             <small>${taste ? `${taste} · ` : ''}себестоимость ${money(m.cost)} · по вкусу ${fans} жителям</small></div>
           ${
             inMenu
-              ? L('<span class="badge on">в меню</span>')
+              ? L('<span class="badge on">в меню</span>')
               : tr`<button class="small" data-action="add-item" data-item="${m.id}" ${cafe.menu.length >= MAX_MENU ? 'disabled' : ''}>Вернуть</button>`
           }
           <button class="icon" data-action="dish-delete" data-item="${m.id}" aria-label="Забыть блюдо">✕</button></li>`;
       })
       .join('');
     const head = tr`<h4>Свои блюда · ${cafe.own.length} из ${MAX_OWN}</h4>`;
-    const list = own ? `<ul class="menu">${own}</ul>` : tr`<p class="hint-line">Собери блюдо под вкус своих гостей: основа и до двух добавок. Вкус блюда видно сразу, а в карточках жителей — что любят они.</p>`;
+    const list = own ? `<ul class="menu">${own}</ul>` : tr`<p class="hint-line">Собери блюдо под вкус своих гостей: основа и до двух добавок. Вкус блюда видно сразу, а в карточках жителей — что любят они.</p>`;
     if (!this.dish) {
       const can = cafe.own.length < MAX_OWN;
       return `${head}${list}<button class="secondary" data-action="dish-open" ${can ? '' : 'disabled'}>${can ? L('Придумать блюдо') : tr`Своих блюд уже ${MAX_OWN} — забудь одно, чтобы придумать новое`}</button>`;
@@ -1724,7 +1737,7 @@ export class Hud {
     return `${head}${list}`;
   }
 
-  /** Окно поверх игры с заголовком и крестиком */
+  /** Окно поверх игры с заголовком и крестиком */
   private modalSheet(title: string, body: string, close: string): string {
     return `<div class="modal-sheet" role="dialog" aria-label="${title}">
       <div class="modal-head"><b>${title}</b><button data-action="${close}" aria-label="${L('Закрыть')}">✕</button></div>
@@ -1788,7 +1801,7 @@ export class Hud {
           </div>
         </div>
         ${fresh.length ? tr`<small>${capitalize(fresh.map((i) => INGREDIENTS.find((x) => x.id === i)!.name.toLowerCase()).join(', '))} — на складе нет. Закажу по 15 порций, привезут утром</small>` : ''}
-        <button class="primary" data-action="dish-create" ${block ? 'disabled' : ''}>${block || L('Добавить в меню')}</button>`;
+        <button class="primary" data-action="dish-create" ${block ? 'disabled' : ''}>${block || L('Добавить в меню')}</button>`;
     }
     return tr`<div class="dish-builder">
         <small>Основа</small>
@@ -1798,20 +1811,20 @@ export class Hud {
       </div>`;
   }
 
-  /** Игрок сам менял название в поле — тогда его не перезаписываем */
+  /** Игрок сам менял название в поле — тогда его не перезаписываем */
   private dishNamed(): boolean {
     const input = this.modal.querySelector<HTMLInputElement>('input[data-action="dish-name"]');
     if (!input || !this.dish?.base) return this.dish?.name != null;
     return input.value !== defaultDishName(dishId(this.dish.base, this.dish.addIns));
   }
 
-  /** Запомнить, что набрано в поле названия, перед пересборкой панели */
+  /** Запомнить, что набрано в поле названия, перед пересборкой панели */
   private keepDishName(): void {
     const input = this.modal.querySelector<HTMLInputElement>('input[data-action="dish-name"]');
     if (input && this.dish && this.dishNamed()) this.dish.name = input.value;
   }
 
-  /** Предложенная цена: как у похожей позиции каталога плюс добавки с наценкой */
+  /** Предложенная цена: как у похожей позиции каталога плюс добавки с наценкой */
   private suggestedPrice(id: string): number {
     const d = this.dish!;
     const b = dishBase(d.base!);
@@ -1832,16 +1845,16 @@ export class Hud {
   }
 
   /**
-   * Ты за стойкой. Без персонала — всё время работы (до ECONOMY.ownerHours), отдельные часы не нужны.
-   * С персоналом — когда никого нет, плюс свои часы вместе с ними (например, утренний пик)
+   * Ты за стойкой. Без персонала — всё время работы (до ECONOMY.ownerHours), отдельные часы не нужны.
+   * С персоналом — когда никого нет, плюс свои часы вместе с ними (например, утренний пик)
    */
   private ownerCard(): string {
     const cafe = this.sim.cafe;
     if (cafe.ownerAway)
-      return tr`<small>Ты стоишь за стойкой в первой точке. Здесь работают только бариста: найми их на все часы работы.</small>`;
-    const pace = tr`${cafe.has('machine') ? '3' : '4'} мин на гостя`;
+      return tr`<small>Ты стоишь за стойкой в первой точке. Здесь работают только бариста: найми их на все часы работы.</small>`;
+    const pace = tr`${cafe.has('machine') ? '3' : '4'} мин на гостя`;
     const alone = !cafe.staff.length;
-    // Если и так стоишь весь день (персонала нет или он не закрывает ни часа), свои часы не добавить
+    // Если и так стоишь весь день (персонала нет или он не закрывает ни часа), свои часы не добавить
     const busyAllDay = alone || [0, 1, 2, 3, 4, 5, 6].every((d) => !cafe.hoursOn(d) || uncoveredMinutes(cafe, d) >= ECONOMY.ownerHours * 60);
     const s = cafe.ownerShift;
     const hours = (list: number[], value: number, action: string) =>
@@ -1856,24 +1869,24 @@ export class Hud {
     ).join('');
     const extra = busyAllDay
       ? alone
-        ? tr`<small>Пока персонала нет, ты за стойкой всё время работы — отдельные часы не нужны.</small>`
-        : tr`<small>Ты и так стоишь за стойкой весь день — добавить часы некуда.</small>`
+        ? tr`<small>Пока персонала нет, ты за стойкой всё время работы — отдельные часы не нужны.</small>`
+        : tr`<small>Ты и так стоишь за стойкой весь день — добавить часы некуда.</small>`
       : s
-        ? tr`<small>Твои часы вместе с персоналом — в пик две стойки вместо одной:</small>
+        ? tr`<small>Твои часы вместе с персоналом — в пик две стойки вместо одной:</small>
           <div class="chips">${days}</div>
           <div class="row hours staff-hours">${hours(fromList, s.from, 'owner-from')}<span>—</span>${hours(toList, s.to, 'owner-to')}
           <button class="small ghost" data-action="owner-off">Убрать</button></div>`
-        : tr`<div class="row"><small class="grow">Встань за стойку вместе с персоналом в час пик — две стойки вместо одной.</small>
+        : tr`<div class="row"><small class="grow">Встань за стойку вместе с персоналом в час пик — две стойки вместо одной.</small>
           <button class="small" data-action="owner-on">Добавить часы</button></div>`;
     return tr`<ul class="menu staff"><li class="staff-card owner">
       <div class="row"><div class="grow"><b>Ты · владелец</b><small data-live="owner-status"></small></div></div>
-      <small>Бесплатно, ${pace}, не больше ${ECONOMY.ownerHours} ч в день. ${alone ? '' : L('По\u00a0умолчанию\u00a0— когда никого из\u00a0персонала нет.')}</small>
-      <p class="hint-line">Сегодня за стойкой: <b data-live="owner-hours"></b> из ${ECONOMY.ownerHours} ч</p>
+      <small>Бесплатно, ${pace}, не больше ${ECONOMY.ownerHours} ч в день. ${alone ? '' : L('По\u00a0умолчанию\u00a0— когда никого из\u00a0персонала нет.')}</small>
+      <p class="hint-line">Сегодня за стойкой: <b data-live="owner-hours"></b> из ${ECONOMY.ownerHours} ч</p>
       ${extra}
     </li></ul>`;
   }
 
-  /** Бариста: статус, дни недели, для почасового — часы и разовый вызов */
+  /** Бариста: статус, дни недели, для почасового — часы и разовый вызов */
   private staffRow(st: Barista, i: number, open: boolean): string {
     const cafe = this.sim.cafe;
     const working = cafe.isWorking(st);
@@ -1882,13 +1895,13 @@ export class Hud {
       const off = st.override && st.override.day === cafe.day;
       status = working
         ? open
-          ? L('за стойкой')
+          ? L('за стойкой')
           : tr`выйдет, когда кафе откроется`
         : off
           ? tr`отпущен до конца дня`
           : (() => {
               const w = windowOn(st.schedule, cafe.weekday);
-              return w ? tr`по графику ${fmtMinute(w.from % MINUTES_PER_DAY)}–${fmtMinute(w.to % MINUTES_PER_DAY)}` : L('сегодня выходной');
+              return w ? tr`по графику ${fmtMinute(w.from % MINUTES_PER_DAY)}–${fmtMinute(w.to % MINUTES_PER_DAY)}` : L('сегодня выходной');
             })();
     } else {
       const left = ECONOMY.shiftHours * 60 - st.shiftMinutes;
@@ -1930,11 +1943,11 @@ export class Hud {
       st.contract === 'hourly'
         ? tr`${byDay ? tr`<small>Обычные часы</small>` : ''}<div class="row hours staff-hours">${hours(fromList, s.from, 'staff-from')}<span>—</span>${hours(toList, s.to, 'staff-to')}</div>
            ${dayRows}
-           <div class="row"><small class="grow">Разовый вызов — только на сегодня, график не меняется</small>
+           <div class="row"><small class="grow">Разовый вызов — только на сегодня, график не меняется</small>
            <button class="small ${working ? 'ghost' : ''}" data-action="duty" data-item="${st.id}">${working ? L('Отпустить сейчас') : L('Вызвать сейчас')}</button></div>`
         : '';
     return tr`<li class="staff-card">
-      <div class="row"><div class="grow"><b>Бариста ${i + 1} · ${st.contract === 'shift' ? L('на смене') : L('почасово')}</b>
+      <div class="row"><div class="grow"><b>Бариста ${i + 1} · ${st.contract === 'shift' ? L('на смене') : L('почасово')}</b>
         <small data-live="staff-${st.id}"></small></div>
         <button class="icon" data-action="fire" data-item="${st.id}" aria-label="Уволить">✕</button></div>
       <div class="chips">${days}</div>
@@ -1942,16 +1955,16 @@ export class Hud {
     </li>`;
   }
 
-  /** Первая неделя почти всегда в минусе — говорим об этом, чтобы не бросали на третий день */
+  /** Первая неделя почти всегда в минусе — говорим об этом, чтобы не бросали на третий день */
   private firstWeekNote(r: DayReport): string {
     const first = this.sim.reports.find((x) => x.opened);
     if (!first || !r.opened || r.profit >= 0 || r.day - first.day >= 7) return '';
     return tr`<p class="first-week">Первая неделя почти всегда в минусе: вывеска, реклама и стартовые закупки — это вложения в известность. Смотри не на итог, а растёт ли число гостей и тех, кто о тебе знает.</p>`;
   }
 
-  /** Другие твои точки в этом районе: короткая строка и переход */
+  /** Другие твои точки в этом районе: короткая строка и переход */
   private otherPoints(): string {
-    // Все свои точки города: и в этом районе, и за насыпью
+    // Все свои точки города: и в этом районе, и за насыпью
     const others = this.city.points.filter((s) => s !== this.sim && s.cafe.opened);
     return others
       .map((o) => {
@@ -1961,7 +1974,7 @@ export class Hud {
       .join('');
   }
 
-  /** Пекарня: печь, уценка вечером, хлеб в «Продукты», выпечка в свои точки */
+  /** Пекарня: печь, уценка вечером, хлеб в «Продукты», выпечка в свои точки */
   private bakeryBlock(): string {
     const sim = this.sim;
     const cafe = sim.cafe;
@@ -2003,7 +2016,7 @@ export class Hud {
     </div>`;
   }
 
-  /** Договор с офисом: что, когда и сколько осталось — чтобы не забыть открыться к 11:00 */
+  /** Договор с офисом: что, когда и сколько осталось — чтобы не забыть открыться к 11:00 */
   private contractLine(): string {
     const c = this.sim.contract;
     if (!c) return '';
@@ -2012,13 +2025,13 @@ export class Hud {
     return tr`<p class="hint-line">🤝 Договор с «Севером»: ${c.qty} × ${name} в будни к 11:00, осталось заказов: ${c.left}${strikes}. В 11:00 кафе должно быть открыто.</p>`;
   }
 
-  /** Что решили раньше и что ещё впереди: проверка, договор с фермой */
+  /** Что решили раньше и что ещё впереди: проверка, договор с фермой */
   private laterLine(): string {
     const sim = this.sim;
     const out: string[] = [];
     const insp = sim.effects.find((e) => e.type === 'inspection');
     if (insp && insp.type === 'inspection')
-      out.push(insp.ready ? tr`🧾 На этой неделе придёт санитарная проверка. К ней всё готово.` : tr`🧾 На этой неделе придёт санитарная проверка. Вы решили не\u00a0готовиться.`);
+      out.push(insp.ready ? tr`🧾 На этой неделе придёт санитарная проверка. К ней всё готово.` : tr`🧾 На этой неделе придёт санитарная проверка. Вы решили не\u00a0готовиться.`);
     const f = sim.farm;
     if (f) {
       const left = Math.max(0, f.until - sim.today);
@@ -2027,7 +2040,7 @@ export class Hud {
     return out.map((l) => `<p class="hint-line">${l}</p>`).join('');
   }
 
-  /** Хроника района за неделю: из отчётов, ничего не хранится */
+  /** Хроника района за неделю: из отчётов, ничего не хранится */
   private chronicleOf(week: number): Chronicle | null {
     const sim = this.sim;
     return chronicle(sim.reports, week, {
@@ -2045,7 +2058,7 @@ export class Hud {
     return tr`<div class="chronicle"><div class="chronicle-head"><b>${c.title}</b><small>неделя ${c.week}</small></div><ul>${stories}</ul></div>`;
   }
 
-  /** Первые два дня новой недели на обзоре — свежий выпуск хроники, пока не прочитан */
+  /** Первые два дня новой недели на обзоре — свежий выпуск хроники, пока не прочитан */
   private chronicleCard(): string {
     const last = this.sim.reports.at(-1);
     if (!last) return '';
@@ -2058,17 +2071,17 @@ export class Hud {
         <button class="secondary small" data-action="chronicle" data-item="${week}">Читать</button></div>`;
   }
 
-  /** 31 декабря и 1 января — особые дни: подсказка на обзоре */
+  /** 31 декабря и 1 января — особые дни: подсказка на обзоре */
   private holidayNote(): string {
     const d = this.sim.holidayDay;
     if (d === 'eve')
-      return tr`<p class="first-week">🎆 Сегодня 31 декабря: с 16:00 народ пойдёт посидеть и отметить. Запаси горячее и выпечку, работай допоздна.</p>`;
+      return tr`<p class="first-week">🎆 Сегодня 31 декабря: с 16:00 народ пойдёт посидеть и отметить. Запаси горячее и выпечку, работай допоздна.</p>`;
     if (d === 'newyear')
-      return tr`<p class="first-week">🥂 1 января: до полудня город отсыпается, а к вечеру выходит гулять к ёлке. Открываться рано смысла мало.</p>`;
+      return tr`<p class="first-week">🥂 1 января: до полудня город отсыпается, а к вечеру выходит гулять к ёлке. Открываться рано смысла мало.</p>`;
     return '';
   }
 
-  /** Событие ждёт решения — напоминание на обзоре */
+  /** Событие ждёт решения — напоминание на обзоре */
   private eventBanner(): string {
     const e = this.sim.pendingEvent;
     if (!e) return '';
@@ -2077,7 +2090,7 @@ export class Hud {
       <button class="small" data-action="event">Решить</button></div>`;
   }
 
-  /** Знакомые лица: кто они, ходят ли к тебе, что любят */
+  /** Знакомые лица: кто они, ходят ли к тебе, что любят */
   private facesBlock(): string {
     const sim = this.sim;
     const rows = sim.regulars
@@ -2093,11 +2106,11 @@ export class Hud {
       })
       .join('');
     return tr`<h4>Знакомые лица</h4>
-      <small>Шесть жителей, за которыми видно, как к тебе привыкают. На карте — со звёздочкой, золотой у постоянных.</small>
+      <small>Шесть жителей, за которыми видно, как к тебе привыкают. На карте — со звёздочкой, золотой у постоянных.</small>
       <ul class="menu faces">${rows}</ul>`;
   }
 
-  /** Вехи первой точки и улучшения, которые они открывают */
+  /** Вехи первой точки и улучшения, которые они открывают */
   private growthTab(): string {
     const sim = this.sim;
     const ctx = (id: (typeof MILESTONES)[number]['id']) => sim.milestoneProgress(id);
@@ -2132,7 +2145,7 @@ export class Hud {
     const kiosk = sim.cafe.premisesId === 'kiosk';
     const ups = UPGRADES.map((u) => {
       const st = sim.upgradeState(u.id);
-      // У киоска улучшения живут во вкладке «Стойка»
+      // У киоска улучшения живут во вкладке «Стойка»
       if (st === 'premises' || kiosk) return '';
       const badge = st === 'owned' ? L('<span class="badge on">установлено</span>') : `<span class="badge">${money(u.cost)}</span>`;
       const control =
@@ -2160,7 +2173,7 @@ export class Hud {
       ${this.loanBlock()}`;
   }
 
-  /** Кредит: текущий долг и платежи или предложения банка и частника */
+  /** Кредит: текущий долг и платежи или предложения банка и частника */
   private loanBlock(): string {
     const sim = this.sim;
     if (!sim.cafe.opened) return '';
@@ -2220,7 +2233,7 @@ export class Hud {
     return `${head}${diagBlock}<ul class="menu loans">${offers}</ul>`;
   }
 
-  /** История знакомого лица для карточки жителя */
+  /** История знакомого лица для карточки жителя */
   private faceCard(g: Regular, r: Resident): string {
     const f = isFemale(r);
     const today = dayNumber(this.sim.time);
@@ -2238,7 +2251,7 @@ export class Hud {
     const fav = itemName(r.favorites[g.usual]);
     return tr`<div class="face-card">
         <div class="row"><b class="grow">★ ${g.trait}</b><span class="badge ${g.status === 'regular' ? 'on' : g.status === 'lost' ? 'neg' : ''}">${statusText(g.status, r.name)}</span></div>
-        <small>Обычно берёт ${USUAL[g.usual]}, любимое — ${fav.toLowerCase()}.${
+        <small>Обычно берёт ${USUAL[g.usual]}, любимое — ${fav.toLowerCase()}.${
           g.status === 'lost' && g.lostReason ? tr` Перестал${f ? L('а') : ''} заходить: ${REJECT_LABEL[g.lostReason].toLowerCase()}.` : ''
         }</small>
         ${notes ? `<ul class="history">${notes}</ul>` : `<small>${r.aware ? tr`Ещё ни разу не ${f ? L('хотела') : L('хотел')} зайти` : tr`О кафе пока не знает`}</small>`}
@@ -2257,7 +2270,7 @@ export class Hud {
     const { marketing: mk } = this.sim;
     const total = this.sim.residents.length;
     const aware = this.sim.awareCount;
-    this.live.aware = tr`${aware} из ${total}`;
+    this.live.aware = tr`${aware} из ${total}`;
     this.liveWidth.awarebar = `${Math.round((aware / total) * 100)}%`;
     this.live.mkt = money(this.sim.cafe.today.marketing);
     const happy = mk.happy;
@@ -2285,7 +2298,7 @@ export class Hud {
         )}
         ${channel(
           tr`Листовки у метро`,
-          tr`Утром и вечером — узнают офисные. ${money(MARKETING.flyersPerDay)} в день`,
+          tr`Утром и вечером — узнают офисные. ${money(MARKETING.flyersPerDay)} в день`,
           `<button class="small ${mk.flyers ? 'ghost' : ''}" data-action="flyers">${mk.flyers ? L('Остановить') : L('Раздавать')}</button>`,
           'mk-flyers',
         )}
@@ -2303,7 +2316,7 @@ export class Hud {
     const promo = tr`
       <h4>Акции</h4>
       <ul class="menu">
-        <li>${namedIcon('mk-happy')}<div class="grow"><b>Счастливые часы</b><small>Скидка на всё меню в выбранное время — чтобы заполнить пустые часы</small>
+        <li>${namedIcon('mk-happy')}<div class="grow"><b>Счастливые часы</b><small>Скидка на всё меню в выбранное время — чтобы заполнить пустые часы</small>
           <div class="row hours happy">
             <select data-action="happy-from" aria-label="С">${opt(happy?.from ?? hm(15))}</select><span>—</span>
             <select data-action="happy-to" aria-label="До">${opt(happy?.to ?? hm(17))}</select>
@@ -2325,7 +2338,7 @@ export class Hud {
     return this.restartLinks() + this.langLink();
   }
 
-  /** Язык игры: подпись — на том языке, на который переключаем */
+  /** Язык игры: подпись — на том языке, на который переключаем */
   private langLink(): string {
     if (PLATFORM === 'vk') return '';
     const other = getLang() === 'ru' ? 'English' : /* i18n-skip */ 'Русский';
@@ -2358,11 +2371,11 @@ export class Hud {
          <small class="saved">Игра сохраняется автоматически в этом браузере</small>`;
   }
 
-  /** Перенос игры файлом: на другой телефон или компьютер, на новый адрес игры. В испытании не нужен */
+  /** Перенос игры файлом: на другой телефон или компьютер, на новый адрес игры. В испытании не нужен */
   private transferBlock(): string {
     if (!this.transfer) return tr`<div class="links"><button class="link" data-action="transfer">Перенести игру на другое устройство</button></div>`;
     return tr`<div class="restart transfer">
-        <small>Скачай файл с игрой и открой его на другом устройстве или по новому адресу игры — кафе, деньги и жители будут на месте.</small>
+        <small>Скачай файл с игрой и открой его на другом устройстве или по новому адресу игры — кафе, деньги и жители будут на месте.</small>
         <div class="hire">
           <button class="small" data-action="save-export">Скачать файл</button>
           <label class="small button-like">Загрузить файл<input type="file" accept=".json,application/json" data-action="save-import" hidden /></label>
@@ -2373,19 +2386,19 @@ export class Hud {
       </div>`;
   }
 
-  /** На экране выбора помещения: что за испытание и как считается итог */
+  /** На экране выбора помещения: что за испытание и как считается итог */
   private challengeBanner(): string {
     if (!this.challenge) return '';
     return tr`<div class="event-banner"><span>🏆</span><div class="grow"><b>${CHALLENGE.title}</b>
       <small>У всех тот же город: те же жители, погода и события. Итог — касса в конце ${CHALLENGE.days}-го дня.</small></div></div>`;
   }
 
-  /** Что кончается или испортится — подсказка на обзоре */
+  /** Что кончается или испортится — подсказка на обзоре */
   private stockWarning(): string {
     const { stock, menu } = this.sim.cafe;
     const cant = menu.filter((m) => !stock.canMake(m.id)).map((m) => m.name);
     if (cant.length) return tr`⚠ Нет в наличии: ${cant.join(', ')}. Закажи на складе`;
-    return L('Склад в порядке');
+    return L('Склад в порядке');
   }
 
   private stockTab(): string {
@@ -2395,7 +2408,7 @@ export class Hud {
     const menuIds = cafe.menu.map((m) => m.id);
     const use = dailyUse(this.sim.reports);
 
-    // Сколько можно приготовить: каждая позиция отдельно, ингредиенты у них общие
+    // Сколько можно приготовить: каждая позиция отдельно, ингредиенты у них общие
     const cook = cafe.menu
       .map((m) => {
         const c = cookable(stock, m.id);
@@ -2405,8 +2418,8 @@ export class Hud {
             ? ''
             : c.portions === 0
               ? c.afterDelivery > 0
-                ? tr`нет — ${INGREDIENT_ACC[c.limit]} привезут к 6:00`
-                : tr`нет — кончилось: ${ingredient(c.limit).name.toLowerCase()}`
+                ? tr`нет — ${INGREDIENT_ACC[c.limit]} привезут к 6:00`
+                : tr`нет — кончилось: ${ingredient(c.limit).name.toLowerCase()}`
               : tr`упирается в ${INGREDIENT_ACC[c.limit]}`;
         return `<li class="${c.portions === 0 ? 'out' : low ? 'low' : ''}">${iconImg(m.id)}<div class="grow"><b>${m.name}</b><small>${why}</small></div>
           <b class="n">${c.portions}</b></li>`;
@@ -2435,7 +2448,7 @@ export class Hud {
         </div>`;
       };
       const life = ing.shelfDays === null ? tr`не портится` : tr`хранится ${ing.shelfDays} дн.`;
-      // Главное число — на сколько рабочих дней хватит при нынешнем расходе
+      // Главное число — на сколько рабочих дней хватит при нынешнем расходе
       const lasts =
         goes.length === 0
           ? tr`не нужно для меню`
@@ -2470,13 +2483,13 @@ export class Hud {
       <small>Сколько порций выйдет, если готовить только эту позицию: ингредиенты у позиций общие, поэтому числа не складываются.</small>
       <ul class="menu cookable">${cook}</ul>
       <h4>Ингредиенты</h4>
-      <small>«Хватит на» — с тем, что едет, при расходе последних ${USE_DAYS} рабочих дней. Поставщик привозит заказ в 6:00. Опт: от 100 порций −10 %, от 300 — −20 %.
+      <small>«Хватит на» — с тем, что едет, при расходе последних ${USE_DAYS} рабочих дней. Поставщик привозит заказ в 6:00. Опт: от 100 порций −10 %, от 300 — −20 %.
         Скоропорт в конце срока списывается. Автозаказ каждую ночь добирает склад до уровня «держать» —
         отдельно на будни и выходные.</small>
       <ul class="menu stock">${rows}</ul>`;
   }
 
-  /** Касса на исходе или в минусе: сколько осталось и что можно сделать */
+  /** Касса на исходе или в минусе: сколько осталось и что можно сделать */
   private cashWarning(): string {
     const sim = this.sim;
     if (!sim.cafe.opened || sim.bankrupt) return '';
@@ -2485,10 +2498,10 @@ export class Hud {
     if (sim.cash < 0) {
       head =
         o.inRed > 0
-          ? tr`Касса в минусе ${o.inRed}-й день. Если на ${ECONOMY.bankruptDays}-й день не выйти в плюс — банкротство.`
-          : tr`Касса в минусе. Если к концу дня не выйти в плюс, пойдёт отсчёт: ${ECONOMY.bankruptDays} дня подряд — банкротство.`;
+          ? tr`Касса в минусе ${o.inRed}-й день. Если на ${ECONOMY.bankruptDays}-й день не выйти в плюс — банкротство.`
+          : tr`Касса в минусе. Если к концу дня не выйти в плюс, пойдёт отсчёт: ${ECONOMY.bankruptDays} дня подряд — банкротство.`;
     } else if (o.days <= 3) {
-      head = tr`Денег хватит примерно на ${o.days} дн. постоянных расходов — ${money(o.daily)} в день.`;
+      head = tr`Денег хватит примерно на ${o.days} дн. постоянных расходов — ${money(o.daily)} в день.`;
     } else return '';
     const options: string[] = [];
     if (!sim.loan) options.push(tr`<button class="small" data-action="goto-tab" data-item="growth">Кредит</button>`);
@@ -2502,11 +2515,11 @@ export class Hud {
   }
 
   private changeRow(c: Change): string {
-    const what = c.toggle || c.from === undefined ? `${c.text}${c.to ? ` — ${c.to}` : ''}` : `${c.text}: ${c.from} → ${c.to}`;
+    const what = c.toggle || c.from === undefined ? `${c.text}${c.to ? ` — ${c.to}` : ''}` : `${c.text}: ${c.from} → ${c.to}`;
     return `<li><span class="t">${fmtMinute(c.minute)}</span><div><span>${what}</span>${c.when ? `<small>${c.when}</small>` : ''}</div></li>`;
   }
 
-  /** Гости и потери по часам: зелёное — обслужены, красное — ушли (без «не сегодня») */
+  /** Гости и потери по часам: зелёное — обслужены, красное — ушли (без «не сегодня») */
   private hourChart(r: DayReport): string {
     const served = r.servedHour;
     if (!served || !r.lostHour) return '';
@@ -2515,13 +2528,13 @@ export class Hud {
       if (reason === 'mood' || (r.opened && reason === 'not-open')) continue;
       hours.forEach((n, h) => (lost[h] += n));
     }
-    const hours = Array.from({ length: 24 }, (_, i) => (i + 6) % 24); // с 06:00 до 05:00
+    const hours = Array.from({ length: 24 }, (_, i) => (i + 6) % 24); // с 06:00 до 05:00
     const max = Math.max(1, ...hours.map((h) => served[h] + lost[h]));
     const bars = hours
       .map((h) => {
         const g = Math.round((served[h] / max) * 56);
         const l = Math.round((lost[h] / max) * 56);
-        const title = tr`${String(h).padStart(2, '0')}:00 — гостей ${served[h]}, ушли ${lost[h]}`;
+        const title = tr`${String(h).padStart(2, '0')}:00 — гостей ${served[h]}, ушли ${lost[h]}`;
         return `<div class="bar" title="${title}"><i class="lost" style="height:${l}px"></i><i class="served" style="height:${g}px"></i>${
           h % 3 === 0 ? `<span>${h}</span>` : ''
         }</div>`;
@@ -2531,47 +2544,261 @@ export class Hud {
       <div class="legend-line"><span><i class="served"></i>${r.opened ? L('обслужены') : ''}</span><span><i class="lost"></i>${r.opened ? L('ушли') : tr`хотели зайти`}</span></div>`;
   }
 
-  /** Чьи часы взять для «одинаково каждый день»: сегодняшние, а в выходной — ближайшего рабочего дня */
+  /** Чьи часы взять для «одинаково каждый день»: сегодняшние, а в выходной — ближайшего рабочего дня */
   private sameAsDay(): number {
     const cafe = this.sim.cafe;
     for (let i = 0; i < 7; i++) if (cafe.hoursOn(cafe.weekday + i)) return (cafe.weekday + i) % 7;
     return 0;
   }
 
-  /** «Открыто до 20:00», «Закрыто до 08:00», «Выходной, откроемся в Пн в 08:00» */
+  /** «Открыто до 20:00», «Закрыто до 08:00», «Выходной, откроемся в Пн в 08:00» */
   private statusText(minute: number, open: boolean): string {
     const cafe = this.sim.cafe;
-    if (open) return cafe.allDay ? L('Круглосуточно') : tr`Открыто до ${fmtMinute(cafe.closeAt % MINUTES_PER_DAY)}`;
+    if (open) return cafe.allDay ? L('Круглосуточно') : tr`Открыто до ${fmtMinute(cafe.closeAt % MINUTES_PER_DAY)}`;
     const next = cafe.nextOpening(minute);
     if (!next) return L('Закрыто');
     const at = fmtMinute(next.at % MINUTES_PER_DAY);
-    if (next.inDays === 0) return tr`Закрыто до ${at}`;
+    if (next.inDays === 0) return tr`Закрыто до ${at}`;
     const day = next.inDays === 1 ? L('завтра') : tr`в ${WEEKDAY_SHORT[(cafe.weekday + next.inDays) % 7]}`;
     return tr`${cafe.dayOff ? L('Выходной') : L('Закрыто')}, откроемся ${day} в ${at}`;
   }
 
-  /** Какой отчёт открыт: [номер, первый, последний] — день или номер недели/месяца */
+  /** Какой отчёт открыт: [номер, первый, последний] — день или номер недели/месяца */
   private reportCursor(): [number, number, number] {
-    const last = this.sim.reports.at(-1)!.day;
+    const base = this.reportTarget() ?? this.city.main;
+    const last = base.reports.at(-1)!.day;
     if (this.reportPeriod === 'day') {
-      const first = this.sim.reports[0].day;
+      const first = base.reports[0].day;
       return [this.reportAt ?? last, first, last];
     }
     const max = periodOf(this.reportPeriod, last).index;
     return [this.reportAt ?? max, 1, max];
   }
 
-  /** Отчёт: день, неделя или месяц */
-  private reportScreen(): string {
-    const [at] = this.reportCursor();
-    if (this.reportPeriod === 'day') {
-      const r = this.sim.reports.find((x) => x.day === at) ?? this.sim.reports.at(-1)!;
-      return this.reportView(r);
-    }
-    return this.periodView(periodByIndex(this.reportPeriod, at));
+  /** Точки с отчётами: если их больше одной — есть «Весь бизнес» */
+  private reportPoints(): Simulation[] {
+    return this.city.points.filter((p) => p.cafe.opened && p.reports.some((r) => r.opened));
   }
 
-  /** Переключатель периода и стрелки назад-вперёд */
+  private pointKey(p: Simulation): string {
+    return `${p.district}:${p.cafe.premisesId}`;
+  }
+
+  /** Чей отчёт открыт: точка или null — весь бизнес */
+  private reportTarget(): Simulation | null {
+    const points = this.reportPoints();
+    if (points.length < 2) return this.sim;
+    if (this.reportOwner === 'all') return null;
+    return points.find((p) => this.pointKey(p) === this.reportOwner) ?? null;
+  }
+
+  /** «Весь бизнес · Между булок · WoW бистро» — выбор, чей отчёт; при одной точке не нужен */
+  private ownerBar(): string {
+    const points = this.reportPoints();
+    if (points.length < 2) return '';
+    const chip = (key: string, label: string) =>
+      `<button class="chip${this.reportOwner === key ? ' on' : ''}" data-action="report-owner" data-item="${key}">${escapeHtml(label)}</button>`;
+    return `<div class="chips owner-bar">${chip('all', L('Весь бизнес'))}${points.map((p) => chip(this.pointKey(p), p.cafe.title)).join('')}</div>`;
+  }
+
+  /** Отчёт: день, неделя или месяц — всего бизнеса или одной точки */
+  private reportScreen(): string {
+    const target = this.reportTarget();
+    const [at] = this.reportCursor();
+    if (!target) return this.businessView(at);
+    // Отчёт другой точки рисуем её данными, панель остаётся на своей
+    const own = this.sim;
+    this.sim = target;
+    try {
+      if (this.reportPeriod === 'day') {
+        const r = this.sim.reports.find((x) => x.day === at) ?? this.sim.reports.at(-1)!;
+        return this.reportView(r);
+      }
+      return this.periodView(periodByIndex(this.reportPeriod, at));
+    } finally {
+      this.sim = own;
+    }
+  }
+
+  /** Данные точек для общего отчёта */
+  private pointInputs(): PointInput[] {
+    return this.reportPoints().map((p) => ({ key: this.pointKey(p), title: p.cafe.title, district: p.district, premisesId: p.cafe.premisesId, reports: p.reports }));
+  }
+
+  /** Место точки в сети по прибыли за день: «вторая по прибыли из двух» */
+  private rankLine(day: number): string {
+    const points = this.reportPoints();
+    if (points.length < 2) return '';
+    const profit = (p: Simulation) => {
+      const r = p.reports.find((x) => x.day === day);
+      return r?.opened ? r.profit + (r.interest ?? 0) : -Infinity;
+    };
+    const place = [...points].sort((a, b) => profit(b) - profit(a)).indexOf(this.sim) + 1;
+    if (!place || profit(this.sim) === -Infinity) return '';
+    const ord = [L('первая'), L('вторая'), L('третья'), L('четвёртая'), L('пятая')][place - 1] ?? `${place}-я`;
+    const of = [L('из двух'), L('из трёх'), L('из четырёх'), L('из пяти')][points.length - 2] ?? tr`из ${points.length}`;
+    return tr`<p class="rank-line">${ord.charAt(0).toUpperCase() + ord.slice(1)} по прибыли ${of} точек</p>`;
+  }
+
+  /**
+   * Весь бизнес: прибыль крупно, как сработала каждая точка, главное — почему, потом деньги и динамика.
+   * at — день или номер недели/месяца
+   */
+  private businessView(at: number): string {
+    const kind = this.reportPeriod;
+    const inputs = this.pointInputs();
+    const p = kind === 'day' ? { from: at, to: at } : periodByIndex(kind, at);
+    const prev: [number, number] | null =
+      kind === 'day' ? (at > 1 ? [at - 1, at - 1] : null) : at > 1 ? [periodByIndex(kind, at - 1).from, periodByIndex(kind, at - 1).to] : null;
+    const b = business(inputs, p.from, p.to, prev);
+    const main = this.city.main.reports.find((r) => r.day === at);
+    const sub =
+      kind === 'day'
+        ? `${main?.weekday !== undefined ? WEEKDAY_FULL[main.weekday] : ''}${main?.weather ? ` · ${weatherShort(main.weather)} ${WEATHER_LABEL[main.weather.kind].toLowerCase()}` : ''}`
+        : tr`${p.from}–${Math.min(p.to, p.from + b.days - 1)} день${b.days < p.to - p.from + 1 ? tr` · идёт` : ''}`;
+    const title = kind === 'day' ? tr`День ${at}` : kind === 'week' ? tr`Неделя ${at}` : tr`Месяц ${at}`;
+    const head = tr`<div class="card-head"><div><b>Весь бизнес · ${title}</b><small>${sub}</small></div>
+        <button data-action="back" aria-label="Закрыть">✕</button></div>`;
+    const what = kind === 'day' ? L('чем вчера') : kind === 'week' ? L('чем на прошлой неделе') : L('чем в прошлом месяце');
+    const same = kind === 'day' ? L('Так же, как вчера') : kind === 'week' ? L('Так же, как на прошлой неделе') : L('Так же, как в прошлом месяце');
+    const toPrev = kind === 'day' ? L('ко вчерашнему дню') : kind === 'week' ? L('к прошлой неделе') : L('к прошлому месяцу');
+    const d = b.prevProfit === null ? null : b.profit - b.prevProfit;
+    const compare = !b.complete
+      ? tr`Период ещё идёт: ${b.days} из ${p.to - p.from + 1} дней — сравним, когда закончится`
+      : d === null
+        ? ''
+        : Math.abs(d) < 100
+          ? same
+          : tr`На ${money(Math.abs(d))} ${d > 0 ? L('больше') : L('меньше')}, ${what}`;
+    const label = kind === 'day' ? L('Прибыль бизнеса за день') : kind === 'week' ? L('Прибыль бизнеса за неделю') : L('Прибыль бизнеса за месяц');
+    const kpis = tr`<div class="kpis">
+        <div><small>Выручка</small><b>${money(b.revenue)}</b></div>
+        <div><small>Расходы</small><b>${money(b.expenses + b.interest)}</b></div>
+        <div><small>Обслужено</small><b>${num(b.guests)}</b><small>ушли ${num(b.lost)}</small></div>
+        <div><small>Рентабельность</small><b>${b.margin === null ? '—' : `${String(b.margin).replace('.', ',')}${NB}%`}</b></div>
+      </div>`;
+
+    // Точки: полоса от нуля — вправо в плюсе, влево в минусе
+    const top = Math.max(1, ...b.points.map((r) => Math.abs(r.operating)));
+    const anyLoss = b.points.some((r) => r.operating < 0);
+    const rows = b.points
+      .map((r) => {
+        const pos = r.operating >= 0;
+        const w = Math.round((Math.abs(r.operating) / top) * (anyLoss ? 50 : 100));
+        const bar = anyLoss
+          ? `<i class="diverge"><i class="${pos ? 'pos' : 'neg'}" style="${pos ? 'left:50%' : `right:50%`};width:${w}%"></i></i>`
+          : `<i class="meter"><i style="width:${Math.max(2, w)}%"></i></i>`;
+        const delta = r.prevOperating !== null ? ` · ${r.operating - r.prevOperating >= 0 ? '+' : '−'}${money(Math.abs(r.operating - r.prevOperating))} ${toPrev}` : '';
+        const share = r.share !== null ? tr` · ${String(r.share).replace('.', ',')}${NB}% прибыли точек` : '';
+        const partial = r.partial !== null ? tr` · работала ${r.partial} дн.` : '';
+        return tr`<button class="biz-point${pos ? '' : ' loss'}" data-action="report-owner" data-item="${r.key}">
+            <div class="row"><b class="grow">${escapeHtml(r.title)}</b><b class="${pos ? 'pos' : 'neg'}">${pos ? '+' : '−'}${money(Math.abs(r.operating))}</b></div>
+            ${bar}
+            <small>${DISTRICTS[r.district].name}${share}${delta}${partial}</small>
+            <small>Выручка ${money(r.s.revenue)} · расходы ${money(r.expenses)} · гостей ${num(r.s.guests)}, ушли ${num(r.lost)}</small>
+          </button>`;
+      })
+      .join('');
+    const totals = tr`<table class="pnl biz-total">
+        <tr><td>Всего по заведениям</td><td>${b.operating >= 0 ? '' : '−'}${money(Math.abs(b.operating))}</td></tr>
+        ${b.interest ? tr`<tr><td>Общие расходы: проценты по кредиту</td><td>−${money(b.interest)}</td></tr>` : ''}
+        <tr class="total ${b.profit >= 0 ? 'pos' : 'neg'}"><td>Итог бизнеса</td><td>${b.profit >= 0 ? '+' : '−'}${money(Math.abs(b.profit))}</td></tr>
+      </table>`;
+
+    const notes = businessNotes(b, (r) => REASON_BECAUSE[r] ?? REJECT_LABEL[r].toLowerCase(), kind === 'day' ? 2 : 3);
+
+    // Динамика: неделя — по дням, месяц — по неделям; по столбику на точку
+    let chart = '';
+    if (kind !== 'day' && b.daily.length > 1) {
+      const groups: [string, number[]][] =
+        kind === 'week'
+          ? b.daily.map(([day, vals]) => [WEEKDAY_SHORT[weekday(day)], vals])
+          : [0, 1, 2, 3]
+              .map((i) => {
+                const days = b.daily.filter(([day]) => day >= p.from + i * 7 && day < p.from + (i + 1) * 7);
+                return [tr`${i + 1} нед.`, b.points.map((_, k) => days.reduce((a, [, v]) => a + v[k], 0))] as [string, number[]];
+              })
+              .filter((_, i) => b.daily.some(([day]) => day >= p.from + i * 7 && day < p.from + (i + 1) * 7));
+      const max = Math.max(1, ...groups.flatMap(([, v]) => v.map(Math.abs)));
+      chart = tr`<h4>${kind === 'week' ? tr`Прибыль по дням` : tr`Прибыль по неделям`}</h4>
+        <div class="biz-chart">${groups
+          .map(
+            ([label, vals]) =>
+              `<div class="group"><div class="cols">${vals
+                .map((v, k) => `<i class="p${k}${v < 0 ? ' neg' : ''}" style="height:${Math.max(2, Math.round((Math.abs(v) / max) * 100))}%"></i>`)
+                .join('')}</div><span>${label}</span></div>`,
+          )
+          .join('')}</div>
+        <div class="biz-legend">${b.points.map((r, k) => `<span><i class="p${k}"></i>${escapeHtml(r.title)}</span>`).join('')}<span class="neg-note">${L('штриховка\u00a0— убыток')}</span></div>`;
+    }
+
+    // Деньги: расходы по статьям, движение денег, касса и запас
+    const cost = COST_LINES.filter(([k]) => b.costs[k] > 0)
+      .map(([k, l]) => `<tr><td>${l}</td><td>−${money(b.costs[k])}</td></tr>`)
+      .join('');
+    const flow = [
+      b.purchases ? `<tr><td>${L('Закуплено на склад')}</td><td>−${money(b.purchases)}</td></tr>` : '',
+      b.invested ? `<tr><td>${L('Вложено в улучшения')}</td><td>−${money(b.invested)}</td></tr>` : '',
+      b.loanTaken ? `<tr><td>${L('Взят кредит')}</td><td>${money(b.loanTaken)}</td></tr>` : '',
+      b.loanPaid ? `<tr><td>${L('Возврат долга')}</td><td>−${money(b.loanPaid)}</td></tr>` : '',
+    ].join('');
+    const reserve = reserveDays(inputs, this.sim.cash);
+    const cash = tr`<div class="biz-cash"><small>Общая касса сейчас</small><b>${money(this.sim.cash)}</b>
+        <small>Остаток денег всего бизнеса — не прибыль за период.${
+          reserve !== null ? tr` Аренды, коммуналки и зарплат хватит на ${reserve} ${plural(reserve, 'день', 'дня', 'дней')}, если выручка встанет.` : ''
+        }</small></div>`;
+    const money2 = tr`<details class="biz-money"${kind === 'day' ? '' : ' open'}><summary>Расходы и движение денег</summary>
+        <table class="pnl">${cost}</table>
+        ${flow ? tr`<small>В прибыль не входит, но из кассы ушло или пришло:</small><table class="pnl">${flow}</table>` : ''}
+      </details>`;
+
+    // Сравнить точки: кто работает лучше на каждого гостя и на каждый рубль аренды
+    const cmp = b.points.filter((r) => r.s.openDays > 0);
+    const compareTable =
+      cmp.length > 1
+        ? tr`<details class="biz-compare"><summary>Сравнить точки</summary><table class="cmp">
+          <tr><th></th>${cmp.map((r) => `<th>${escapeHtml(r.title)}</th>`).join('')}</tr>
+          <tr><td>Гостей в день</td>${cmp.map((r) => `<td>${num(Math.round(r.s.guests / Math.max(1, r.s.openDays)))}</td>`).join('')}</tr>
+          <tr><td>Средний чек</td>${cmp.map((r) => `<td>${money(r.s.guests ? Math.round(r.s.revenue / r.s.guests) : 0)}</td>`).join('')}</tr>
+          <tr><td>Ушли из хотевших</td>${cmp.map((r) => `<td>${r.s.wanted ? Math.round((r.lost / r.s.wanted) * 100) : 0}${NB}%</td>`).join('')}</tr>
+          <tr><td>Аренда от выручки</td>${cmp.map((r) => `<td>${r.s.revenue ? Math.round((r.s.costs.rent / r.s.revenue) * 100) : 0}${NB}%</td>`).join('')}</tr>
+          <tr><td>Прибыль в день</td>${cmp.map((r) => `<td>${money(Math.round(r.operating / Math.max(1, r.s.openDays)))}</td>`).join('')}</tr>
+        </table></details>`
+        : '';
+
+    // Месяц: окупилась ли каждая точка
+    const pay =
+      kind === 'month'
+        ? tr`<h4>Окупаемость</h4><ul class="payback">${inputs
+            .map((pt) => {
+              const pb = payback(pt);
+              const pct = Math.max(0, Math.min(100, Math.round((pb.returned / Math.max(1, pb.invested)) * 100)));
+              const when = pb.inDays === 0 ? tr`окупилась` : pb.inDays === null ? tr`пока не окупается: прибыль за неделю не в плюсе` : tr`окупится примерно через ${pb.inDays} ${plural(pb.inDays, 'день', 'дня', 'дней')}`;
+              return tr`<li><div class="row"><b class="grow">${escapeHtml(pt.title)}</b><small>${pct}${NB}%</small></div>
+                <i class="meter"><i style="width:${Math.max(2, pct)}%"></i></i>
+                <small>Вложено ${money(pb.invested)} · вернула ${money(Math.max(0, pb.returned))} · ${when}</small></li>`;
+            })
+            .join('')}</ul>`
+        : '';
+
+    return tr`${head}
+      ${this.ownerBar()}
+      ${this.cashWarning()}
+      ${this.periodBar()}
+      ${this.resultBlock(label, b.profit, compare)}
+      ${kpis}
+      <h4>Как сработали заведения</h4>
+      <div class="biz-points">${rows}</div>
+      ${totals}
+      ${notes.length ? tr`<h4>Главное</h4><ul class="observations">${notes.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
+      ${chart}
+      ${pay}
+      ${cash}
+      ${money2}
+      ${compareTable}`;
+  }
+
+  /** Переключатель периода и стрелки назад-вперёд */
   private periodBar(): string {
     const [at, first, last] = this.reportCursor();
     const tabs = ([['day', L('День')], ['week', L('Неделя')], ['month', L('Месяц')]] as const)
@@ -2584,7 +2811,7 @@ export class Hud {
       </div>`;
   }
 
-  /** «Итог недели: +18 024 ₽» — знак и цвет сразу, сравнение строкой ниже */
+  /** «Итог недели: +18 024 ₽» — знак и цвет сразу, сравнение строкой ниже */
   private resultBlock(label: string, value: number, compare: string): string {
     const pos = value >= 0;
     return `<div class="result ${pos ? 'pos' : 'neg'}">
@@ -2593,7 +2820,7 @@ export class Hud {
       </div>`;
   }
 
-  /** Неделя или месяц: итог, деньги по статьям, позиции, гости */
+  /** Неделя или месяц: итог, деньги по статьям, позиции, гости */
   private periodView(p: Period): string {
     const sim = this.sim;
     const priceOf = (id: string) => {
@@ -2604,11 +2831,11 @@ export class Hud {
     const prev = p.index > 1 ? summarize(sim.reports, periodByIndex(p.kind, p.index - 1), priceOf) : null;
     const name = p.kind === 'week' ? tr`Неделя ${p.index}` : tr`Месяц ${p.index}`;
     const lastDay = s.days.at(-1)?.day ?? p.from;
-    const head = tr`<div class="card-head"><div><b>${name}</b><small>${p.from}–${Math.min(p.to, lastDay)} день${
+    const head = tr`<div class="card-head"><div><b>${name} · ${escapeHtml(sim.cafe.title)}</b><small>${DISTRICTS[sim.district].name} · ${p.from}–${Math.min(p.to, lastDay)} день${
       s.complete ? '' : tr` · идёт`
     } · ${num(s.guests)} гостей из ${num(s.wanted)}, кто хотел зайти</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button></div>`;
-    if (s.openDays === 0) return tr`${head}${this.periodBar()}<p class="hint-line">В этот период точка ещё не работала.</p>`;
+    if (s.openDays === 0) return tr`${head}${this.ownerBar()}${this.periodBar()}<p class="hint-line">В этот период точка ещё не работала.</p>`;
 
     const avg = s.guests ? Math.round(s.revenue / s.guests) : 0;
     const kpis = tr`<div class="kpis">
@@ -2617,7 +2844,7 @@ export class Hud {
         ${p.kind === 'week' ? tr`<div><small>Средний чек</small><b>${money(avg)}</b></div>` : ''}
       </div>`;
 
-    // Столбики: неделя — по дням, месяц — по неделям
+    // Столбики: неделя — по дням, месяц — по неделям
     const short = (v: number) => tr`${v >= 0 ? '+' : '−'}${String(Math.round(Math.abs(v) / 100) / 10).replace('.', ',')}к`;
     const columns: [string, number][] =
       p.kind === 'week'
@@ -2630,7 +2857,7 @@ export class Hud {
     const bars = `<div class="bars">${columns
       .map(([label, v]) => `<div class="bar ${v >= 0 ? 'pos' : 'neg'}"><small>${short(v)}</small><i style="height:${Math.max(4, Math.round((Math.abs(v) / top) * 100))}%"></i><span>${label}</span></div>`)
       .join('')}</div>`;
-    // Месяц: ещё итог каждого дня — над чертой плюс, под ней минус; выброс (день открытия) не ломает шкалу
+    // Месяц: ещё итог каждого дня — над чертой плюс, под ней минус; выброс (день открытия) не ломает шкалу
     let daily = '';
     if (p.kind === 'month') {
       const vals = s.days.map((r) => r.profit);
@@ -2642,17 +2869,17 @@ export class Hud {
           const h = Math.min(100, Math.round((Math.abs(v) / scale) * 100));
           return `<div><i class="up" style="height:${v >= 0 ? h : 0}%"></i><i class="down" style="height:${v < 0 ? h : 0}%"></i></div>`;
         })
-        .join('')}</div><small>Итог каждого дня: над чертой — в плюсе, под ней — в минусе${
+        .join('')}</div><small>Итог каждого дня: над чертой — в плюсе, под ней — в минусе${
         clipped ? tr`. Самый большой день (${money(Math.round(vals.find((v) => Math.abs(v) === sorted[0])!))}) не влез в шкалу` : ''
       }.</small></div>`;
     }
 
-    // Куда ушли деньги: из каждых 100 ₽ выручки
+    // Куда ушли деньги: из каждых 100 ₽ выручки
     const base = Math.max(1, s.revenue);
     const parts = COST_LINES.filter(([k]) => s.costs[k] > 0).map(([k, label]) => [k, label, s.costs[k]] as [string, string, number]);
     if (s.profit > 0) parts.push(['profit', L('Прибыль'), s.profit]);
     const pct = (v: number) => Math.round((v / base) * 100);
-    const split = tr`<div class="split"><small>Из каждых 100 ₽ выручки</small>
+    const split = tr`<div class="split"><small>Из каждых 100 ₽ выручки</small>
         <div class="split-bar">${parts.map(([k, , v]) => `<i class="c-${k}" style="flex:${Math.max(0.5, pct(v))}"></i>`).join('')}</div>
         <ul>${parts
           .map(([k, label, v]) => `<li><i class="c-${k}"></i><span>${label}</span><small>${pct(v)}${NB}%</small><b class="${k === 'profit' ? 'pos' : ''}">${k === 'profit' ? '+' : '−'}${money(v)}</b></li>`)
@@ -2684,19 +2911,23 @@ export class Hud {
       .join('');
 
     return tr`${head}
+      ${this.ownerBar()}
       ${this.periodBar()}
       ${this.resultBlock(p.kind === 'week' ? L('Итог недели') : L('Итог месяца'), s.profit, compareLine(s, prev))}
       ${kpis}
+      ${notes.length ? tr`<h4>Главное</h4><ul class="observations">${notes.slice(0, 2).map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
       ${p.kind === 'week' ? this.chronicleBlock(p.index) : ''}
+      <h3 class="report-section">Посетители</h3>
+      <h4>Гости: от желания до покупки</h4><ul class="funnel">${funnelHtml}</ul>
+      ${reasonsHtml ? tr`<h4>Почему не зашли</h4><ul class="reason-bars">${reasonsHtml}</ul>` : ''}
+      ${items ? tr`<h3 class="report-section">Меню и продажи</h3><h4>Что приносит деньги</h4><ul class="items-margin">${items}</ul><small>Зелёное — маржа: выручка минус себестоимость</small>` : ''}
+      ${notes.length > 2 ? tr`<ul class="observations">${notes.slice(2).map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
+      <h3 class="report-section">Финансы</h3>
       <h4>${p.kind === 'week' ? tr`Итог по дням` : tr`По неделям`}</h4>
       ${bars}
       ${daily}
       <h4>Куда ушли деньги</h4>
-      ${split}
-      ${notes.length ? tr`<h4>Главное</h4><ul class="observations">${notes.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
-      ${items ? tr`<h4>Что приносит деньги</h4><ul class="items-margin">${items}</ul><small>Зелёное — маржа: выручка минус себестоимость</small>` : ''}
-      <h4>Гости: от желания до покупки</h4><ul class="funnel">${funnelHtml}</ul>
-      ${reasonsHtml ? tr`<h4>Почему не зашли</h4><ul class="reason-bars">${reasonsHtml}</ul>` : ''}`;
+      ${split}`;
   }
 
   private reportView(r: DayReport): string {
@@ -2743,19 +2974,25 @@ export class Hud {
           }</span></div>`
       : '';
 
+    const top = a.observations.slice(0, 2);
+    const rest = a.observations.slice(2);
+    const expenses = r.revenue - r.profit;
     return tr`
-      <div class="card-head"><div><b>Итоги дня ${r.day}</b><small>${r.weekday !== undefined ? WEEKDAY_FULL[r.weekday] : ''}${
+      <div class="card-head"><div><b>Итоги дня ${r.day} · ${escapeHtml(this.sim.cafe.title)}</b><small>${DISTRICTS[this.sim.district].name} · ${r.weekday !== undefined ? WEEKDAY_FULL[r.weekday] : ''}${
         r.weather ? ` · ${weatherShort(r.weather)} ${WEATHER_LABEL[r.weather.kind].toLowerCase()}` : ''
-      } · ${r.guests} гостей из ${r.wanted}, кто хотел зайти</small></div>
+      } · ${r.guests} гостей из ${r.wanted}, кто хотел зайти</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button></div>
+      ${this.ownerBar()}
       ${this.cashWarning()}
       ${this.periodBar()}
       ${r.opened ? this.resultBlock(L('Итог дня'), r.profit, a.compare) : ''}
+      ${this.rankLine(r.day)}
       <div class="insight">
         ${r.opened ? '' : `<b>${a.headline}</b>`}
         ${a.factor ? `<p>${a.factor}</p>` : ''}
         ${this.firstWeekNote(r)}
       </div>
+      ${top.length ? tr`<h4>Главное</h4><ul class="observations">${top.map((o) => `<li>${o}</li>`).join('')}</ul>` : ''}
       ${(r.milestones ?? []).map((id) => tr`<div class="milestone-hit">Веха: <b>${milestone(id).title}</b>${
         UPGRADES.some((u) => u.unlock === id && u.premises.includes(this.sim.cafe.premisesId))
           ? tr` · <button class="link" data-action="goto-tab" data-item="growth">открыто улучшение</button>`
@@ -2763,17 +3000,24 @@ export class Hud {
       }</div>`).join('')}
       ${r.events?.length ? tr`<h4>События дня</h4><ul class="news">${r.events.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
       ${r.news?.length ? tr`<h4>Знакомые лица</h4><ul class="news">${r.news.map((n) => `<li>${n}</li>`).join('')}</ul>` : ''}
+      <h3 class="report-section">Посетители</h3>
       ${this.hourChart(r)}
       ${r.rivalGuests !== undefined ? tr`<p class="rival-line">У конкурента сегодня гостей: <b>${r.rivalGuests}</b>${r.rivalPromo ? tr` (шла акция)` : ''}${r.missed.rival ? tr` · ушли к нему от тебя: <b>${r.missed.rival}</b>` : ''}</p>` : ''}
       ${a.lost ? `<p class="lost-line">${describeLost(a.lost)}</p>` : ''}
-      ${a.observations.length ? tr`<h4>Стоит проверить</h4><ul class="observations">${a.observations.map((o) => `<li>${o}</li>`).join('')}</ul>` : ''}
-      ${changes ? tr`<h4>Изменения за день</h4><ul class="changes">${changes}</ul>` : ''}
-      ${forecast}
+      ${kinds ? `<h4>${r.opened ? tr`Кто не зашёл` : tr`Кто хотел зайти`}</h4><ul class="kinds">${kinds}</ul>` : ''}
+      ${missed ? tr`<h4>Не зашли — почему</h4><ul class="reasons">${missed}</ul>` : ''}
+      ${learned ? tr`<h4>Узнали о кафе: +${learnedTotal} · всего ${r.awareCount} из ${this.sim.residents.length}</h4><ul class="sold">${learned}</ul>` : ''}
+      ${sold || missing ? tr`<h3 class="report-section">Меню и продажи</h3>` : ''}
+      ${sold ? tr`<h4>Продажи</h4><ul class="sold">${sold}</ul>` : ''}
+      ${missing ? tr`<h4>Искали, но не нашли в меню</h4><ul class="sold">${missing}</ul>` : ''}
+      ${r.giveaways ? tr`<small>По карте лояльности подарено кофе на ${money(r.giveaways)}</small>` : ''}
       ${
         r.opened
-          ? tr`<h4>Деньги</h4><table class="pnl">
+          ? tr`<h3 class="report-section">Финансы</h3>
+      <p class="fin-line">Выручка ${money(r.revenue)} · расходы ${money(expenses)} · в кассе ${money(r.cashAfter)}</p>
+      <details class="fin-details"><summary>Подробно по статьям</summary><table class="pnl">
         ${row(L('Выручка'), r.revenue)}
-        ${row(L('Расход на продукты'), -foodLine(r))}
+        ${row(L('Расход на продукты'), -foodLine(r))}
         ${row(L('Аренда'), -r.rent)}
         ${row(L('Коммуналка'), -r.utilities)}
         ${r.wages ? row(L('Зарплата'), -r.wages) : ''}
@@ -2782,24 +3026,21 @@ export class Hud {
         ${r.other ? row(L('События'), -r.other) : ''}
         ${r.interest ? row(L('Проценты по${NB}кредиту'), -r.interest) : ''}
         ${row(L('Итог дня'), r.profit, r.profit >= 0 ? 'total pos' : 'total neg')}
-        ${r.food !== undefined && r.purchases ? row(L('Закуплено на склад'), -r.purchases) : ''}
-        ${r.invested ? row(L('Вложено в улучшения'), -r.invested) : ''}
+        ${r.food !== undefined && r.purchases ? row(L('Закуплено на склад'), -r.purchases) : ''}
+        ${r.invested ? row(L('Вложено в улучшения'), -r.invested) : ''}
         ${r.loanTaken ? row(L('Взят кредит'), r.loanTaken) : ''}
         ${r.loanPaid ? row(L('Возврат долга'), -r.loanPaid) : ''}
         ${r.loanFine ? row(L('Штраф за${NB}просрочку (к${NB}долгу)'), -r.loanFine) : ''}
-        ${row(L('В кассе'), r.cashAfter, 'cash')}
+        ${row(L('В кассе'), r.cashAfter, 'cash')}
       </table>
       <small>Себестоимость проданного: ${money(r.cogs)}${r.extras ? tr` · дозаказов: ${r.extras}` : ''}${r.company ? tr` · пришли с постоянными: ${r.company}` : ''}${r.styleGuests ? tr` · сели ради стиля зала: ${r.styleGuests}` : ''}${
-        r.writtenOff ? tr` · списано (испортилось): ${money(r.writtenOff)} — ${spoiled}` : ''
-      }</small>`
+        r.writtenOff ? tr` · списано (испортилось): ${money(r.writtenOff)} — ${spoiled}` : ''
+      }</small></details>`
           : ''
       }
-      ${kinds ? `<h4>${r.opened ? tr`Кто не зашёл` : tr`Кто хотел зайти`}</h4><ul class="kinds">${kinds}</ul>` : ''}
-      ${missed ? tr`<h4>Не зашли — почему</h4><ul class="reasons">${missed}</ul>` : ''}
-      ${learned ? tr`<h4>Узнали о кафе: +${learnedTotal} · всего ${r.awareCount} из ${this.sim.residents.length}</h4><ul class="sold">${learned}</ul>` : ''}
-      ${r.giveaways ? tr`<small>По карте лояльности подарено кофе на ${money(r.giveaways)}</small>` : ''}
-      ${missing ? tr`<h4>Искали, но не нашли в меню</h4><ul class="sold">${missing}</ul>` : ''}
-      ${sold ? tr`<h4>Продажи</h4><ul class="sold">${sold}</ul>` : ''}`;
+      ${rest.length ? tr`<h4>Стоит проверить</h4><ul class="observations">${rest.map((o) => `<li>${o}</li>`).join('')}</ul>` : ''}
+      ${changes ? tr`<h4>Изменения за день</h4><ul class="changes">${changes}</ul>` : ''}
+      ${forecast}`;
   }
 
   private bankruptView(): string {
@@ -2807,7 +3048,7 @@ export class Hud {
     return tr`
       <div class="row head"><b>Банкротство</b><span class="badge neg">День ${last?.day ?? ''}</span></div>
       <p>Касса была в минусе ${ECONOMY.bankruptDays} дня подряд. Кафе закрыто, имущество ушло в счёт долгов.</p>
-      <p>Это не конец: посмотри итоги дней — кто не заходил и почему — и попробуй снова.</p>
+      <p>Это не конец: посмотри итоги дней — кто не заходил и почему — и попробуй снова.</p>
       <button class="primary" data-action="restart">Начать заново</button>`;
   }
 
@@ -2846,7 +3087,7 @@ export class Hud {
       decision = d.visited
         ? `<div class="decision ok"><small>${when}</small>${f ? L('Зашла') : L('Зашёл')} ${WANT_VISIT[d.want]}: ${item?.name ?? ''}, ${money(d.price ?? 0)}</div>`
         : tr`<div class="decision no"><small>${when} · ${f ? L('хотела') : L('хотел')} ${WANT_LABEL[d.want]}</small>Не ${f ? L('зашла') : L('зашёл')}: ${REJECT_LABEL[d.reason!].toLowerCase()}${
-            d.reason === 'expensive' && item ? tr` — ${item.name} ${money(d.price ?? 0)}, ${f ? L('готова') : L('готов')} до ${money(d.budget)}` : ''
+            d.reason === 'expensive' && item ? tr` — ${item.name} ${money(d.price ?? 0)}, ${f ? L('готова') : L('готов')} до ${money(d.budget)}` : ''
           }</div>`;
     }
 
@@ -2855,7 +3096,7 @@ export class Hud {
     const rows = r.schedule
       .map(
         (s) =>
-          `<li class="${s === now ? 'now' : ''}"><span>${fmtMinute(s.start)}</span>${ACTIVITY_LABEL[s.activity]} — ${this.sim.at(s.placeId).name}</li>`,
+          `<li class="${s === now ? 'now' : ''}"><span>${fmtMinute(s.start)}</span>${ACTIVITY_LABEL[s.activity]} — ${this.sim.at(s.placeId).name}</li>`,
       )
       .join('');
     return tr`
@@ -2872,7 +3113,7 @@ export class Hud {
       <ul class="schedule">${rows}</ul>`;
   }
 
-  /** С кем обедает и что компания решила сегодня */
+  /** С кем обедает и что компания решила сегодня */
   private groupLine(r: Resident): string {
     const g = this.sim.groupFor(r.id);
     if (!g) return '';
@@ -2886,19 +3127,19 @@ export class Hud {
         : tr` · сегодня не у тебя: ${REJECT_LABEL[g.today.reason ?? 'company'].toLowerCase()}`
       : '';
     if (g.group.friends) {
-      // У друзей важна последняя пятница, а не сегодняшний день
+      // У друзей важна последняя пятница, а не сегодняшний день
       const last = g.last;
       const fri = last
         ? last.go
           ? tr` · в\u00a0последнюю пятницу были у\u00a0тебя`
           : tr` · в\u00a0последнюю пятницу не\u00a0у\u00a0тебя: ${REJECT_LABEL[last.reason ?? 'company'].toLowerCase()}`
         : '';
-      return tr`<div>По пятницам вечером сидит с\u00a0друзьями: ${others}${fri}</div>`;
+      return tr`<div>По пятницам вечером сидит с\u00a0друзьями: ${others}${fri}</div>`;
     }
     return tr`<div>Обедает с коллегами: ${others}${today}</div>`;
   }
 
-  /** Нравится ли жителю стиль зала — видно в карточке */
+  /** Нравится ли жителю стиль зала — видно в карточке */
   private hallTaste(r: Resident): string {
     if (!this.sim.hasHall) return '';
     const hall = this.sim.cafe.interior;
@@ -2907,10 +3148,10 @@ export class Hud {
     if (!id) return fit > 0 ? tr`<div>Зал отчасти по душе: есть вещи в его вкусе</div>` : '';
     const name = hallStyle(id).name;
     if (fit > 0 && fit === hall.wholeFit(r.kind)) return tr`<div>Зал по душе: ${name}</div>`;
-    return fit > 0 ? tr`<div>Зал «${name}» отчасти по душе</div>` : tr`<div>Зал «${name}» — не по вкусу</div>`;
+    return fit > 0 ? tr`<div>Зал «${name}» отчасти по душе</div>` : tr`<div>Зал «${name}» — не по вкусу</div>`;
   }
 
-  /** Характер, вкус и память визитов: по ним игрок подбирает меню под своих гостей */
+  /** Характер, вкус и память визитов: по ним игрок подбирает меню под своих гостей */
   private characterBlock(r: Resident): string {
     const c = r.character;
     const traits = traitWords(c);

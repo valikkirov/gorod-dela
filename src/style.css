@@ -3646,3 +3646,263 @@ button.small.danger {
 .bakery-block > button {
   margin-top: 6px;
 }
+
+/* Отчёты: чей отчёт, весь бизнес, разделы отчёта точки */
+.owner-bar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: 8px 0 2px;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.owner-bar .chip {
+  flex: none;
+}
+
+.rank-line {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.report-section {
+  margin: 22px 0 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.kpis.kpis-4,
+.kpis:has(> div:nth-child(4)) {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.kpis small + b + small {
+  display: block;
+  color: var(--muted);
+}
+
+.biz-points {
+  display: grid;
+  gap: 6px;
+}
+
+.biz-point {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.biz-point.loss {
+  border-color: #e6b8b0;
+  background: #fdf3f1;
+}
+
+.biz-point small {
+  color: var(--muted);
+}
+
+.biz-point .pos,
+.biz-total .pos td:last-child {
+  color: var(--good);
+}
+
+.biz-point .neg {
+  color: var(--bad);
+}
+
+.diverge {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: #efe9dc;
+}
+
+.diverge::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: var(--muted);
+}
+
+.diverge i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+}
+
+.diverge i.pos {
+  background: var(--good);
+}
+
+.diverge i.neg {
+  background: var(--bad);
+}
+
+.biz-total {
+  margin-top: 8px;
+}
+
+.biz-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 110px;
+  margin-top: 6px;
+}
+
+.biz-chart .group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.biz-chart .cols {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+}
+
+.biz-chart .cols i {
+  width: 9px;
+  border-radius: 3px 3px 0 0;
+}
+
+.biz-chart span {
+  margin-top: 3px;
+  font-size: 11px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.biz-chart i.p0,
+.biz-legend i.p0 {
+  background: #c99a2e;
+}
+
+.biz-chart i.p1,
+.biz-legend i.p1 {
+  background: #4f7cac;
+}
+
+.biz-chart i.p2,
+.biz-legend i.p2 {
+  background: #5f9a6a;
+}
+
+.biz-chart i.p3,
+.biz-legend i.p3 {
+  background: #8a6fb0;
+}
+
+/* Убыток — красный в косую штриховку: не путается с цветами точек */
+.biz-chart .cols i.neg {
+  background: repeating-linear-gradient(45deg, var(--bad) 0 3px, #e8a399 3px 6px);
+}
+
+.biz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.biz-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-radius: 2px;
+}
+
+.biz-cash {
+  display: grid;
+  gap: 2px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f3efe5;
+}
+
+.biz-cash b {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.biz-cash small {
+  color: var(--muted);
+}
+
+.biz-money,
+.biz-compare,
+.fin-details {
+  margin-top: 12px;
+}
+
+.biz-money summary,
+.biz-compare summary,
+.fin-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.cmp {
+  width: 100%;
+  margin-top: 6px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.cmp th,
+.cmp td {
+  padding: 5px 4px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cmp th:first-child,
+.cmp td:first-child {
+  text-align: left;
+  color: var(--muted);
+}
+
+.payback {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.payback small {
+  color: var(--muted);
+}
+
+.fin-line {
+  margin: 4px 0 0;
+  font-variant-numeric: tabular-nums;
+}
