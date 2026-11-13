@@ -4,12 +4,13 @@ import {
   canPlace,
   FURNITURE,
   furniture,
-  HALL_SLOTS,
+  hallSlots,
+  presetsOf,
+  type HallKind,
   Interior,
   FINISH_SLOTS,
   INTERIOR,
   SEASON_SLOTS,
-  PRESETS,
   STYLE_SLOTS,
   STYLES,
   styleSet,
@@ -19,8 +20,10 @@ import {
 import { formatMoney } from '../sim/economy';
 import type { ResidentKind } from '../sim/residents';
 import type { Simulation } from '../sim/simulation';
-import roomUrl from './art/hall3/room.webp';
-import { HALL_FRAMES, HALL_ROOM } from './hallFrames';
+import cafeRoomUrl from './art/hall3/room.webp';
+import { HALL_FRAMES as CAFE_FRAMES, HALL_ROOM as CAFE_ROOM } from './hallFrames';
+import bistroRoomUrl from './art/bistro/room.webp';
+import { BISTRO_FRAMES, BISTRO_ROOM } from './bistroFrames';
 import { HALL_ITEMS } from './hallItems';
 
 import { L, tr } from '../sim/i18n';
@@ -29,7 +32,22 @@ const money = formatMoney;
 // Зал нарисован целиком в одном ракурсе, мебель вырезана из него же (scripts/cut_hall.py):
 // каждый кусочек ложится в свои координаты комнаты, поэтому размеры и перспектива совпадают
 const ART = import.meta.glob('./art/hall3/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-const art = (id: string): string => ART[`./art/hall3/${id}.webp`];
+const BISTRO_ART = import.meta.glob('./art/bistro/*.webp', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
+
+// Зал кафе и зал бистро рисуются одинаково, только картинки свои (scripts/cut_bistro.py).
+// Какой зал сейчас рисуем — решает точка; переключается в начале hallTab/hallPicker
+let kind: HallKind = 'cafe';
+let HALL_FRAMES: Record<string, [number, number, number, number]> = CAFE_FRAMES;
+let HALL_ROOM = CAFE_ROOM;
+let roomUrl = cafeRoomUrl;
+function useHall(k: HallKind): void {
+  kind = k;
+  HALL_FRAMES = k === 'bistro' ? BISTRO_FRAMES : CAFE_FRAMES;
+  HALL_ROOM = k === 'bistro' ? BISTRO_ROOM : CAFE_ROOM;
+  roomUrl = k === 'bistro' ? bistroRoomUrl : cafeRoomUrl;
+}
+const art = (id: string): string =>
+  kind === 'bistro' && !isFinish(id as FurnitureId) ? (BISTRO_ART[`./art/bistro/${id}.webp`] ?? '') : ART[`./art/hall3/${id}.webp`];
 
 /** Кнопка «+» пустого места: точка на полу или стене, в пикселях комнаты */
 const SLOT_AT: Record<string, { x: number; y: number }> = {
@@ -49,8 +67,19 @@ const SLOT_AT: Record<string, { x: number; y: number }> = {
   touch: { x: 460, y: 60 },
   tree: { x: 770, y: 450 },
   garland: { x: 110, y: 200 },
+  // Бистро
+  'b-wall-l': { x: 255, y: 105 },
+  'b-wall-c': { x: 420, y: 70 },
+  'b-wall-r': { x: 640, y: 100 },
+  'b-corner': { x: 230, y: 260 },
+  'b-window': { x: 120, y: 330 },
+  'b-center': { x: 440, y: 370 },
+  'b-side': { x: 770, y: 430 },
+  'b-door': { x: 905, y: 420 },
+  'b-front-1': { x: 290, y: 470 },
+  'b-front-2': { x: 540, y: 470 },
 };
-const SEATED: FurnitureId[] = ['table2', 'table4', 'sofa', 'bar'];
+const SEATED: FurnitureId[] = ['table2', 'table4', 'sofa', 'bar', 'stools', 'commune', 'pair4', 'booth'];
 
 // ——— Стиль зала: стены и пол — слои размером с комнату, вещи — кусочки на своих местах (scripts/pack_hall_style.py,
 // scripts/cut_hall_items.py). Отделку и вещи можно сочетать как угодно: все правки сделаны поверх одной комнаты ———
@@ -139,6 +168,16 @@ const SLOT_TITLE: Record<string, string> = {
   touch: L('Деталь'),
   tree: L('Угол у\u00a0двери'),
   garland: L('Окно'),
+  'b-wall-l': L('Стена слева'),
+  'b-wall-c': L('Над раздачей'),
+  'b-wall-r': L('Стена справа'),
+  'b-corner': L('Угол у\u00a0раздачи'),
+  'b-window': L('Под окном'),
+  'b-center': L('Центр зала'),
+  'b-side': L('У\u00a0правой стены'),
+  'b-door': L('У\u00a0двери'),
+  'b-front-1': L('Столик слева'),
+  'b-front-2': L('Столик справа'),
 };
 
 const LIKE_LABEL: Record<ResidentKind, string> = {
@@ -180,7 +219,7 @@ function pieceHtml(slot: string, f: FurnitureId, state: string, rug: boolean, se
   if (!frame) return '';
   const [x, y, w, h] = frame;
   // Слой: коврик внизу, стены за мебелью, остальное — чем ниже на полу, тем ближе
-  const z = slot === 'rug' ? 1 : slot.startsWith('wall') ? 2 : 10 + y + h;
+  const z = slot === 'rug' ? 1 : slot.startsWith('wall') || slot.startsWith('b-wall') ? 2 : 10 + y + h;
   const style = `left:${pct(x, HALL_ROOM.w)};top:${pct(y, HALL_ROOM.h)};width:${pct(w, HALL_ROOM.w)};z-index:${z}`;
   const act = live ? ` data-action="hall-slot" data-item="${slot}"` : '';
   return `<img class="hall-piece${sel ? ' selected' : ''}" src="${art(name)}" alt="${live ? furniture(f).name : ''}"${act} style="${style}">`;
@@ -203,21 +242,22 @@ const baristaLayer = tr`<img class="hall-barista" src="${art('barista')}" alt="�
 /** Миниатюра комплектации: тот же зал из тех же кусков, без кнопок и гостей */
 function miniHall(layout: Partial<Record<string, FurnitureId>>): string {
   const rug = layout.rug === 'rug';
-  const things = HALL_SLOTS.map(({ id }) => {
+  const things = hallSlots(kind).map(({ id }) => {
     const f = layout[id];
     if (coveredByFeature(layout, id)) return '';
     return f ? pieceHtml(id, f, '', rug, false, false) || itemHtml(id, f, false, false, layout.walls) : '';
   }).join('');
-  return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${finishHtml(layout)}${menuBoard(null)}${things}</div>`;
+  return `<div class="hall mini" style="background-image:url(${roomUrl})" aria-hidden="true">${kind === 'cafe' ? finishHtml(layout) + menuBoard(null) : ''}${things}</div>`;
 }
 
 /** Вкладка целиком; selected — выбранное место для своего дизайна */
 export function hallTab(sim: Simulation, selected: string | null): string {
   const hall = sim.cafe.interior;
+  useHall(hall.kind);
   const layout = hall.layout;
   const state = fullness(sim);
   const rug = layout.rug === 'rug';
-  const things = HALL_SLOTS.map(({ id }) => {
+  const things = hallSlots(kind).map(({ id }) => {
     const f = layout[id];
     const sel = selected === id;
     if (coveredByFeature(layout, id)) return '';
@@ -241,8 +281,8 @@ export function hallTab(sim: Simulation, selected: string | null): string {
         : tr`Места ограничивают, сколько гостей сидит сразу. Уют: гости чаще заходят посидеть, заказывают ещё, советуют кафе знакомым и быстрее становятся постоянными.`
     }</p>`;
 
-  const presets = PRESETS.map((p) => {
-    const probe = new Interior();
+  const presets = presetsOf(kind).map((p) => {
+    const probe = new Interior(() => kind);
     probe.load(p.layout);
     const on = hall.matches(p.id);
     const cost = hall.presetCost(p.id);
@@ -259,10 +299,12 @@ export function hallTab(sim: Simulation, selected: string | null): string {
 
   const design = tr`<small>Нажми на место в зале — пустое (+) или занятое, — чтобы поставить, заменить или продать вещь.</small>`;
 
-  const styleBlock = styleSection(sim);
+  const styleBlock = hall.styled ? styleSection(sim) : '';
 
   return tr`
-    <div class="hall" style="background-image:url(${roomUrl})">${finishHtml(layout)}${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}${things}</div>
+    <div class="hall" style="background-image:url(${roomUrl})">${
+      kind === 'cafe' ? `${finishHtml(layout)}${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}` : ''
+    }${things}</div>
     ${stats}
     ${styleBlock}
     <h4>Готовые комплектации</h4>
@@ -270,7 +312,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
     <ul class="menu presets">${presets}</ul>
     ${sim.holiday ? tr`<h4>Новогодний декор 🎄</h4><p class="hint-line">До 12 января: ёлка и гирлянда — уют, а в праздники в такой зал чаще заходят посидеть. Нажми на место в зале — у двери или на окне.</p>` : ''}
     <h4>Свой дизайн</h4>
-    <div class="row wrap">${STYLE_SLOTS.map(
+    <div class="row wrap">${(hall.styled ? STYLE_SLOTS : []).map(
       (slot) => `<button class="small secondary${selected === slot ? ' on' : ''}" data-action="hall-slot" data-item="${slot}">${SLOT_TITLE[slot]}</button>`,
     ).join('')}</div>
     ${design}`;
@@ -278,9 +320,10 @@ export function hallTab(sim: Simulation, selected: string | null): string {
 
 /** Выбор вещи для места в зале — в окне поверх экрана: длинный список не уезжает вниз панели */
 export function hallPicker(sim: Simulation, selected: string): { title: string; body: string } {
+  useHall(sim.cafe.interior.kind);
   const layout = sim.cafe.interior.layout;
   const cur = layout[selected];
-  const options = FURNITURE.filter((f) => canPlace(selected, f.id))
+  const options = FURNITURE.filter((f) => canPlace(selected, f.id, kind))
     .map((f) => {
       const net = f.cost - (cur ? Interior.refund(cur) : 0);
       const here = cur === f.id;

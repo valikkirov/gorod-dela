@@ -182,255 +182,291 @@
   },
   {
    "key": "Пол в центре",
-   "at": "src/game/hall.ts:124"
-  },
-  {
-   "key": "Стена над диваном",
-   "at": "src/game/hall.ts:125"
-  },
-  {
-   "key": "Стена повыше",
-   "at": "src/game/hall.ts:126"
-  },
-  {
-   "key": "У стены слева",
-   "at": "src/game/hall.ts:127"
-  },
-  {
-   "key": "У стены справа",
-   "at": "src/game/hall.ts:128"
-  },
-  {
-   "key": "Угол у окна",
-   "at": "src/game/hall.ts:129"
-  },
-  {
-   "key": "Под окном",
-   "at": "src/game/hall.ts:130"
-  },
-  {
-   "key": "Угол у входа в зал",
-   "at": "src/game/hall.ts:131"
-  },
-  {
-   "key": "Стол у стойки",
-   "at": "src/game/hall.ts:132"
-  },
-  {
-   "key": "Стол слева",
-   "at": "src/game/hall.ts:133"
-  },
-  {
-   "key": "Стол в центре",
-   "at": "src/game/hall.ts:134"
-  },
-  {
-   "key": "Стол у витрины",
-   "at": "src/game/hall.ts:135"
-  },
-  {
-   "key": "Стены",
-   "at": "src/game/hall.ts:136"
-  },
-  {
-   "key": "Пол",
-   "at": "src/game/hall.ts:137"
-  },
-  {
-   "key": "Акцент на стене",
-   "at": "src/game/hall.ts:138"
-  },
-  {
-   "key": "Деталь",
-   "at": "src/game/hall.ts:139"
-  },
-  {
-   "key": "Угол у двери",
-   "at": "src/game/hall.ts:140"
-  },
-  {
-   "key": "Окно",
-   "at": "src/game/hall.ts:141"
-  },
-  {
-   "key": "офисным",
-   "at": "src/game/hall.ts:145"
-  },
-  {
-   "key": "студентам",
-   "at": "src/game/hall.ts:146"
-  },
-  {
-   "key": "пенсионерам",
-   "at": "src/game/hall.ts:147"
-  },
-  {
-   "key": "продавцам",
-   "at": "src/game/hall.ts:148"
-  },
-  {
-   "key": "фрилансерам",
-   "at": "src/game/hall.ts:149"
-  },
-  {
-   "key": "молодёжи",
-   "at": "src/game/hall.ts:150"
-  },
-  {
-   "key": "ночной смене",
-   "at": "src/game/hall.ts:151"
-  },
-  {
-   "key": "пассажирам",
-   "at": "src/game/hall.ts:152"
-  },
-  {
-   "key": "гостям района",
    "at": "src/game/hall.ts:153"
   },
   {
-   "key": "{0} мест{1}",
+   "key": "Стена над диваном",
+   "at": "src/game/hall.ts:154"
+  },
+  {
+   "key": "Стена повыше",
+   "at": "src/game/hall.ts:155"
+  },
+  {
+   "key": "У стены слева",
+   "at": "src/game/hall.ts:156"
+  },
+  {
+   "key": "У стены справа",
+   "at": "src/game/hall.ts:157"
+  },
+  {
+   "key": "Угол у окна",
+   "at": "src/game/hall.ts:158"
+  },
+  {
+   "key": "Под окном",
+   "at": "src/game/hall.ts:159"
+  },
+  {
+   "key": "Угол у входа в зал",
+   "at": "src/game/hall.ts:160"
+  },
+  {
+   "key": "Стол у стойки",
+   "at": "src/game/hall.ts:161"
+  },
+  {
+   "key": "Стол слева",
    "at": "src/game/hall.ts:162"
   },
   {
-   "key": "о",
-   "at": "src/game/hall.ts:162"
-  },
-  {
-   "key": "а",
-   "at": "src/game/hall.ts:162"
-  },
-  {
-   "key": "уют +{0}",
+   "key": "Стол в центре",
    "at": "src/game/hall.ts:163"
   },
   {
-   "key": "для вида",
+   "key": "Стол у витрины",
    "at": "src/game/hall.ts:164"
   },
   {
-   "key": "<div class=\"hall-board\" style=\"{0}\" aria-label=\"Меню на доске\"><ul>{1}</ul></div>",
-   "at": "src/game/hall.ts:197"
+   "key": "Стены",
+   "at": "src/game/hall.ts:165"
   },
   {
-   "key": "<img class=\"hall-barista\" src=\"{0}\" alt=\"Бариста за стойкой\">",
+   "key": "Пол",
+   "at": "src/game/hall.ts:166"
+  },
+  {
+   "key": "Акцент на стене",
+   "at": "src/game/hall.ts:167"
+  },
+  {
+   "key": "Деталь",
+   "at": "src/game/hall.ts:168"
+  },
+  {
+   "key": "Угол у двери",
+   "at": "src/game/hall.ts:169"
+  },
+  {
+   "key": "Окно",
+   "at": "src/game/hall.ts:170"
+  },
+  {
+   "key": "Стена слева",
+   "at": "src/game/hall.ts:171"
+  },
+  {
+   "key": "Над раздачей",
+   "at": "src/game/hall.ts:172"
+  },
+  {
+   "key": "Стена справа",
+   "at": "src/game/hall.ts:173"
+  },
+  {
+   "key": "Угол у раздачи",
+   "at": "src/game/hall.ts:174"
+  },
+  {
+   "key": "Центр зала",
+   "at": "src/game/hall.ts:176"
+  },
+  {
+   "key": "У правой стены",
+   "at": "src/game/hall.ts:177"
+  },
+  {
+   "key": "У двери",
+   "at": "src/game/hall.ts:178"
+  },
+  {
+   "key": "Столик слева",
+   "at": "src/game/hall.ts:179"
+  },
+  {
+   "key": "Столик справа",
+   "at": "src/game/hall.ts:180"
+  },
+  {
+   "key": "офисным",
+   "at": "src/game/hall.ts:184"
+  },
+  {
+   "key": "студентам",
+   "at": "src/game/hall.ts:185"
+  },
+  {
+   "key": "пенсионерам",
+   "at": "src/game/hall.ts:186"
+  },
+  {
+   "key": "продавцам",
+   "at": "src/game/hall.ts:187"
+  },
+  {
+   "key": "фрилансерам",
+   "at": "src/game/hall.ts:188"
+  },
+  {
+   "key": "молодёжи",
+   "at": "src/game/hall.ts:189"
+  },
+  {
+   "key": "ночной смене",
+   "at": "src/game/hall.ts:190"
+  },
+  {
+   "key": "пассажирам",
+   "at": "src/game/hall.ts:191"
+  },
+  {
+   "key": "гостям района",
+   "at": "src/game/hall.ts:192"
+  },
+  {
+   "key": "{0} мест{1}",
    "at": "src/game/hall.ts:201"
   },
   {
+   "key": "о",
+   "at": "src/game/hall.ts:201"
+  },
+  {
+   "key": "а",
+   "at": "src/game/hall.ts:201"
+  },
+  {
+   "key": "уют +{0}",
+   "at": "src/game/hall.ts:202"
+  },
+  {
+   "key": "для вида",
+   "at": "src/game/hall.ts:203"
+  },
+  {
+   "key": "<div class=\"hall-board\" style=\"{0}\" aria-label=\"Меню на доске\"><ul>{1}</ul></div>",
+   "at": "src/game/hall.ts:236"
+  },
+  {
+   "key": "<img class=\"hall-barista\" src=\"{0}\" alt=\"Бариста за стойкой\">",
+   "at": "src/game/hall.ts:240"
+  },
+  {
    "key": "<div class=\"kpis\">\n      <div><small>Мест</small><b>{0}</b></div>\n      <div><small>Уют</small><b>{1} из {2}</b></div>\n      <div><small>Сидят сейчас</small><b>{3}</b></div>\n    </div>\n    <p class=\"hint-line\">{4}</p>",
-   "at": "src/game/hall.ts:233"
+   "at": "src/game/hall.ts:273"
   },
   {
    "key": "Сегодня {0} {1} не хватило места — взяли с собой.",
-   "at": "src/game/hall.ts:240"
+   "at": "src/game/hall.ts:280"
   },
   {
    "key": "гостю",
-   "at": "src/game/hall.ts:240"
+   "at": "src/game/hall.ts:280"
   },
   {
    "key": "гостям",
-   "at": "src/game/hall.ts:240"
+   "at": "src/game/hall.ts:280"
   },
   {
    "key": "Места ограничивают, сколько гостей сидит сразу. Уют: гости чаще заходят посидеть, заказывают ещё, советуют кафе знакомым и быстрее становятся постоянными.",
-   "at": "src/game/hall.ts:241"
+   "at": "src/game/hall.ts:281"
   },
   {
    "key": "Стоит сейчас",
-   "at": "src/game/hall.ts:249"
+   "at": "src/game/hall.ts:289"
   },
   {
    "key": "Поставить за {0}",
-   "at": "src/game/hall.ts:249"
+   "at": "src/game/hall.ts:289"
   },
   {
    "key": "Поставить, вернётся {0}",
-   "at": "src/game/hall.ts:249"
+   "at": "src/game/hall.ts:289"
   },
   {
    "key": "Не хватает денег",
-   "at": "src/game/hall.ts:255"
+   "at": "src/game/hall.ts:295"
   },
   {
    "key": "<small>Нажми на место в зале — пустое (+) или занятое, — чтобы поставить, заменить или продать вещь.</small>",
-   "at": "src/game/hall.ts:260"
+   "at": "src/game/hall.ts:300"
   },
   {
-   "key": "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}{3}{4}</div>\n    {5}\n    {6}\n    <h4>Готовые комплектации</h4>\n    <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>\n    <ul class=\"menu presets\">{7}</ul>\n    {8}\n    <h4>Свой дизайн</h4>\n    <div class=\"row wrap\">{9}</div>\n    {10}",
-   "at": "src/game/hall.ts:264"
+   "key": "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    {3}\n    {4}\n    <h4>Готовые комплектации</h4>\n    <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Свой дизайн</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}",
+   "at": "src/game/hall.ts:304"
   },
   {
    "key": "<h4>Новогодний декор 🎄</h4><p class=\"hint-line\">До 12 января: ёлка и гирлянда — уют, а в праздники в такой зал чаще заходят посидеть. Нажми на место в зале — у двери или на окне.</p>",
-   "at": "src/game/hall.ts:271"
-  },
-  {
-   "key": " · нравится {0}",
-   "at": "src/game/hall.ts:288"
-  },
-  {
-   "key": " и ",
-   "at": "src/game/hall.ts:288"
-  },
-  {
-   "key": " · стиль «{0}»",
-   "at": "src/game/hall.ts:290"
-  },
-  {
-   "key": "<span class=\"badge on\">стоит</span>",
-   "at": "src/game/hall.ts:297"
-  },
-  {
-   "key": "<button class=\"small secondary\" data-action=\"hall-sell\" data-item=\"{0}\">Продать за {1}</button>",
-   "at": "src/game/hall.ts:305"
-  },
-  {
-   "key": "<small>Замена: старая вещь продаётся за полцены.</small>",
-   "at": "src/game/hall.ts:307"
-  },
-  {
-   "key": "всем понемногу",
    "at": "src/game/hall.ts:313"
   },
   {
-   "key": "молодёжи, фрилансерам и студентам",
-   "at": "src/game/hall.ts:314"
+   "key": " · нравится {0}",
+   "at": "src/game/hall.ts:331"
   },
   {
-   "key": "офисным и фрилансерам",
-   "at": "src/game/hall.ts:315"
+   "key": " и ",
+   "at": "src/game/hall.ts:331"
   },
   {
-   "key": "пенсионерам и гостям района",
-   "at": "src/game/hall.ts:316"
-  },
-  {
-   "key": "<p class=\"hint-line\">Стиль зала: <b>{0}</b> — нравится {1}. Они чаще замечают кафе, садятся в зале и советуют его своим.</p>",
-   "at": "src/game/hall.ts:325"
-  },
-  {
-   "key": "<p class=\"hint-line\">Стиля пока нет. Стиль засчитывается с {0} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим. Смешанный зал тоже работает, но слабее: каждая вещь нравится своим понемногу.</p>",
-   "at": "src/game/hall.ts:326"
-  },
-  {
-   "key": "{0} · вокруг таких {1}",
-   "at": "src/game/hall.ts:332"
-  },
-  {
-   "key": "<li class=\"style-card{0}\">\n      <div class=\"row\"><b class=\"grow\">{1}</b><span class=\"badge{2}\">{3} из 4</span></div>\n      <div class=\"swatches\">{4}</div>\n      <small>Нравится {5}</small>\n      <button class=\"small\" data-action=\"hall-style\" data-item=\"{6}\" {7}>{8}</button>\n    </li>",
+   "key": " · стиль «{0}»",
    "at": "src/game/hall.ts:333"
   },
   {
+   "key": "<span class=\"badge on\">стоит</span>",
+   "at": "src/game/hall.ts:340"
+  },
+  {
+   "key": "<button class=\"small secondary\" data-action=\"hall-sell\" data-item=\"{0}\">Продать за {1}</button>",
+   "at": "src/game/hall.ts:348"
+  },
+  {
+   "key": "<small>Замена: старая вещь продаётся за полцены.</small>",
+   "at": "src/game/hall.ts:350"
+  },
+  {
+   "key": "всем понемногу",
+   "at": "src/game/hall.ts:356"
+  },
+  {
+   "key": "молодёжи, фрилансерам и студентам",
+   "at": "src/game/hall.ts:357"
+  },
+  {
+   "key": "офисным и фрилансерам",
+   "at": "src/game/hall.ts:358"
+  },
+  {
+   "key": "пенсионерам и гостям района",
+   "at": "src/game/hall.ts:359"
+  },
+  {
+   "key": "<p class=\"hint-line\">Стиль зала: <b>{0}</b> — нравится {1}. Они чаще замечают кафе, садятся в зале и советуют его своим.</p>",
+   "at": "src/game/hall.ts:368"
+  },
+  {
+   "key": "<p class=\"hint-line\">Стиля пока нет. Стиль засчитывается с {0} из 4: стены, пол и две фирменные вещи. Своя аудитория чаще замечает кафе, садится в зале и советует его своим. Смешанный зал тоже работает, но слабее: каждая вещь нравится своим понемногу.</p>",
+   "at": "src/game/hall.ts:369"
+  },
+  {
+   "key": "{0} · вокруг таких {1}",
+   "at": "src/game/hall.ts:375"
+  },
+  {
+   "key": "<li class=\"style-card{0}\">\n      <div class=\"row\"><b class=\"grow\">{1}</b><span class=\"badge{2}\">{3} из 4</span></div>\n      <div class=\"swatches\">{4}</div>\n      <small>Нравится {5}</small>\n      <button class=\"small\" data-action=\"hall-style\" data-item=\"{6}\" {7}>{8}</button>\n    </li>",
+   "at": "src/game/hall.ts:376"
+  },
+  {
    "key": "Собран",
-   "at": "src/game/hall.ts:338"
+   "at": "src/game/hall.ts:381"
   },
   {
    "key": "Собрать за {0}",
-   "at": "src/game/hall.ts:338"
+   "at": "src/game/hall.ts:381"
   },
   {
    "key": "<h4>Стиль зала</h4>{0}<ul class=\"menu styles\">{1}</ul>",
-   "at": "src/game/hall.ts:342"
+   "at": "src/game/hall.ts:385"
   },
   {
    "key": "Ночь",
@@ -4426,171 +4462,235 @@
   },
   {
    "key": "Как дома",
-   "at": "src/sim/interior.ts:50"
+   "at": "src/sim/interior.ts:66"
   },
   {
    "key": "Лофт",
-   "at": "src/sim/interior.ts:51"
+   "at": "src/sim/interior.ts:67"
   },
   {
    "key": "Скандинавский",
-   "at": "src/sim/interior.ts:52"
+   "at": "src/sim/interior.ts:68"
   },
   {
    "key": "Классика",
-   "at": "src/sim/interior.ts:53"
+   "at": "src/sim/interior.ts:69"
   },
   {
    "key": "Столик на двоих",
-   "at": "src/sim/interior.ts:77"
-  },
-  {
-   "key": "Стол на четверых",
-   "at": "src/sim/interior.ts:78"
-  },
-  {
-   "key": "Мягкий диван",
-   "at": "src/sim/interior.ts:79"
-  },
-  {
-   "key": "Стойка у окна с розетками",
-   "at": "src/sim/interior.ts:80"
-  },
-  {
-   "key": "Книжный шкаф",
-   "at": "src/sim/interior.ts:81"
-  },
-  {
-   "key": "Полка с настолками",
-   "at": "src/sim/interior.ts:82"
-  },
-  {
-   "key": "Большая монстера",
-   "at": "src/sim/interior.ts:83"
-  },
-  {
-   "key": "Цветок в горшке",
-   "at": "src/sim/interior.ts:84"
-  },
-  {
-   "key": "Торшер",
-   "at": "src/sim/interior.ts:85"
-  },
-  {
-   "key": "Картина",
-   "at": "src/sim/interior.ts:86"
-  },
-  {
-   "key": "Часы",
-   "at": "src/sim/interior.ts:87"
-  },
-  {
-   "key": "Коврик",
-   "at": "src/sim/interior.ts:88"
-  },
-  {
-   "key": "Обои в мелкий цветок",
-   "at": "src/sim/interior.ts:90"
-  },
-  {
-   "key": "Красный кирпич",
-   "at": "src/sim/interior.ts:91"
-  },
-  {
-   "key": "Белая штукатурка",
-   "at": "src/sim/interior.ts:92"
-  },
-  {
-   "key": "Зелёные панели с молдингами",
    "at": "src/sim/interior.ts:93"
   },
   {
-   "key": "Тёплый паркет",
+   "key": "Стол на четверых",
    "at": "src/sim/interior.ts:94"
   },
   {
-   "key": "Бетонный пол",
+   "key": "Мягкий диван",
    "at": "src/sim/interior.ts:95"
   },
   {
-   "key": "Светлый дуб",
+   "key": "Стойка у окна с розетками",
    "at": "src/sim/interior.ts:96"
   },
   {
-   "key": "Шахматная плитка",
+   "key": "Книжный шкаф",
    "at": "src/sim/interior.ts:97"
   },
   {
-   "key": "Неоновая надпись",
+   "key": "Полка с настолками",
+   "at": "src/sim/interior.ts:98"
+  },
+  {
+   "key": "Большая монстера",
    "at": "src/sim/interior.ts:99"
   },
   {
-   "key": "Лампы-лампочки над столами",
+   "key": "Цветок в горшке",
    "at": "src/sim/interior.ts:100"
   },
   {
-   "key": "Белый стеллаж с посудой",
+   "key": "Торшер",
    "at": "src/sim/interior.ts:101"
   },
   {
-   "key": "Бумажный абажур",
+   "key": "Картина",
    "at": "src/sim/interior.ts:102"
   },
   {
-   "key": "Зеркало в раме",
+   "key": "Часы",
    "at": "src/sim/interior.ts:103"
   },
   {
-   "key": "Люстра",
+   "key": "Коврик",
    "at": "src/sim/interior.ts:104"
   },
   {
-   "key": "Полка с самоваром",
-   "at": "src/sim/interior.ts:105"
-  },
-  {
-   "key": "Ёлка с игрушками",
+   "key": "Обои в мелкий цветок",
    "at": "src/sim/interior.ts:106"
   },
   {
-   "key": "Гирлянда на окне",
+   "key": "Красный кирпич",
    "at": "src/sim/interior.ts:107"
   },
   {
-   "key": "Кот на подоконнике",
+   "key": "Белая штукатурка",
    "at": "src/sim/interior.ts:108"
   },
   {
+   "key": "Зелёные панели с молдингами",
+   "at": "src/sim/interior.ts:109"
+  },
+  {
+   "key": "Тёплый паркет",
+   "at": "src/sim/interior.ts:110"
+  },
+  {
+   "key": "Бетонный пол",
+   "at": "src/sim/interior.ts:111"
+  },
+  {
+   "key": "Светлый дуб",
+   "at": "src/sim/interior.ts:112"
+  },
+  {
+   "key": "Шахматная плитка",
+   "at": "src/sim/interior.ts:113"
+  },
+  {
+   "key": "Неоновая надпись",
+   "at": "src/sim/interior.ts:115"
+  },
+  {
+   "key": "Лампы-лампочки над столами",
+   "at": "src/sim/interior.ts:116"
+  },
+  {
+   "key": "Белый стеллаж с посудой",
+   "at": "src/sim/interior.ts:117"
+  },
+  {
+   "key": "Бумажный абажур",
+   "at": "src/sim/interior.ts:118"
+  },
+  {
+   "key": "Зеркало в раме",
+   "at": "src/sim/interior.ts:119"
+  },
+  {
+   "key": "Люстра",
+   "at": "src/sim/interior.ts:120"
+  },
+  {
+   "key": "Полка с самоваром",
+   "at": "src/sim/interior.ts:121"
+  },
+  {
+   "key": "Ёлка с игрушками",
+   "at": "src/sim/interior.ts:122"
+  },
+  {
+   "key": "Гирлянда на окне",
+   "at": "src/sim/interior.ts:123"
+  },
+  {
+   "key": "Кот на подоконнике",
+   "at": "src/sim/interior.ts:124"
+  },
+  {
+   "key": "Стойка у окна с табуретами",
+   "at": "src/sim/interior.ts:126"
+  },
+  {
+   "key": "Фикусы в кадках",
+   "at": "src/sim/interior.ts:127"
+  },
+  {
+   "key": "Общий стол с лавками",
+   "at": "src/sim/interior.ts:128"
+  },
+  {
+   "key": "Два стола на четверых",
+   "at": "src/sim/interior.ts:129"
+  },
+  {
+   "key": "Кабинка с диванами",
+   "at": "src/sim/interior.ts:130"
+  },
+  {
+   "key": "Кулер с водой и цветы",
+   "at": "src/sim/interior.ts:131"
+  },
+  {
+   "key": "Пальма в кадке",
+   "at": "src/sim/interior.ts:132"
+  },
+  {
+   "key": "Вешалка у двери",
+   "at": "src/sim/interior.ts:133"
+  },
+  {
+   "key": "Полка с цветами",
+   "at": "src/sim/interior.ts:134"
+  },
+  {
+   "key": "Постер с едой",
+   "at": "src/sim/interior.ts:135"
+  },
+  {
+   "key": "Доска бизнес-ланча",
+   "at": "src/sim/interior.ts:136"
+  },
+  {
+   "key": "Телевизор с новостями",
+   "at": "src/sim/interior.ts:137"
+  },
+  {
    "key": "Стандарт",
-   "at": "src/sim/interior.ts:172"
+   "at": "src/sim/interior.ts:217"
   },
   {
    "key": "Два столика. Входит в открытие",
-   "at": "src/sim/interior.ts:173"
+   "at": "src/sim/interior.ts:218"
   },
   {
    "key": "Уют",
-   "at": "src/sim/interior.ts:178"
+   "at": "src/sim/interior.ts:223"
   },
   {
    "key": "Диван, картина, цветы и коврик",
-   "at": "src/sim/interior.ts:179"
+   "at": "src/sim/interior.ts:224"
   },
   {
    "key": "Комфорт",
-   "at": "src/sim/interior.ts:184"
+   "at": "src/sim/interior.ts:229"
   },
   {
    "key": "Больше мест, стойка с розетками для ноутбуков",
-   "at": "src/sim/interior.ts:185"
+   "at": "src/sim/interior.ts:230"
   },
   {
    "key": "Премиум",
-   "at": "src/sim/interior.ts:200"
+   "at": "src/sim/interior.ts:245"
   },
   {
    "key": "Полный зал: книжный шкаф, диван, стойка и все столы",
-   "at": "src/sim/interior.ts:201"
+   "at": "src/sim/interior.ts:246"
+  },
+  {
+   "key": "Два столика у раздачи. Входит в открытие",
+   "at": "src/sim/interior.ts:268"
+  },
+  {
+   "key": "Общий стол на шестерых, доска бизнес-ланча и кулер",
+   "at": "src/sim/interior.ts:274"
+  },
+  {
+   "key": "Стойка у окна, кабинка с диванами, вешалка и часы",
+   "at": "src/sim/interior.ts:280"
+  },
+  {
+   "key": "Полный зал: два стола на четверых, кабинка, телевизор и цветы",
+   "at": "src/sim/interior.ts:296"
   },
   {
    "key": "Банк",
@@ -5787,7 +5887,7 @@
   },
   {
    "key": "Нет позиции {0}",
-   "at": "src/sim/cafe.ts:681",
+   "at": "src/sim/cafe.ts:684",
    "why": "arg:Error"
   },
   {

@@ -34,7 +34,23 @@ export type FurnitureId =
   | 'samovar'
   | 'cat'
   | 'tree'
-  | 'garland';
+  | 'garland'
+  // Зал бистро
+  | 'stools'
+  | 'ficus'
+  | 'commune'
+  | 'pair4'
+  | 'booth'
+  | 'cooler'
+  | 'palm'
+  | 'coatstand'
+  | 'herbs'
+  | 'poster'
+  | 'menuboard'
+  | 'tv';
+
+/** Какой зал: у кафе — уютная кофейня, у бистро — обеденный зал с раздачей. Места, мебель и комплектации свои */
+export type HallKind = 'cafe' | 'bistro';
 
 /** Стиль зала (этап 2 зала): отделка и фирменные вещи одного стиля нравятся своей аудитории */
 export type StyleId = 'home' | 'loft' | 'scandi' | 'classic';
@@ -106,6 +122,19 @@ export const FURNITURE: Furniture[] = [
   { id: 'tree', name: L('Ёлка с\u00a0игрушками'), seats: 0, cozy: 2, cost: 4_000, likes: [] },
   { id: 'garland', name: L('Гирлянда на\u00a0окне'), seats: 0, cozy: 1, cost: 1_500, likes: [] },
   { id: 'cat', name: L('Кот на\u00a0подоконнике'), seats: 0, cozy: 1, cost: 4_000, likes: [], style: 'home' },
+  // Бистро: зал для обеда офисных — больше мест, уют скромнее
+  { id: 'stools', name: L('Стойка у\u00a0окна с\u00a0табуретами'), seats: 3, cozy: 0, cost: 3_000, likes: ['office', 'remote'] },
+  { id: 'ficus', name: L('Фикусы в\u00a0кадках'), seats: 0, cozy: 2, cost: 2_000, likes: [] },
+  { id: 'commune', name: L('Общий стол с\u00a0лавками'), seats: 6, cozy: 0, cost: 5_000, likes: ['office', 'student'] },
+  { id: 'pair4', name: L('Два стола на\u00a0четверых'), seats: 8, cozy: 0, cost: 6_500, likes: ['office'] },
+  { id: 'booth', name: L('Кабинка с\u00a0диванами'), seats: 4, cozy: 2, cost: 6_000, likes: ['pensioner', 'visitor'] },
+  { id: 'cooler', name: L('Кулер с\u00a0водой и\u00a0цветы'), seats: 0, cozy: 1, cost: 2_500, likes: ['office'] },
+  { id: 'palm', name: L('Пальма в\u00a0кадке'), seats: 0, cozy: 2, cost: 1_800, likes: [] },
+  { id: 'coatstand', name: L('Вешалка у\u00a0двери'), seats: 0, cozy: 1, cost: 1_200, likes: ['office', 'pensioner'] },
+  { id: 'herbs', name: L('Полка с\u00a0цветами'), seats: 0, cozy: 1, cost: 1_000, likes: [] },
+  { id: 'poster', name: L('Постер с\u00a0едой'), seats: 0, cozy: 1, cost: 800, likes: ['youth', 'student'] },
+  { id: 'menuboard', name: L('Доска бизнес-ланча'), seats: 0, cozy: 1, cost: 1_500, likes: ['office'] },
+  { id: 'tv', name: L('Телевизор с\u00a0новостями'), seats: 0, cozy: 1, cost: 4_000, likes: ['pensioner', 'shopkeeper'] },
 ];
 
 export const furniture = (id: FurnitureId): Furniture => FURNITURE.find((f) => f.id === id)!;
@@ -132,6 +161,22 @@ export const HALL_SLOTS: { id: string; accepts: FurnitureId[] }[] = [
   { id: 'tree', accepts: ['tree'] },
   { id: 'garland', accepts: ['garland'] },
 ];
+
+/** Места зала бистро: раздача и касса стоят всегда, остальное выбирает игрок */
+export const BISTRO_SLOTS: { id: string; accepts: FurnitureId[] }[] = [
+  { id: 'b-wall-l', accepts: ['herbs', 'poster'] },
+  { id: 'b-wall-c', accepts: ['clock'] },
+  { id: 'b-wall-r', accepts: ['menuboard', 'tv'] },
+  { id: 'b-corner', accepts: ['cooler', 'palm'] },
+  { id: 'b-window', accepts: ['stools', 'ficus'] },
+  { id: 'b-center', accepts: ['commune', 'pair4'] },
+  { id: 'b-side', accepts: ['booth', 'table4'] },
+  { id: 'b-door', accepts: ['coatstand', 'plant'] },
+  { id: 'b-front-1', accepts: ['table2'] },
+  { id: 'b-front-2', accepts: ['table2'] },
+];
+
+export const hallSlots = (kind: HallKind) => (kind === 'bistro' ? BISTRO_SLOTS : HALL_SLOTS);
 
 /** Места сезонного декора: их показываем и продаём только в сезон */
 export const SEASON_SLOTS = ['tree', 'garland'];
@@ -216,7 +261,56 @@ export const PRESETS: Preset[] = [
   },
 ];
 
-export const preset = (id: PresetId): Preset => PRESETS.find((p) => p.id === id)!;
+export const BISTRO_PRESETS: Preset[] = [
+  {
+    id: 'standard',
+    name: L('Стандарт'),
+    hint: L('Два столика у\u00a0раздачи. Входит в\u00a0открытие'),
+    layout: { 'b-front-1': 'table2', 'b-front-2': 'table2' },
+  },
+  {
+    id: 'cozy',
+    name: L('Обед'),
+    hint: L('Общий стол на\u00a0шестерых, доска бизнес-ланча и\u00a0кулер'),
+    layout: { 'b-front-1': 'table2', 'b-front-2': 'table2', 'b-center': 'commune', 'b-wall-r': 'menuboard', 'b-corner': 'cooler' },
+  },
+  {
+    id: 'comfort',
+    name: L('Комфорт'),
+    hint: L('Стойка у\u00a0окна, кабинка с\u00a0диванами, вешалка и\u00a0часы'),
+    layout: {
+      'b-front-1': 'table2',
+      'b-front-2': 'table2',
+      'b-center': 'commune',
+      'b-window': 'stools',
+      'b-side': 'booth',
+      'b-corner': 'cooler',
+      'b-door': 'coatstand',
+      'b-wall-r': 'menuboard',
+      'b-wall-c': 'clock',
+    },
+  },
+  {
+    id: 'premium',
+    name: L('Премиум'),
+    hint: L('Полный зал: два стола на\u00a0четверых, кабинка, телевизор и\u00a0цветы'),
+    layout: {
+      'b-front-1': 'table2',
+      'b-front-2': 'table2',
+      'b-center': 'pair4',
+      'b-window': 'stools',
+      'b-side': 'booth',
+      'b-corner': 'cooler',
+      'b-door': 'coatstand',
+      'b-wall-l': 'herbs',
+      'b-wall-c': 'clock',
+      'b-wall-r': 'tv',
+    },
+  },
+];
+
+export const presetsOf = (kind: HallKind): Preset[] => (kind === 'bistro' ? BISTRO_PRESETS : PRESETS);
+export const preset = (id: PresetId, kind: HallKind = 'cafe'): Preset => presetsOf(kind).find((p) => p.id === id)!;
 
 export const INTERIOR = {
   /** Какая доля цены возвращается при продаже */
@@ -254,12 +348,24 @@ export const INTERIOR = {
   partial: 0.4,
 } as const;
 
-export function canPlace(slotId: string, id: FurnitureId): boolean {
-  return !!HALL_SLOTS.find((s) => s.id === slotId)?.accepts.includes(id);
+export function canPlace(slotId: string, id: FurnitureId, kind: HallKind = 'cafe'): boolean {
+  return !!hallSlots(kind).find((s) => s.id === slotId)?.accepts.includes(id);
 }
 
 export class Interior {
   layout: Layout = {};
+
+  /** kindOf — какой это зал: решает помещение кафе */
+  constructor(private readonly kindOf: () => HallKind = () => 'cafe') {}
+
+  get kind(): HallKind {
+    return this.kindOf();
+  }
+
+  /** Есть ли у зала стиль (стены, пол, фирменные вещи): пока только у кафе */
+  get styled(): boolean {
+    return this.kind === 'cafe';
+  }
 
   get seats(): number {
     return this.items().reduce((sum, f) => sum + f.seats, 0);
@@ -276,6 +382,7 @@ export class Interior {
 
   /** Сколько элементов зала в этом стиле */
   styleCount(id: StyleId): number {
+    if (!this.styled) return 0;
     return STYLE_SLOTS.filter((slot) => {
       const f = this.layout[slot];
       return f && furniture(f).style === id;
@@ -329,9 +436,9 @@ export class Interior {
 
   /** Во что обойдётся комплектация: новое покупается, лишнее продаётся, совпавшее остаётся */
   presetCost(id: PresetId): number {
-    const target = preset(id).layout;
+    const target = preset(id, this.kind).layout;
     let cost = 0;
-    for (const { id: slot } of HALL_SLOTS) {
+    for (const { id: slot } of hallSlots(this.kind)) {
       if (KEEP_SLOTS.includes(slot)) continue;
       const now = this.layout[slot];
       const next = target[slot];
@@ -344,8 +451,8 @@ export class Interior {
 
   /** Совпадает ли зал с комплектацией */
   matches(id: PresetId): boolean {
-    const target = preset(id).layout;
-    return HALL_SLOTS.every(({ id: slot }) => KEEP_SLOTS.includes(slot) || (this.layout[slot] ?? null) === (target[slot] ?? null));
+    const target = preset(id, this.kind).layout;
+    return hallSlots(this.kind).every(({ id: slot }) => KEEP_SLOTS.includes(slot) || (this.layout[slot] ?? null) === (target[slot] ?? null));
   }
 
   /** Во что обойдётся довести зал до полного стиля: недостающее покупается, заменённое продаётся */
@@ -363,7 +470,7 @@ export class Interior {
   applyPreset(id: PresetId): void {
     const keep: Layout = {};
     for (const slot of KEEP_SLOTS) if (this.layout[slot]) keep[slot] = this.layout[slot];
-    this.load({ ...preset(id).layout, ...keep });
+    this.load({ ...preset(id, this.kind).layout, ...keep });
   }
 
   toJSON(): Layout {
@@ -372,8 +479,8 @@ export class Interior {
 
   load(layout: Layout | undefined): void {
     this.layout = {};
-    for (const [slot, id] of Object.entries(layout ?? {})) if (id && canPlace(slot, id)) this.layout[slot] = id;
+    for (const [slot, id] of Object.entries(layout ?? {})) if (id && canPlace(slot, id, this.kind)) this.layout[slot] = id;
     // Старые сохранения и комплектации без отделки: стены и пол «Как дома»
-    for (const [slot, id] of Object.entries(DEFAULT_FINISH)) if (!this.layout[slot]) this.layout[slot] = id;
+    if (this.styled) for (const [slot, id] of Object.entries(DEFAULT_FINISH)) if (!this.layout[slot]) this.layout[slot] = id;
   }
 }

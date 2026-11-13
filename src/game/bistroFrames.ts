@@ -1,0 +1,32 @@
+// Сгенерировано scripts/cut_bistro.py — не править руками
+export const BISTRO_ROOM = { w: 997, h: 590 };
+/** Кусочки зала бистро «место-вещь[-half|-full]»: x, y, w, h в пикселях комнаты */
+export const BISTRO_FRAMES: Record<string, [number, number, number, number]> = {
+  'b-center-commune': [291, 310, 308, 133],
+  'b-center-commune-full': [291, 236, 343, 279],
+  'b-center-commune-half': [291, 239, 308, 205],
+  'b-center-pair4': [231, 285, 395, 130],
+  'b-corner-cooler': [176, 175, 155, 154],
+  'b-corner-palm': [157, 136, 126, 193],
+  'b-door-coatstand': [819, 182, 138, 320],
+  'b-door-plant': [874, 303, 81, 205],
+  'b-front-1-table2': [196, 407, 194, 126],
+  'b-front-1-table2-full': [196, 375, 194, 158],
+  'b-front-1-table2-half': [196, 368, 194, 165],
+  'b-front-2-table2': [441, 407, 196, 126],
+  'b-front-2-table2-full': [441, 407, 196, 126],
+  'b-front-2-table2-half': [441, 407, 196, 126],
+  'b-side-booth': [682, 326, 203, 228],
+  'b-side-booth-full': [682, 315, 203, 239],
+  'b-side-booth-half': [682, 311, 203, 243],
+  'b-side-table4': [675, 308, 178, 165],
+  'b-wall-c-clock': [395, 42, 53, 54],
+  'b-wall-l-herbs': [186, 61, 151, 86],
+  'b-wall-l-poster': [272, 64, 77, 96],
+  'b-wall-r-menuboard': [517, 38, 254, 124],
+  'b-wall-r-tv': [566, 59, 134, 91],
+  'b-window-ficus': [51, 204, 147, 275],
+  'b-window-stools': [54, 208, 179, 261],
+  'b-window-stools-full': [54, 207, 179, 262],
+  'b-window-stools-half': [54, 193, 179, 275],
+};

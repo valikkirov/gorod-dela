@@ -445,7 +445,8 @@ export class Cafe {
   /** Купленное оборудование под категории меню */
   equipment: EquipmentId[] = [];
   /** Мебель и декор в зале */
-  readonly interior = new Interior();
+  /** Зал: у бистро свой — обеденный, с раздачей */
+  readonly interior = new Interior(() => (this.premisesId === 'bistro' ? 'bistro' : 'cafe'));
   /** Своё название; null — «Твоё кафе» / «Твой киоск» по помещению */
   customName: string | null = null;
   /** Пекарня: с какой минуты и на сколько дешевле своя выпечка вечером; null — не уценивать */
@@ -555,6 +556,8 @@ export class Cafe {
     if (d.interior === undefined && this.opened && this.premisesId === 'cafe') {
       this.interior.load(preset(this.upgrades.includes('interior') ? 'cozy' : 'standard').layout);
     }
+    // Сохранения до своего зала бистро: там стояла мебель кафе — ставим «Стандарт» бистро
+    if (this.opened && this.premisesId === 'bistro' && !this.interior.items().length) this.interior.load(preset('standard', 'bistro').layout);
     this.prepUntil = d.prepUntil ?? -1;
     this.customName = d.name ?? null;
     // Блюдо в меню и в списке своих — один объект: цена меняется в обоих местах

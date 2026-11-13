@@ -547,7 +547,7 @@ export class Simulation {
     this.cafe.premisesId = premisesId;
     this.cafe.opened = true;
     // Два столика входят в открытие кафе; у киоска зала нет
-    if (PREMISES[premisesId].seats) this.cafe.interior.load(preset('standard').layout);
+    if (PREMISES[premisesId].seats) this.cafe.interior.load(preset('standard', this.cafe.interior.kind).layout);
     for (const e of pr.equipped ?? []) if (!this.cafe.equipment.includes(e)) this.cafe.equipment.push(e);
     // Своё стартовое меню у помещения (бистро — с обедами)
     if (pr.starterMenu) {
@@ -2308,7 +2308,7 @@ export class Simulation {
 
   /** Поставить вещь на место; если там что-то стоит — оно продаётся */
   placeFurniture(slot: string, id: FurnitureId): boolean {
-    if (!this.hasHall || !canPlace(slot, id)) return false;
+    if (!this.hasHall || !canPlace(slot, id, this.cafe.interior.kind)) return false;
     // Новогодний декор продаётся только в сезон
     if (SEASON_SLOTS.includes(slot) && !this.holiday) return false;
     const before = this.cafe.interior.style;
@@ -2346,14 +2346,14 @@ export class Simulation {
     this.cash -= cost;
     this.cafe.interior.applyPreset(id);
     this.cafe.today.invested = (this.cafe.today.invested ?? 0) + cost;
-    this.note('hall', L('Зал'), undefined, tr`комплектация «${preset(id).name}»`);
+    this.note('hall', L('Зал'), undefined, tr`комплектация «${preset(id, this.cafe.interior.kind).name}»`);
     return true;
   }
 
   /** Собрать стиль целиком: стены, пол и обе фирменные вещи */
   applyStyle(id: StyleId): boolean {
     const hall = this.cafe.interior;
-    if (!this.hasHall || hall.styleCount(id) === STYLE_SLOTS.length) return false;
+    if (!this.hasHall || !hall.styled || hall.styleCount(id) === STYLE_SLOTS.length) return false;
     const cost = hall.styleCost(id);
     if (this.cash < cost) return false;
     const before = hall.style;
