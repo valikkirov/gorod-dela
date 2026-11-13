@@ -132,7 +132,8 @@ const hooksFor = (sim: Simulation, host?: StreetScene): SceneHooks => ({
   },
   getSpeed: () => hud.speed,
   onSelect: (r) => {
-    focus(sim);
+    // Снятие выбора (крестик, «К управлению кафе») приходит от обеих сцен — панель не переключаем
+    if (r) focus(sim);
     hud.select(r);
     if (r) drawer.open();
   },
