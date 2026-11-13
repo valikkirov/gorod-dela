@@ -67,7 +67,65 @@ def to_room(x: float, y: float) -> tuple[float, float]:
     return (x - CROP[0]) * k, (y - CROP[1]) * k
 
 
-def save_piece(pic: np.ndarray, alpha: np.ndarray, name: str) -> tuple[int, int, int, int] | None:
+MATTE = SRC / 'matte'
+MATTE_PAD = 12
+# Где кусок на исходнике (для вырезки фона в Magnific): имя → x0, y0, x1, y1
+# (берутся из boxes.json, если он есть: маски сделаны по этим кадрам)
+BOXES: dict[str, tuple[int, int, int, int]] = {}
+if (SRC / 'boxes.json').exists():
+    import json as _json
+    BOXES = {k: tuple(v) for k, v in _json.loads((SRC / 'boxes.json').read_text()).items()}
+
+
+def matted(name: str, alpha: np.ndarray) -> np.ndarray:
+    """Если для кусочка есть маска удаления фона (art-src/v2/bistro/matte/<имя>.png — кадр BOXES с полями
+    MATTE_PAD, любой масштаб), альфа — из неё, но только рядом с найденной вещью: соседей маска не добавит"""
+    f = MATTE / f'{name}.png'
+    box = BOXES.get(name)
+    if not f.exists() or not box:
+        return alpha
+    x0, y0, x1, y1 = box
+    m = Image.open(f).convert('RGBA').resize((x1 - x0, y1 - y0), Image.LANCZOS)
+    a = np.zeros_like(alpha)
+    a[y0:y1, x0:x1] = np.asarray(m)[..., 3] / 255.0
+    near = nd.binary_dilation(alpha > 0.3, iterations=8)
+    return a * near
+
+
+# Что вырезать из кусочка (в пикселях исходника) — чужое, что маска фона приняла за своё:
+# край лавки общего стола у передних столиков, спинки их стульев у общего стола, коврик у вешалки,
+# подвесная лампа перед полкой (она есть в пустом зале). Гостей это не трогает
+CARVE: dict[str, list[tuple[int, int, int, int]]] = {
+    'b-front-1-table2': [(360, 500, 714, 577), (362, 577, 396, 592), (676, 577, 714, 592)],
+    'b-front-2-table2': [(360, 500, 714, 577), (362, 577, 396, 592), (676, 577, 714, 592)],
+    'b-center-commune': [(450, 575, 478, 640), (528, 575, 558, 640)],
+    'b-door-coatstand': [(1036, 520, 1076, 640)],
+    'b-wall-l-herbs': [(278, 210, 331, 265), (296, 140, 307, 212)],
+}
+
+
+def carve(name: str, alpha: np.ndarray, keep: np.ndarray | None) -> np.ndarray:
+    rects = next((r for k, r in CARVE.items() if name == k or name.startswith(k + '-')), None)
+    if not rects:
+        return alpha
+    cut = np.zeros(alpha.shape, bool)
+    for x0, y0, x1, y1 in rects:
+        cut[y0:y1, x0:x1] = True
+    if keep is not None:
+        cut &= ~nd.binary_dilation(keep, iterations=2)
+    return np.where(cut, 0, alpha)
+
+
+def save_piece(pic: np.ndarray, alpha: np.ndarray, name: str, keep: np.ndarray | None = None, orig: np.ndarray | None = None) -> tuple[int, int, int, int] | None:
+    ys, xs = np.nonzero(alpha > 0.04)
+    if not len(ys):
+        return None
+    H, W = alpha.shape
+    BOXES.setdefault(name, (max(0, xs.min() - MATTE_PAD), max(0, ys.min() - MATTE_PAD), min(W, xs.max() + 1 + MATTE_PAD), min(H, ys.max() + 1 + MATTE_PAD)))
+    if (MATTE / f'{name}.png').exists() and orig is not None:
+        # Маска фона теней не держит: чёрная «тень» по краю стала бы рваной обводкой — берём родные цвета
+        pic = orig
+    alpha = carve(name, matted(name, alpha), keep)
     ys, xs = np.nonzero(alpha > 0.04)
     if not len(ys):
         return None
@@ -120,7 +178,7 @@ def cut(layout: str, picture: str, empty: np.ndarray, frames: dict, suffix: str 
         same = np.abs(blur(pic) - blur(empty)).sum(2) < 20
         alpha[nd.binary_opening(same, iterations=2)] = 0
         name = f'{slot}-{item}{suffix}'
-        fr = save_piece(col, alpha, name)
+        fr = save_piece(col, alpha, name, orig=pic)
         if fr:
             frames[name] = fr
             kept[slot] = (alpha, col)
@@ -153,7 +211,7 @@ def guests(base: dict, picture: str, furnished: np.ndarray, frames: dict, suffix
         alpha, col = base[slot]
         a = np.maximum(alpha, nd.gaussian_filter(mine.astype(np.float32), 0.7) * mine.max())
         c = np.where(mine[..., None], pic, col)
-        fr = save_piece(c, a, f'{slot}-{item}{suffix}')
+        fr = save_piece(c, a, f'{slot}-{item}{suffix}', mine, np.where(mine[..., None], pic, rgb('L1')))
         if fr:
             frames[f'{slot}-{item}{suffix}'] = fr
 
@@ -183,6 +241,8 @@ def main() -> None:
         '',
     ]
     (ROOT / 'src' / 'game' / 'bistroFrames.ts').write_text('\n'.join(lines))
+    import json
+    (SRC / 'boxes.json').write_text(json.dumps({k: [int(v) for v in b] for k, b in BOXES.items()}, indent=1))
     print(len(frames), 'кусочков')
 
 
