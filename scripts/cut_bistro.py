@@ -1,12 +1,12 @@
-"""Режет зал бистро на кусочки мебели — так же, как cut_hall.py для кафе: вещь — разница между картинкой
-с ней и пустой комнатой. Все картинки — правки одной пустой комнаты (Magnific, Nano Banana 2.1),
-поэтому кусочек ложится ровно на своё место.
+"""Зал бистро: кусочки мебели. Каждая вещь нарисована отдельно в Magnific (Nano Banana 2.1) правкой картинки
+зала: «оставь только эту вещь, всё остальное — сплошной пурпур #FF00FF». Вещь остаётся на своём месте, заслонённое
+дорисовано (полка за лампой, лавка за столиком, гости целиком), а фон снимается по цвету — без кусков старой
+стены и пола.
 
-Запуск из корня репозитория:  python3 scripts/cut_bistro.py
+Запуск из корня репозитория:  python3 scripts/cut_bistro.py  (потом pack_bistro_style.py)
 
-Исходники — art-src/v2/bistro: empty.png (пустой зал с раздачей и кассой), L1/L1h/L1f (обеденная
-раскладка: пусто, наполовину, полно гостей), L2 (другие вещи на тех же местах).
-Выход: src/game/art/bistro/*.webp и src/game/bistroFrames.ts.
+Исходники — art-src/v2/bistro: empty.png (пустой зал), L1/L1h/L1f/L2 (зал с мебелью — по ним выравниваем кусочки),
+iso/<имя>.png (вещи на пурпуре, см. PIECES). Выход: src/game/art/bistro/*.webp и src/game/bistroFrames.ts.
 """
 from pathlib import Path
 import numpy as np
@@ -15,47 +15,50 @@ from scipy import ndimage as nd
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'art-src' / 'v2' / 'bistro'
+ISO = SRC / 'iso'
 OUT = ROOT / 'src' / 'game' / 'art' / 'bistro'
 # Комната на картинке 1200×896 и размер, в котором её рисует игра (как у зала кафе)
 CROP = (15, 93, 1185, 785)
 ROOM_W, ROOM_H = 997, 590
-THRESHOLD = 34
+W, H = 1200, 896
 
-# Места: вещь и прямоугольники (в пикселях исходника). Порядок — кто забирает пиксель первым:
-# передние столы раньше центрального, иначе спинки их стульев достаются общему столу
-LAYOUTS = {
-    'L1': [
-        ('b-front-1', 'table2', [(245, 572, 472, 718)]),
-        ('b-front-2', 'table2', [(533, 572, 762, 718)]),
-        ('b-side', 'booth', [(812, 475, 1052, 742)]),
-        ('b-door', 'coatstand', [(976, 300, 1046, 452), (1048, 440, 1138, 682)]),
-        ('b-corner', 'cooler', [(290, 296, 402, 478), (222, 312, 292, 430)]),
-        ('b-window', 'stools', [(72, 336, 292, 648)]),
-        ('b-center', 'commune', [(356, 455, 718, 612)]),
-        ('b-wall-l', 'herbs', [(228, 160, 412, 268)]),
-        ('b-wall-c', 'clock', [(478, 140, 542, 206)]),
-        ('b-wall-r', 'menuboard', [(622, 138, 920, 282)]),
-    ],
-    'L2': [
-        ('b-front-1', None, [(245, 572, 472, 718)]),
-        ('b-front-2', None, [(533, 572, 762, 718)]),
-        ('b-side', 'table4', [(806, 450, 1015, 650)]),
-        ('b-door', 'plant', [(1042, 445, 1140, 690)]),
-        ('b-corner', 'palm', [(200, 250, 350, 478)]),
-        ('b-window', 'ficus', [(72, 326, 248, 655)]),
-        ('b-center', 'pair4', [(286, 425, 752, 592)]),
-        ('b-wall-l', 'poster', [(332, 162, 424, 282)]),
-        ('b-wall-r', 'tv', [(676, 156, 838, 268)]),
-    ],
+# Кусочек: картинка на пурпуре, зал, по которому выравниваем, и где он лежит (по середине пятна, пиксели исходника)
+PIECES: dict[str, tuple[str, str, tuple[int, int, int, int]]] = {
+    'b-front-1-table2': ('front1', 'L1', (230, 540, 490, 745)),
+    'b-front-2-table2': ('front2', 'L1', (515, 540, 780, 745)),
+    'b-side-booth': ('booth', 'L1', (790, 440, 1070, 760)),
+    'b-door-coatstand': ('coats', 'L1', (950, 270, 1160, 710)),
+    'b-corner-cooler': ('cooler', 'L1', (200, 280, 420, 490)),
+    'b-window-stools': ('stools', 'L1', (50, 290, 310, 670)),
+    'b-center-commune': ('commune', 'L1', (340, 430, 730, 610)),
+    'b-wall-l-herbs': ('shelf', 'L1', (210, 140, 430, 290)),
+    'b-wall-c-clock': ('clockmenu', 'L1', (460, 120, 560, 220)),
+    'b-wall-r-menuboard': ('clockmenu', 'L1', (590, 120, 940, 300)),
+    'b-front-1-table2-half': ('front1-half', 'L1h', (230, 470, 490, 745)),
+    'b-front-2-table2-half': ('front2', 'L1', (515, 540, 780, 745)),
+    'b-side-booth-half': ('booth-half', 'L1h', (790, 400, 1070, 760)),
+    'b-window-stools-half': ('stools-half', 'L1h', (50, 260, 310, 670)),
+    'b-center-commune-half': ('commune-half', 'L1h', (340, 380, 730, 640)),
+    'b-front-1-table2-full': ('front1-full', 'L1f', (230, 470, 490, 745)),
+    'b-front-2-table2-full': ('front1-full', 'L1f', (515, 470, 780, 745)),
+    'b-side-booth-full': ('booth-full', 'L1f', (790, 400, 1070, 760)),
+    'b-window-stools-full': ('stools-full2', 'L1f', (50, 260, 310, 670)),
+    'b-center-commune-full': ('commune-full', 'L1f', (340, 380, 730, 640)),
+    'b-side-table4': ('table4plant', 'L2', (790, 420, 1030, 670)),
+    'b-door-plant': ('table4plant', 'L2', (1030, 420, 1160, 710)),
+    'b-corner-palm': ('palm', 'L2', (200, 200, 400, 500)),
+    'b-window-ficus': ('ficuspalm', 'L2', (40, 300, 240, 680)),
+    'b-center-pair4': ('pair4', 'L2', (270, 400, 770, 600)),
+    'b-wall-l-poster': ('postertv', 'L2', (310, 140, 440, 300)),
+    'b-wall-r-tv': ('postertv', 'L2', (650, 140, 860, 290)),
 }
-# Картинки с гостями: те же места, гостей ищем чуть выше (головы над спинками)
-STATES = {'half': 'L1h', 'full': 'L1f'}
-SEATED = {'table2', 'stools', 'commune', 'booth'}
-HEAD = 70
+# Вещи, нарисованные вместе с соседом: его пиксели (там, где виден именно он) вычитаем
+MINUS = {'b-window-ficus': 'palm'}
+MAGENTA = np.array([255, 0, 255], np.float32)
 
 
 def rgb(name: str) -> np.ndarray:
-    return np.asarray(Image.open(SRC / f'{name}.png').convert('RGB').resize((1200, 896))).astype(np.float32)
+    return np.asarray(Image.open(SRC / f'{name}.png').convert('RGB').resize((W, H))).astype(np.float32)
 
 
 def blur(a: np.ndarray) -> np.ndarray:
@@ -67,191 +70,105 @@ def to_room(x: float, y: float) -> tuple[float, float]:
     return (x - CROP[0]) * k, (y - CROP[1]) * k
 
 
-MATTE = SRC / 'matte'
-EMPTY = np.zeros((896, 1200, 3), np.float32)
-MATTE_PAD = 12
-# Где кусок на исходнике (для вырезки фона в Magnific): имя → x0, y0, x1, y1
-# (берутся из boxes.json, если он есть: маски сделаны по этим кадрам)
-BOXES: dict[str, tuple[int, int, int, int]] = {}
-if (SRC / 'boxes.json').exists():
-    import json as _json
-    BOXES = {k: tuple(v) for k, v in _json.loads((SRC / 'boxes.json').read_text()).items()}
+def key(name: str) -> tuple[np.ndarray, np.ndarray]:
+    """Цвет и альфа вещи с пурпурной картинки"""
+    a = np.asarray(Image.open(ISO / f'{name}.png').convert('RGB').resize((W, H), Image.LANCZOS)).astype(np.float32)
+    R, G, B = a[..., 0], a[..., 1], a[..., 2]
+    # Насколько пиксель пурпурный: красный и синий выше зелёного
+    m = np.clip((np.minimum(R, B) - G - 30) / 110, 0, 1)
+    alpha = 1 - m
+    # Снять пурпур с полупрозрачного края, а с тёмной обводки — пурпурный оттенок
+    aa = np.clip(alpha, 0.05, 1)[..., None]
+    col = np.clip((a - (1 - aa) * MAGENTA) / aa, 0, 255)
+    col = np.where(alpha[..., None] > 0.98, a, col)
+    edge = nd.binary_dilation(alpha < 0.98, iterations=4)
+    spill = np.clip(np.minimum(col[..., 0], col[..., 2]) - col[..., 1], 0, None)
+    col[..., 0] -= spill * edge
+    col[..., 2] -= spill * edge
+    return col, alpha
 
 
-def matted(name: str, alpha: np.ndarray) -> np.ndarray:
-    """Если для кусочка есть маска удаления фона (art-src/v2/bistro/matte/<имя>.png — кадр BOXES с полями
-    MATTE_PAD, любой масштаб), альфа — из неё, но только рядом с найденной вещью: соседей маска не добавит"""
-    f = MATTE / f'{name}.png'
-    box = BOXES.get(name)
-    if not f.exists() or not box:
-        return alpha
+def pick(alpha: np.ndarray, box: tuple[int, int, int, int]) -> np.ndarray:
+    """Пятна, чья середина в box; крошки и бледные следы (контуры, что модель оставила на пурпуре) — прочь"""
+    fg = alpha > 0.6
+    lab, n = nd.label(fg)
+    if not n:
+        return np.zeros_like(alpha)
+    idx = range(1, n + 1)
+    sizes = nd.sum(fg, lab, idx)
+    centers = nd.center_of_mass(fg, lab, idx)
     x0, y0, x1, y1 = box
-    m = Image.open(f).convert('RGBA').resize((x1 - x0, y1 - y0), Image.LANCZOS)
-    a = np.zeros_like(alpha)
-    a[y0:y1, x0:x1] = np.asarray(m)[..., 3] / 255.0
-    near = nd.binary_dilation(alpha > 0.3, iterations=8)
-    return a * near
+    keep = [i for i, s, (cy, cx) in zip(idx, sizes, centers) if s >= 40 and x0 <= cx < x1 and y0 <= cy < y1]
+    ok = nd.binary_dilation(np.isin(lab, keep), iterations=2)
+    return alpha * ok
 
 
-# Что вырезать из кусочка (в пикселях исходника) — чужое, что маска фона приняла за своё:
-# край лавки общего стола у передних столиков, спинки их стульев у общего стола, коврик у вешалки,
-# Гостей это не трогает
-CARVE: dict[str, list[tuple[int, int, int, int]]] = {
-    'b-front-1-table2': [(360, 500, 714, 577), (362, 577, 396, 592), (676, 577, 714, 592)],
-    'b-front-2-table2': [(360, 500, 714, 577), (362, 577, 396, 592), (676, 577, 714, 592)],
-    'b-center-commune': [(450, 575, 478, 640), (528, 575, 558, 640)],
-    'b-door-coatstand': [(1036, 520, 1076, 640)],
-}
+def align(col: np.ndarray, alpha: np.ndarray, ref: np.ndarray) -> tuple[int, int]:
+    """Сдвиг (dx, dy), при котором вещь лучше всего ложится на свой зал"""
+    ys, xs = np.nonzero(alpha > 0.9)
+    if len(ys) < 50:
+        return 0, 0
+    sel = np.random.default_rng(1).choice(len(ys), min(4000, len(ys)), replace=False)
+    ys, xs = ys[sel], xs[sel]
+    best, arg = None, (0, 0)
+    g = col.mean(2)
+    r = ref.mean(2)
+    for dy in range(-8, 9):
+        for dx in range(-8, 9):
+            yy, xx = np.clip(ys + dy, 0, H - 1), np.clip(xs + dx, 0, W - 1)
+            e = np.abs(g[ys, xs] - r[yy, xx]).mean()
+            if best is None or e < best:
+                best, arg = e, (dx, dy)
+    return arg
 
 
-def carve(name: str, alpha: np.ndarray, keep: np.ndarray | None) -> np.ndarray:
-    rects = next((r for k, r in CARVE.items() if name == k or name.startswith(k + '-')), None)
-    if not rects:
-        return alpha
-    cut = np.zeros(alpha.shape, bool)
-    for x0, y0, x1, y1 in rects:
-        cut[y0:y1, x0:x1] = True
-    if keep is not None:
-        cut &= ~nd.binary_dilation(keep, iterations=2)
-    return np.where(cut, 0, alpha)
-
-
-def save_piece(pic: np.ndarray, alpha: np.ndarray, name: str, keep: np.ndarray | None = None, orig: np.ndarray | None = None) -> tuple[int, int, int, int] | None:
-    ys, xs = np.nonzero(alpha > 0.04)
-    if not len(ys):
-        return None
-    H, W = alpha.shape
-    BOXES.setdefault(name, (max(0, xs.min() - MATTE_PAD), max(0, ys.min() - MATTE_PAD), min(W, xs.max() + 1 + MATTE_PAD), min(H, ys.max() + 1 + MATTE_PAD)))
-    if (MATTE / f'{name}.png').exists() and orig is not None:
-        # Маска фона теней не держит: чёрная «тень» по краю стала бы рваной обводкой — берём родные цвета
-        pic = orig
-    has_matte = (MATTE / f'{name}.png').exists()
-    alpha = carve(name, matted(name, alpha), keep)
-    if has_matte:
-        # Маска фона держит и кусок стены или пола рядом с вещью — там, где картинка не отличается от пустого
-        # зала, прозрачно (лампа перед полкой, стена вокруг часов и вешалки, пол у столиков)
-        e, p = blur(EMPTY) + 1, blur(pic) + 1
-        ratio = p.sum(2) / e.sum(2)
-        # Тот же фон или он же в тени вещи (те же цвета, только темнее)
-        shaded = (np.abs(p - e * ratio[..., None]).max(2) < 9) & (ratio > 0.4) & (ratio < 1.08)
-        # …тень — только у края вещи: белый кулер на белой плитке или салфетница — не тень
-        shaded &= ~nd.binary_erosion(alpha > 0.9, iterations=8)
-        same = nd.binary_opening((np.abs(p - e).sum(2) < 20) | shaded, iterations=2)
-        if keep is not None:
-            same &= ~nd.binary_dilation(keep, iterations=2)
-        alpha = np.where(same, 0, alpha)
-        # Крошки
-        lab, n = nd.label(alpha > 0.1)
-        if n > 1:
-            sizes = nd.sum(alpha > 0.1, lab, range(1, n + 1))
-            alpha = np.where(np.isin(lab, np.nonzero(sizes < 60)[0] + 1), 0, alpha)
-    ys, xs = np.nonzero(alpha > 0.04)
-    if not len(ys):
-        return None
-    x0, x1, y0, y1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
-    rgba = np.dstack([pic, alpha * 255]).clip(0, 255).astype(np.uint8)[y0:y1, x0:x1]
-    im = Image.fromarray(rgba)
-    k = ROOM_W / (CROP[2] - CROP[0])
-    w, h = max(1, round((x1 - x0) * k)), max(1, round((y1 - y0) * k))
-    im.resize((w, h), Image.LANCZOS).save(OUT / f'{name}.webp', quality=92, alpha_quality=100)
-    rx, ry = to_room(x0, y0)
-    return round(rx), round(ry), w, h
-
-
-def cut(layout: str, picture: str, empty: np.ndarray, frames: dict, suffix: str = '', only_seated: bool = False) -> dict:
-    kept: dict[str, tuple[np.ndarray, np.ndarray]] = {}
-    pic = rgb(picture)
-    diff = np.abs(blur(pic) - blur(empty)).sum(2)
-    strong = diff > THRESHOLD
-    taken = np.zeros(strong.shape, bool)
-    for slot, item, rects in LAYOUTS[layout]:
-        area = np.zeros(strong.shape, bool)
-        for x0, y0, x1, y1 in rects:
-            top = y0 - (HEAD if suffix and item in SEATED else 0)
-            area[max(0, top):y1, x0:x1] = True
-        mine = strong & area & ~taken
-        taken |= mine
-        if item is None or (only_seated and item not in SEATED):
-            continue
-        # Крупные части и всё, что внутри них; крошки шума — прочь
-        mask = nd.binary_closing(mine, iterations=3)
-        mask = nd.binary_fill_holes(mask) & area
-        lab, n = nd.label(mask)
-        if n > 1:
-            sizes = nd.sum(mask, lab, range(1, n + 1))
-            mask = np.isin(lab, np.nonzero(sizes >= max(80, sizes.max() * 0.04))[0] + 1)
-        # Края мягкие: тень на полу — полупрозрачная по силе разницы
-        soft = np.clip((diff - 12) / 60, 0, 1) * nd.binary_dilation(mask, iterations=3) * area
-        alpha = np.maximum(mask.astype(np.float32), soft)
-        alpha = np.maximum(alpha, nd.gaussian_filter(mask.astype(np.float32), 0.8) * mask.max())
-        # Тень на полу — тот же пол, только темнее: делаем её чёрной полупрозрачной
-        e, p = blur(empty) + 1, blur(pic) + 1
-        ratio = p.sum(2) / e.sum(2)
-        resid = np.abs(p - e * ratio[..., None]).max(2)
-        shade = (resid < 10) & (ratio < 0.98) & (ratio > 0.45) & (alpha > 0) & ~nd.binary_erosion(mask, iterations=4)
-        col = pic.copy()
-        col[shade] = 0
-        alpha[shade] = np.minimum(alpha[shade], np.clip((1 - ratio[shade]) * 1.3, 0, 1))
-        # Пол и стена пустой комнаты внутри вещи (между ножками, под лавкой) — прозрачные: при другой отделке
-        # там видна новая, а не старая плитка
-        same = np.abs(blur(pic) - blur(empty)).sum(2) < 20
-        alpha[nd.binary_opening(same, iterations=2)] = 0
-        name = f'{slot}-{item}{suffix}'
-        fr = save_piece(col, alpha, name, orig=pic)
-        if fr:
-            frames[name] = fr
-            kept[slot] = (alpha, col)
-    return kept
-
-
-def guests(base: dict, picture: str, furnished: np.ndarray, frames: dict, suffix: str) -> None:
-    """Гости — разница между залом с гостями и тем же залом без них. Каждого гостя (связный кусок)
-    отдаём месту, в чьём прямоугольнике его середина: так гость на ближней лавке общего стола
-    не достаётся переднему столику, хотя заходит на его стулья"""
-    pic = rgb(picture)
-    g = np.abs(blur(pic) - blur(furnished)).sum(2) > THRESHOLD + 10
-    g = nd.binary_opening(nd.binary_closing(g, iterations=2), iterations=1)
-    lab, n = nd.label(g)
-    owner: dict[int, str] = {}
-    centers = nd.center_of_mass(g, lab, range(1, n + 1))
-    sizes = nd.sum(g, lab, range(1, n + 1))
-    for i, ((cy, cx), size) in enumerate(zip(centers, sizes), start=1):
-        if size < 150:
-            continue
-        for slot, item, rects in LAYOUTS['L1']:
-            if item in SEATED and any(x0 <= cx < x1 and y0 - 20 <= cy < y1 for x0, y0, x1, y1 in rects):
-                owner[i] = slot
-                break
-    for slot, item, _ in LAYOUTS['L1']:
-        if item not in SEATED or slot not in base:
-            continue
-        mine = np.isin(lab, [i for i, o in owner.items() if o == slot])
-        mine = nd.binary_fill_holes(mine)
-        alpha, col = base[slot]
-        a = np.maximum(alpha, nd.gaussian_filter(mine.astype(np.float32), 0.7) * mine.max())
-        c = np.where(mine[..., None], pic, col)
-        fr = save_piece(c, a, f'{slot}-{item}{suffix}', mine, pic)
-        if fr:
-            frames[f'{slot}-{item}{suffix}'] = fr
+def shift(a: np.ndarray, dx: int, dy: int) -> np.ndarray:
+    return nd.shift(a, (dy, dx) + (0,) * (a.ndim - 2), order=0, mode='constant')
 
 
 def main() -> None:
-    global EMPTY
-    EMPTY = rgb('empty')
     OUT.mkdir(parents=True, exist_ok=True)
-    for f in OUT.glob('*.webp'):
+    for f in OUT.glob('b-*.webp'):
         f.unlink()
     empty = rgb('empty')
     room = Image.fromarray(empty.astype(np.uint8)).crop(CROP).resize((ROOM_W, ROOM_H), Image.LANCZOS)
     room.save(OUT / 'room.webp', quality=90)
+    # Лампы висят перед стеной: на вещах на стене их место прозрачное, лампа из зала видна поверх
+    _, lamps = key('lamps')
+    lamps = nd.binary_dilation(lamps > 0.5, iterations=1)
+    refs: dict[str, np.ndarray] = {}
+    keyed: dict[str, tuple[np.ndarray, np.ndarray]] = {}
     frames: dict[str, tuple[int, int, int, int]] = {}
-    base = {}
-    for layout in LAYOUTS:
-        got = cut(layout, layout, empty, frames)
-        if layout == 'L1':
-            base = got
-    for state, picture in STATES.items():
-        guests(base, picture, rgb('L1'), frames, f'-{state}')
+    k = ROOM_W / (CROP[2] - CROP[0])
+    for name, (iso, ref, box) in PIECES.items():
+        if not (ISO / f'{iso}.png').exists():
+            print('нет', iso)
+            continue
+        if iso not in keyed:
+            keyed[iso] = key(iso)
+        if ref not in refs:
+            refs[ref] = rgb(ref)
+        col, alpha = keyed[iso]
+        if name in MINUS and (ISO / f'{MINUS[name]}.png').exists():
+            oc, oa = key(MINUS[name])
+            theirs = (oa > 0.5) & (np.abs(oc - col).sum(2) < 60)
+            alpha = np.where(nd.binary_opening(theirs, iterations=1), 0, alpha)
+        alpha = pick(alpha, box)
+        dx, dy = align(col, alpha, refs[ref])
+        col, alpha = shift(col, dx, dy), shift(alpha, dx, dy)
+        if name.startswith('b-wall'):
+            alpha = np.where(lamps, 0, alpha)
+        ys, xs = np.nonzero(alpha > 0.04)
+        if not len(ys):
+            print('пусто', name)
+            continue
+        x0, x1, y0, y1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
+        rgba = np.dstack([col, alpha * 255]).clip(0, 255).astype(np.uint8)[y0:y1, x0:x1]
+        w, h = max(1, round((x1 - x0) * k)), max(1, round((y1 - y0) * k))
+        Image.fromarray(rgba).resize((w, h), Image.LANCZOS).save(OUT / f'{name}.webp', quality=92, alpha_quality=100)
+        rx, ry = to_room(x0, y0)
+        frames[name] = (round(rx), round(ry), w, h)
+        print(f'{name}: сдвиг {dx},{dy}')
     lines = [
         '// Сгенерировано scripts/cut_bistro.py — не править руками',
         f'export const BISTRO_ROOM = {{ w: {ROOM_W}, h: {ROOM_H} }};',
@@ -262,8 +179,6 @@ def main() -> None:
         '',
     ]
     (ROOT / 'src' / 'game' / 'bistroFrames.ts').write_text('\n'.join(lines))
-    import json
-    (SRC / 'boxes.json').write_text(json.dumps({k: [int(v) for v in b] for k, b in BOXES.items()}, indent=1))
     print(len(frames), 'кусочков')
 
 
