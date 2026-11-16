@@ -1,0 +1,8 @@
+{
+  "telegram": {
+    "chat": null,
+    "threads": { "default": null, "news": null },
+    "testThread": "default"
+  },
+  "vk": { "group": "gorod_dela" }
+}

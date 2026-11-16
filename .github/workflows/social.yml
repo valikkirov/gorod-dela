@@ -1,0 +1,46 @@
+name: Автопостинг
+
+# Раз в день публикует настающие посты из social/queue в Telegram и ВКонтакте (scripts/social/publish.mjs).
+# Ключи — секреты TG_BOT_TOKEN и VK_TOKEN. Что вышло — social/published.json, коммитится с [skip ci].
+on:
+  schedule:
+    - cron: '12 7 * * *' # 10:12 по Москве
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Режим: dry-run, check, chats, test-tg, publish'
+        default: dry-run
+        type: choice
+        options: [dry-run, check, chats, test-tg, publish]
+
+concurrency:
+  group: social
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Публикация
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          VK_TOKEN: ${{ secrets.VK_TOKEN }}
+        run: node scripts/social/publish.mjs ${{ inputs.mode || 'publish' }}
+      - name: Запомнить, что вышло
+        if: always()
+        run: |
+          if [ -n "$(git status --porcelain social/published.json)" ]; then
+            git config user.name 'gorod-dela-bot'
+            git config user.email 'actions@users.noreply.github.com'
+            git add social/published.json
+            git commit -m 'Автопостинг: опубликовано [skip ci]'
+            git push
+          fi
