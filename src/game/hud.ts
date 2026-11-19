@@ -53,6 +53,8 @@ import { BAKERY, type Simulation } from '../sim/simulation';
 import { DISTRICTS, type DistrictId, type Place } from '../sim/world';
 import { UNLOCK, type City } from '../sim/city';
 import { clearSave, exportSave, importSave } from './save';
+import { accountName, accountsOn, loginWithTelegram, logout, siteLoginOn } from './account';
+import { isTelegram } from './telegram';
 import { openFeedback } from './feedback';
 import { IS_PORTAL, PLATFORM } from './platform';
 
@@ -1042,6 +1044,13 @@ export class Hud {
         goal('save-export', { day: sim.today });
         exportSave(this.city);
         return;
+      case 'account-login':
+        goal('account-login', { day: sim.today });
+        loginWithTelegram();
+        return;
+      case 'account-logout':
+        logout();
+        break;
     }
     this.render(true);
   }
@@ -2362,13 +2371,26 @@ export class Hud {
            <button class="link" data-action="restart-ask">Начать заново</button>
          </div>
          <div class="links"><a class="link boosty" href="${BOOSTY_URL}" target="_blank" rel="noopener">❤️ Поддержать игру на\u00a0Boosty</a></div>
-         ${this.challenge ? '' : this.transferBlock()}
+         ${this.challenge ? '' : this.accountBlock() + this.transferBlock()}
          ${
            this.challenge
              ? tr`<div class="links">${savedResult() ? tr`<button class="link" data-action="challenge-result">Мой итог испытания</button>` : ''}<button class="link" data-action="normal-game">К обычной игре</button></div>`
              : `<div class="links"><button class="link" data-action="challenge">🏆 ${CHALLENGE.title}</button></div>`
          }
-         <small class="saved">Игра сохраняется автоматически в этом браузере</small>`;
+         <small class="saved">${accountName() ? tr`Игра сохраняется в этом браузере и в облаке` : tr`Игра сохраняется автоматически в этом браузере`}</small>`;
+  }
+
+  /** Облачное сохранение: вошёл — где хранится и выйти; нет — войти через Telegram (в Mini App вход сам) */
+  private accountBlock(): string {
+    if (IS_PORTAL || !accountsOn()) return '';
+    const name = accountName();
+    if (name) {
+      return tr`<div class="links"><span class="account">☁️ В облаке: ${escapeHtml(name)}</span>${
+        isTelegram() ? '' : tr`<button class="link" data-action="account-logout">Выйти</button>`
+      }</div>`;
+    }
+    if (!siteLoginOn() || isTelegram()) return '';
+    return tr`<div class="links"><button class="link" data-action="account-login">☁️ Войти через Telegram — игра не потеряется</button></div>`;
   }
 
   /** Перенос игры файлом: на другой телефон или компьютер, на новый адрес игры. В испытании не нужен */

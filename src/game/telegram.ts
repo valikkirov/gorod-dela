@@ -26,6 +26,10 @@ const launchedInTelegram =
 
 export const isTelegram = (): boolean => launchedInTelegram;
 
+/** Данные запуска Mini App (подписаны Telegram) — для входа в аккаунт без кнопок */
+const initData = typeof location !== 'undefined' ? new URLSearchParams(location.hash.slice(1)).get('tgWebAppData') : null;
+export const telegramInitData = (): string | null => initData;
+
 const webApp = (): TgWebApp | undefined => window.Telegram?.WebApp;
 
 /** Подключить Telegram: развернуть на весь экран, убрать «смахнуть вниз — закрыть» (мешает тянуть карту), цвета шапки */

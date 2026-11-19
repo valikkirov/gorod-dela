@@ -1486,5 +1486,11 @@ export const EN: Record<string, string> = {
  "Индустриальный": "Industrial",
  "Офисный минимализм": "Office minimalism",
  "Ретро-закусочная": "Retro diner",
- "<div class=\"hall-board bistro\" style=\"{0}\" aria-label=\"Меню на доске\">{1}<ul>{2}</ul></div>": "<div class=\"hall-board bistro\" style=\"{0}\" aria-label=\"Menu board\">{1}<ul>{2}</ul></div>"
+ "<div class=\"hall-board bistro\" style=\"{0}\" aria-label=\"Меню на доске\">{1}<ul>{2}</ul></div>": "<div class=\"hall-board bistro\" style=\"{0}\" aria-label=\"Menu board\">{1}<ul>{2}</ul></div>",
+ "<div class=\"links\">\n           <button class=\"link\" data-action=\"feedback\">Предложить идею</button>\n           <button class=\"link\" data-action=\"tutorial\">Как играть</button>\n           <button class=\"link\" data-action=\"restart-ask\">Начать заново</button>\n         </div>\n         <div class=\"links\"><a class=\"link boosty\" href=\"{0}\" target=\"_blank\" rel=\"noopener\">❤️ Поддержать игру на Boosty</a></div>\n         {1}\n         {2}\n         <small class=\"saved\">{3}</small>": "<div class=\"links\">\n           <button class=\"link\" data-action=\"feedback\">Suggest an idea</button>\n           <button class=\"link\" data-action=\"tutorial\">How to play</button>\n           <button class=\"link\" data-action=\"restart-ask\">Start over</button>\n         </div>\n         <div class=\"links\"><a class=\"link boosty\" href=\"{0}\" target=\"_blank\" rel=\"noopener\">❤️ Support the game on Boosty</a></div>\n         {1}\n         {2}\n         <small class=\"saved\">{3}</small>",
+ "<button class=\"link\" data-action=\"account-logout\">Выйти</button>": "<button class=\"link\" data-action=\"account-logout\">Log out</button>",
+ "Игра сохраняется в этом браузере и в облаке": "The game is saved in this browser and in the cloud",
+ "Игра сохраняется автоматически в этом браузере": "The game saves automatically in this browser",
+ "<div class=\"links\"><span class=\"account\">☁️ В облаке: {0}</span>{1}</div>": "<div class=\"links\"><span class=\"account\">☁️ In the cloud: {0}</span>{1}</div>",
+ "<div class=\"links\"><button class=\"link\" data-action=\"account-login\">☁️ Войти через Telegram — игра не потеряется</button></div>": "<div class=\"links\"><button class=\"link\" data-action=\"account-login\">☁️ Log in with Telegram so your game is never lost</button></div>"
 };

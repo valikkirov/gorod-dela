@@ -5,6 +5,7 @@
 //   ВКонтакте (VK Bridge): dev.vk.ru/ru/mini-apps/getting-started
 //   CrazyGames (SDK v3): docs.crazygames.com/requirements/technical
 import { compressToBase64, decompressFromBase64 } from 'lz-string';
+import { accountCloud, initAccount, isFreshLogin } from './account';
 
 export type Platform = 'web' | 'yandex' | 'vk' | 'crazygames';
 export const PLATFORM = (import.meta.env.VITE_PLATFORM ?? 'web') as Platform;
@@ -42,8 +43,8 @@ declare global {
 
 /** Общий вид облака площадки: прочитать и записать сохранение */
 interface Cloud {
-  read(): Promise<{ save?: unknown; savedAt?: unknown }>;
-  write(save: string | null, savedAt: number, urgent: boolean): void;
+  read(): Promise<{ save?: unknown; savedAt?: unknown; day?: unknown }>;
+  write(save: string | null, savedAt: number, urgent: boolean, day?: number): void;
 }
 
 let ya: YaSdk | null = null;
@@ -56,6 +57,8 @@ let onResume: (() => void) | null = null;
 
 /** Местная метка времени последнего сохранения — чтобы выбрать, что новее: облако или браузер */
 const STAMP = 'gorod-dela:savedAt';
+/** День игры в последнем местном сохранении: при первом входе в аккаунт сравниваем, где игра дальше */
+const STAMP_DAY = 'gorod-dela:savedDay';
 const CG_SAVE = 'gorod-dela:save';
 const CG_AT = 'gorod-dela:savedAt';
 
@@ -123,7 +126,26 @@ async function initVk(): Promise<void> {
  * (если оно новее, чем в этом браузере). Ошибки SDK игру не ломают: она идёт с местным сохранением.
  */
 export async function initPlatform(): Promise<void> {
-  if (PLATFORM === 'web') return;
+  if (PLATFORM === 'web') {
+    // Сайт: облако — если игрок вошёл через Telegram (в Mini App — сам)
+    try {
+      if (!(await Promise.race([initAccount(), new Promise<boolean>((r) => setTimeout(() => r(false), 6000))]))) return;
+      cloud = accountCloud;
+      const data = await cloud.read();
+      if (typeof data.save !== 'string') {
+        lastCloud = 0;
+        return;
+      }
+      const localDay = Number(localStorage.getItem(STAMP_DAY) ?? 0);
+      const hasLocal = !!localStorage.getItem(STAMP);
+      // Только вошёл: в браузере может быть другая игра. Берём ту, где больше дней; облачная копия прошлого остаётся на сервере
+      const takeCloud = isFreshLogin() && hasLocal ? Number(data.day ?? 0) >= localDay : Number(data.savedAt ?? 0) > stamp();
+      if (takeCloud) cloudSave = decompressFromBase64(data.save) || null;
+    } catch {
+      /* сервер недоступен — играем с местным сохранением */
+    }
+    return;
+  }
   try {
     // SDK может не ответить (игра открыта вне площадки) — ждём не дольше 6 секунд и играем без него
     const init = PLATFORM === 'yandex' ? initYandex() : PLATFORM === 'crazygames' ? initCrazyGames() : initVk();
@@ -147,17 +169,18 @@ export function takeCloudSave(): string | null {
 let lastCloud = 0;
 
 /** Записали игру в браузер: отметить время и раз в минуту (и при сворачивании) — в облако */
-export function savedLocally(json: string, urgent = false): void {
+export function savedLocally(json: string, urgent = false, day = 0): void {
   const now = Date.now();
   try {
     localStorage.setItem(STAMP, String(now));
+    localStorage.setItem(STAMP_DAY, String(day));
   } catch {
     /* без хранилища — только облако */
   }
   if (!cloud || (!urgent && now - lastCloud < 60_000)) return;
   lastCloud = now;
   // Лимит Яндекса — 200 КБ на игрока: сжатое сохранение в 5–10 раз меньше
-  cloud.write(compressToBase64(json), now, urgent);
+  cloud.write(compressToBase64(json), now, urgent, day);
 }
 
 /** «Начать заново»: стереть и облачное сохранение, иначе на другом устройстве вернётся старая игра */

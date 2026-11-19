@@ -9,8 +9,8 @@ const KEY = `${location.pathname.includes('/preview/') ? 'gorod-dela:preview' : 
 
 export function loadGame(key = KEY): City | null {
   try {
-    // Яндекс Игры: облачное сохранение, если оно новее, чем в этом браузере
-    const raw = (IS_PORTAL && key === KEY ? takeCloudSave() : null) ?? localStorage.getItem(key);
+    // Облачное сохранение (площадка или аккаунт на сайте), если его надо взять вместо местного
+    const raw = (key === KEY ? takeCloudSave() : null) ?? localStorage.getItem(key);
     if (!raw) return null;
     return City.restore(JSON.parse(raw) as CitySave | SaveData);
   } catch {
@@ -21,7 +21,7 @@ export function loadGame(key = KEY): City | null {
 
 export function saveGame(city: City, key = KEY, urgent = false): void {
   const json = JSON.stringify(city.serialize());
-  if (IS_PORTAL && key === KEY) savedLocally(json, urgent);
+  if (key === KEY) savedLocally(json, urgent, city.main.today);
   try {
     localStorage.setItem(key, json);
   } catch {
@@ -30,7 +30,7 @@ export function saveGame(city: City, key = KEY, urgent = false): void {
 }
 
 export function clearSave(key = KEY): void {
-  if (IS_PORTAL && key === KEY) clearCloud();
+  if (key === KEY) clearCloud();
   try {
     localStorage.removeItem(key);
   } catch {
@@ -38,11 +38,22 @@ export function clearSave(key = KEY): void {
   }
 }
 
+/** Просим браузер не стирать данные сайта сам (Safari через неделю без визитов, Chrome при нехватке места).
+ * Только на втором игровом дне: в Firefox это вопрос игроку, а задавать его до того, как есть что беречь, рано */
+let persistAsked = false;
+function keepData(city: City): void {
+  if (persistAsked || IS_PORTAL || city.main.today < 2) return;
+  persistAsked = true;
+  void navigator.storage?.persist?.().catch(() => false);
+}
+
 /** Автосохранение: каждые 5 секунд и когда вкладку сворачивают или закрывают */
 export function autosave(city: City, key = KEY): void {
   let stopped = false;
   const save = (urgent = false) => {
-    if (!stopped) saveGame(city, key, urgent);
+    if (stopped) return;
+    saveGame(city, key, urgent);
+    keepData(city);
   };
   setInterval(save, 5000);
   document.addEventListener('visibilitychange', () => {
