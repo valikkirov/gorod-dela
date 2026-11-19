@@ -49,6 +49,10 @@ PIECES: dict[str, tuple[str, str, tuple[int, int, int, int]]] = {
     'b-corner-palm': ('palm', 'L2', (200, 200, 400, 500)),
     'b-window-ficus': ('ficuspalm', 'L2', (40, 300, 240, 680)),
     'b-center-pair4': ('pair4', 'L2', (270, 400, 770, 600)),
+    'b-center-pair4-half': ('l2-half', 'L2h', (270, 340, 770, 610)),
+    'b-side-table4-half': ('l2-half', 'L2h', (790, 370, 1030, 680)),
+    'b-center-pair4-full': ('l2-full', 'L2f', (270, 340, 770, 610)),
+    'b-side-table4-full': ('l2-full', 'L2f', (790, 370, 1030, 680)),
     'b-wall-l-poster': ('postertv', 'L2', (310, 140, 440, 300)),
     'b-wall-r-tv': ('postertv', 'L2', (650, 140, 860, 290)),
 }
