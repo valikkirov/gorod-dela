@@ -252,7 +252,10 @@ async function publish(dry) {
 async function chats() {
   const me = await tg('getMe');
   log(`Бот: @${me.username}`);
-  const ups = await tg('getUpdates', { allowed_updates: ['message', 'my_chat_member', 'channel_post'] });
+  const hook = await tg('getWebhookInfo');
+  log(`Вебхук: ${hook.url ? 'есть (обновления уходят туда)' : 'нет'}, ждут: ${hook.pending_update_count}`);
+  const ups = await tg('getUpdates', { allowed_updates: ['message', 'edited_message', 'my_chat_member', 'chat_member', 'channel_post'] });
+  log(`Обновлений: ${ups.length}`);
   const seen = new Map();
   for (const u of ups) {
     const m = u.message ?? u.channel_post ?? u.my_chat_member;
