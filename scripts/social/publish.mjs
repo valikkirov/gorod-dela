@@ -179,14 +179,28 @@ async function group() {
   return vkGroup;
 }
 
-async function vkPhoto(file) {
-  const g = await group();
-  const up = await vk('photos.getWallUploadServer', { group_id: String(g.id) });
+async function upload(url, file) {
   const fd = new FormData();
   fd.set('photo', blob(file), path.basename(file));
-  const sent = await (await fetch(up.upload_url, { method: 'POST', body: fd })).json();
-  const [ph] = await vk('photos.saveWallPhoto', { group_id: String(g.id), photo: sent.photo, server: String(sent.server), hash: sent.hash });
-  return `photo${ph.owner_id}_${ph.id}`;
+  return (await fetch(url, { method: 'POST', body: fd })).json();
+}
+
+/** Фото для поста. Ключ сообщества не пускает к загрузке «на стену» — тогда грузим как фото для сообщений
+ * сообщества: такое фото тоже прикрепляется к посту */
+async function vkPhoto(file) {
+  const g = await group();
+  try {
+    const up = await vk('photos.getWallUploadServer', { group_id: String(g.id) });
+    const sent = await upload(up.upload_url, file);
+    const [ph] = await vk('photos.saveWallPhoto', { group_id: String(g.id), photo: sent.photo, server: String(sent.server), hash: sent.hash });
+    return `photo${ph.owner_id}_${ph.id}`;
+  } catch (e) {
+    if (!/\b27\b/.test(e.message)) throw e;
+  }
+  const up = await vk('photos.getMessagesUploadServer', { peer_id: '0' });
+  const sent = await upload(up.upload_url, file);
+  const [ph] = await vk('photos.saveMessagesPhoto', { photo: sent.photo, server: String(sent.server), hash: sent.hash });
+  return `photo${ph.owner_id}_${ph.id}${ph.access_key ? `_${ph.access_key}` : ''}`;
 }
 
 async function postVk(p) {
@@ -271,6 +285,12 @@ async function check() {
       log('ВК: загрузка фото на стену — доступна');
     } catch (e) {
       log(`ВК: загрузка фото на стену недоступна — ${e.message}`);
+    }
+    try {
+      await vk('photos.getMessagesUploadServer', { peer_id: '0' });
+      log('ВК: загрузка фото для сообщений — доступна (запасной путь для картинок)');
+    } catch (e) {
+      log(`ВК: загрузка фото для сообщений недоступна — ${e.message}`);
     }
     // Пустой пост ВК отвергнет и ничего не опубликует: по ошибке видно, пускает ли ключ к стене вообще
     try {
