@@ -89,18 +89,38 @@ def key(name: str) -> tuple[np.ndarray, np.ndarray]:
 
 
 def pick(alpha: np.ndarray, box: tuple[int, int, int, int]) -> np.ndarray:
-    """Пятна, чья середина в box; крошки и бледные следы (контуры, что модель оставила на пурпуре) — прочь"""
+    """Пятна, чья середина в box; крошки и бледные следы (контуры, что модель оставила на пурпуре) — прочь.
+    Если вещь срослась с соседней (гость тянется к соседнему столу), пятна разделяются сужением"""
     fg = alpha > 0.6
-    lab, n = nd.label(fg)
-    if not n:
-        return np.zeros_like(alpha)
-    idx = range(1, n + 1)
-    sizes = nd.sum(fg, lab, idx)
-    centers = nd.center_of_mass(fg, lab, idx)
     x0, y0, x1, y1 = box
-    keep = [i for i, s, (cy, cx) in zip(idx, sizes, centers) if s >= 40 and x0 <= cx < x1 and y0 <= cy < y1]
-    ok = nd.binary_dilation(np.isin(lab, keep), iterations=2)
-    return alpha * ok
+    for erode in (0, 2, 4, 6, 9):
+        core = nd.binary_erosion(fg, iterations=erode) if erode else fg
+        lab, n = nd.label(core)
+        if not n:
+            break
+        idx = range(1, n + 1)
+        sizes = nd.sum(core, lab, idx)
+        centers = nd.center_of_mass(core, lab, idx)
+        keep = [i for i, s, (cy, cx) in zip(idx, sizes, centers) if s >= 40 and x0 <= cx < x1 and y0 <= cy < y1]
+        if not keep:
+            continue
+        mine = np.isin(lab, keep)
+        # Пятно сильно вылезает за своё место — срослось с соседом: делим сильнее
+        inside = np.zeros_like(mine)
+        inside[y0:y1, x0:x1] = True
+        if erode < 9 and (mine & ~inside).sum() > 0.08 * mine.sum():
+            continue
+        if erode:
+            # Вернуть сужение: каждому пикселю — ближайшее ядро; берём пиксели, чьё ядро — наше
+            others = (lab > 0) & ~mine
+            _, (iy, ix) = nd.distance_transform_edt(lab == 0, return_indices=True)
+            nearest_mine = mine[iy, ix] & ~others[iy, ix]
+            mine = fg & nearest_mine
+        ok = nd.binary_dilation(mine, iterations=2)
+        # Чужое, что модель дорисовала рядом и что срослось с вещью, — за пределами места
+        ok &= nd.binary_dilation(inside, iterations=6)
+        return alpha * ok
+    return np.zeros_like(alpha)
 
 
 def align(col: np.ndarray, alpha: np.ndarray, ref: np.ndarray) -> tuple[int, int]:
