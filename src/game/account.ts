@@ -16,7 +16,9 @@ interface Session {
 }
 
 export const accountsOn = (): boolean => !!API;
-export const siteLoginOn = (): boolean => !!API && !!BOT_ID;
+/** Вход на сайте работает только на домене, привязанном к боту в @BotFather (/setdomain) */
+const LOGIN_HOSTS = ['www.gorod-dela.ru', 'gorod-dela.ru'];
+export const siteLoginOn = (): boolean => !!API && !!BOT_ID && LOGIN_HOSTS.includes(location.hostname);
 
 function session(): Session | null {
   try {
