@@ -5,9 +5,9 @@
 import { telegramInitData } from './telegram';
 
 /** Адрес функции Yandex Cloud (.github/workflows/api.yml). Пусто — облако выключено */
-const API = (import.meta.env.VITE_ACCOUNT_API as string | undefined) ?? '';
+const API = (import.meta.env.VITE_ACCOUNT_API as string | undefined) ?? 'https://functions.yandexcloud.net/d4ehvm179bg32jc616r3';
 /** Числовой id @gorod_dela_bot — для входа через Telegram на сайте (не секрет: первая часть токена) */
-const BOT_ID = (import.meta.env.VITE_TG_BOT_ID as string | undefined) ?? '';
+const BOT_ID = (import.meta.env.VITE_TG_BOT_ID as string | undefined) ?? '9226918875';
 const KEY = 'gorod-dela:account';
 
 interface Session {

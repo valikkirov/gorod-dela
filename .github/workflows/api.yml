@@ -52,3 +52,6 @@ jobs:
           code=$(curl -s -o /dev/null -w '%{http_code}' "$url?action=save")
           echo "Без входа: $code (ждём 401)"
           test "$code" = 401
+          cors=$(curl -s -D - -o /dev/null -X OPTIONS -H 'Origin: https://www.gorod-dela.ru' "$url?action=save" | tr -d '\r' | grep -i '^access-control-allow-origin:')
+          echo "CORS: $cors"
+          echo "$cors" | grep -q 'https://www.gorod-dela.ru'
