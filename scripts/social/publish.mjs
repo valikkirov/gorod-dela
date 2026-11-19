@@ -273,7 +273,7 @@ async function chats() {
 async function check() {
   if (TG) {
     const me = await tg('getMe');
-    log(`Telegram: бот @${me.username}`);
+    log(`Telegram: бот @${me.username}, id ${me.id}`);
     if (config.telegram.chat) {
       const c = await tg('getChat', { chat_id: config.telegram.chat });
       const m = await tg('getChatMember', { chat_id: config.telegram.chat, user_id: me.id });

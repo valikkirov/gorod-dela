@@ -1,0 +1,54 @@
+name: Сервер аккаунтов
+
+# Выкладывает server/account в Yandex Cloud Functions (функция gorod-dela-account) и создаёт закрытый бакет
+# для сохранений. Секреты: YC_SA_KEY — авторизованный ключ сервисного аккаунта (JSON; роли в каталоге:
+# functions.admin, storage.editor, iam.serviceAccounts.user), YC_FOLDER_ID — каталог, TG_BOT_TOKEN — токен бота.
+on:
+  push:
+    branches: [main]
+    paths: ['server/account/**', '.github/workflows/api.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FUNCTION: gorod-dela-account
+      BUCKET: gorod-dela-saves
+    steps:
+      - uses: actions/checkout@v4
+      - name: Yandex Cloud CLI
+        env:
+          YC_SA_KEY: ${{ secrets.YC_SA_KEY }}
+          YC_FOLDER_ID: ${{ secrets.YC_FOLDER_ID }}
+        run: |
+          curl -sSL https://storage.yandexcloud.net/yandexcloud-yc/install.sh | bash -s -- -i "$HOME/yc" -n
+          echo "$HOME/yc/bin" >> "$GITHUB_PATH"
+          printf '%s' "$YC_SA_KEY" > "$RUNNER_TEMP/key.json"
+          "$HOME/yc/bin/yc" config set service-account-key "$RUNNER_TEMP/key.json"
+          "$HOME/yc/bin/yc" config set folder-id "$YC_FOLDER_ID"
+          echo "SA_ID=$(jq -r .service_account_id "$RUNNER_TEMP/key.json")" >> "$GITHUB_ENV"
+      - name: Бакет для сохранений (закрытый)
+        run: yc storage bucket get "$BUCKET" >/dev/null 2>&1 || yc storage bucket create --name "$BUCKET" --default-storage-class standard
+      - name: Функция
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+        run: |
+          yc serverless function get "$FUNCTION" >/dev/null 2>&1 || yc serverless function create --name "$FUNCTION"
+          (cd server/account && zip -qr "$RUNNER_TEMP/account.zip" .)
+          yc serverless function version create --function-name "$FUNCTION" --runtime nodejs22 --entrypoint index.handler \
+            --memory 128m --execution-timeout 10s --source-path "$RUNNER_TEMP/account.zip" \
+            --service-account-id "$SA_ID" --environment "TG_BOT_TOKEN=$TG_BOT_TOKEN,BUCKET=$BUCKET" >/dev/null
+          yc serverless function allow-unauthenticated-invoke "$FUNCTION" >/dev/null
+          echo "Адрес: https://functions.yandexcloud.net/$(yc serverless function get "$FUNCTION" --format json | jq -r .id)" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Проверка
+        run: |
+          url="https://functions.yandexcloud.net/$(yc serverless function get "$FUNCTION" --format json | jq -r .id)"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$url?action=save")
+          echo "Без входа: $code (ждём 401)"
+          test "$code" = 401

@@ -17,6 +17,8 @@ on:
       - '.github/workflows/preview.yml'
       - '.github/workflows/social.yml'
       - 'social/**'
+      - 'server/**'
+      - '.github/workflows/api.yml'
   workflow_dispatch:
 
 concurrency:
