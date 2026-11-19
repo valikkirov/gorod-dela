@@ -1485,5 +1485,6 @@ export const EN: Record<string, string> = {
  "Столовая": "Canteen",
  "Индустриальный": "Industrial",
  "Офисный минимализм": "Office minimalism",
- "Ретро-закусочная": "Retro diner"
+ "Ретро-закусочная": "Retro diner",
+ "<div class=\"hall-board bistro\" style=\"{0}\" aria-label=\"Меню на доске\">{1}<ul>{2}</ul></div>": "<div class=\"hall-board bistro\" style=\"{0}\" aria-label=\"Menu board\">{1}<ul>{2}</ul></div>"
 };

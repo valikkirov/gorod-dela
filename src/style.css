@@ -2763,6 +2763,29 @@ small.comp {
   font-weight: 700;
   color: #fff3d6;
 }
+.hall-board.bistro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3cqw;
+  padding: 0.6cqw 1.2cqw;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 40% 35%, #2f3330, #232624 70%);
+  font-size: 0.8cqw;
+  line-height: 1.3;
+}
+.hall-board.bistro ul {
+  grid-template-rows: repeat(3, auto);
+}
+.hall-board.bistro .board-head {
+  display: flex;
+  justify-content: center;
+  gap: 0.8cqw;
+  margin: 0;
+  padding-bottom: 0.25cqw;
+  border-bottom: 0.12cqw dashed rgba(243, 234, 216, 0.45);
+  font-size: 1.1cqw;
+  color: #ffe9b0;
+}
 .hall-barista {
   position: absolute;
   inset: 0;

@@ -240,6 +240,22 @@ function menuBoard(sim: Simulation | null): string {
   return tr`<div class="hall-board" style="${style}" aria-label="Меню на доске"><ul>${rows}</ul></div>`;
 }
 
+/** Доска бизнес-ланча бистро (вещь «menuboard» на месте b-wall-r): меловая часть доски, пиксели комнаты */
+const BISTRO_BOARD = { x: 530, y: 53, w: 229, h: 92 };
+
+/** Доска бистро: сверху бизнес-ланч крупно, ниже — остальное меню (обеды первыми) */
+function bistroBoard(sim: Simulation): string {
+  const menu = sim.cafe.menu;
+  const lunch = menu.find((m) => m.id === 'lunch');
+  const rest = menu.filter((m) => m !== lunch).sort((a, b) => Number(b.kind === 'lunch') - Number(a.kind === 'lunch'))
+    .slice(0, 6);
+  const head = `<p class="board-head"><span>${esc(lunch ? lunch.name : L('Меню'))}</span>${lunch ? `<b>${lunch.price}</b>` : ''}</p>`;
+  const rows = rest.map((m) => `<li><span>${esc(m.name)}</span><b>${m.price}</b></li>`).join('');
+  const b = BISTRO_BOARD;
+  const style = `left:${pct(b.x, HALL_ROOM.w)};top:${pct(b.y, HALL_ROOM.h)};width:${pct(b.w, HALL_ROOM.w)};height:${pct(b.h, HALL_ROOM.h)}`;
+  return tr`<div class="hall-board bistro" style="${style}" aria-label="Меню на доске">${head}<ul>${rows}</ul></div>`;
+}
+
 /** Бариста за стойкой — отдельный слой размером с комнату (scripts/cut_hall.py): только когда он на смене */
 const baristaLayer = tr`<img class="hall-barista" src="${art('barista')}" alt="Бариста за стойкой">`;
 
@@ -307,7 +323,8 @@ export function hallTab(sim: Simulation, selected: string | null): string {
 
   return tr`
     <div class="hall" style="background-image:url(${roomUrl})">${
-      finishHtml(layout) + (kind === 'cafe' ? `${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}` : '')
+      finishHtml(layout) +
+      (kind === 'cafe' ? `${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}` : layout['b-wall-r'] === 'menuboard' ? bistroBoard(sim) : '')
     }${things}</div>
     ${stats}
     ${styleBlock}
