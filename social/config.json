@@ -1,8 +1,8 @@
 {
   "telegram": {
-    "chat": null,
-    "threads": { "default": null, "news": null },
-    "testThread": "default"
+    "chat": -1004386935228,
+    "threads": { "default": 5, "news": 5 },
+    "testThread": "news"
   },
   "vk": { "group": "gorod_dela" }
 }
