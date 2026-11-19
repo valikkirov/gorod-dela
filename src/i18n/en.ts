@@ -1492,5 +1492,7 @@ export const EN: Record<string, string> = {
  "Игра сохраняется в этом браузере и в облаке": "The game is saved in this browser and in the cloud",
  "Игра сохраняется автоматически в этом браузере": "The game saves automatically in this browser",
  "<div class=\"links\"><span class=\"account\">☁️ В облаке: {0}</span>{1}</div>": "<div class=\"links\"><span class=\"account\">☁️ In the cloud: {0}</span>{1}</div>",
- "<div class=\"links\"><button class=\"link\" data-action=\"account-login\">☁️ Войти через Telegram — игра не потеряется</button></div>": "<div class=\"links\"><button class=\"link\" data-action=\"account-login\">☁️ Log in with Telegram so your game is never lost</button></div>"
+ "<div class=\"links\"><button class=\"link\" data-action=\"account-login\">☁️ Войти через Telegram — игра не потеряется</button></div>": "<div class=\"links\"><button class=\"link\" data-action=\"account-login\">☁️ Log in with Telegram so your game is never lost</button></div>",
+ "{0} {1} в меню: стойка работает медленнее на {2} % — каждая категория сверх трёх добавляет {3} %.": "{0} {1} on the menu: the counter is {2} % slower — each category beyond three adds {3} %.",
+ "{0} {1} в меню — это специализация: за ними идут именно к вам (+{2} %), руки набиты — обслуживание быстрее с 7 до 20, а довольные гости чаще советуют знакомым. Четвёртая категория снимет специализацию и замедлит стойку.": "{0} {1} on the menu — that's a specialty: people come to you for them (+{2} %), practised hands serve faster from 7 to 20, and happy guests recommend you more often. A fourth category removes the specialty and slows the counter."
 };

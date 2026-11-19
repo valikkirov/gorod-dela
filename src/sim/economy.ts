@@ -63,6 +63,8 @@ export interface Premises {
   lunchService?: number;
   /** С чего начинается меню при открытии */
   starterMenu?: readonly string[];
+  /** В выходные район пустой: по умолчанию закрыто в субботу и воскресенье */
+  weekendsOff?: boolean;
 }
 
 export const PREMISES: Record<PremisesId, Premises> = {
@@ -114,6 +116,7 @@ export const PREMISES: Record<PremisesId, Premises> = {
     equipped: ['stove'],
     lunchService: 0.5,
     starterMenu: ['americano', 'cappuccino', 'croissant', 'soup', 'lunch', 'tea'],
+    weekendsOff: true,
   },
   // Вторая точка на\u00a0Кленовой: пекарня на\u00a0Садовой. Печёт сама каждое утро — дешевле поставщика, но непроданное к ночи списывается
   bakery: {

@@ -103,13 +103,13 @@ describe('Владелец за стойкой и широкое меню', () =
     expect(helped.reports[0].missed['no-staff'] ?? 0).toBe(0);
   });
 
-  it('каждая категория сверх трёх замедляет стойку на 15 %', () => {
+  it('каждая категория сверх трёх замедляет стойку на 25 %', () => {
     const sim = opened(); // кофе, выпечка, чай — три категории
     expect(sim.cafe.menuSlowdown).toBe(1);
     sim.buyEquipment('stove');
     sim.buyEquipment('tap');
     sim.addMenuItem('soup');
     sim.addMenuItem('beer');
-    expect(sim.cafe.menuSlowdown).toBeCloseTo(1.3, 5);
+    expect(sim.cafe.menuSlowdown).toBeCloseTo(1.5, 5);
   });
 });

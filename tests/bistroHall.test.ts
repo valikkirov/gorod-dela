@@ -67,3 +67,14 @@ describe('Стиль зала бистро', () => {
     expect(hall.wholeFit('youth')).toBe(1);
   });
 });
+
+describe('Бистро: выходные', () => {
+  it('деловой квартал в выходные пустой — бистро по умолчанию работает в будни', () => {
+    const b = new Simulation(8, undefined, 'delovoy');
+    b.cash = 900_000;
+    expect(b.openCafe('bistro')).toBe(true);
+    expect(b.cafe.week.slice(0, 5).every((h) => h !== null)).toBe(true);
+    expect(b.cafe.week[5]).toBeNull();
+    expect(b.cafe.week[6]).toBeNull();
+  });
+});

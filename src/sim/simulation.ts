@@ -554,6 +554,8 @@ export class Simulation {
       for (const id of pr.starterMenu) this.cafe.addItem(id);
       for (const m of [...this.cafe.menu]) if (!pr.starterMenu.includes(m.id)) this.cafe.removeItem(m.id);
     }
+    // Деловой квартал в выходные пустой: бистро по умолчанию работает в будни (игрок может открыть и в выходные)
+    if (pr.weekendsOff) this.cafe.week = this.cafe.week.map((h, i) => (i >= 5 ? null : h));
     // В киоске нет кухни и бара — стартовое меню без них
     for (const m of [...this.cafe.menu]) if (!this.cafe.fits(m.id)) this.cafe.removeItem(m.id);
     if (!this.cafe.hasItem('croissant') && premisesId !== 'bakery') this.cafe.addItem('croissant');
@@ -897,7 +899,7 @@ export class Simulation {
     }
 
     const broken = this.effects.some((e) => e.type === 'broken' && e.slow && this.time < e.until) ? 1.5 : 1;
-    // Специализация: утром в пик руки набиты — гостя обслуживают быстрее
+    // Специализация: днём руки набиты — гостя обслуживают быстрее
     const peak = this.cafe.specialty && minute >= SPECIALTY.peakFrom && minute < SPECIALTY.peakTo ? SPECIALTY.speed : 1;
     this.cafe.serviceFactor = broken * peak;
     this.fulfilOrders(minute);

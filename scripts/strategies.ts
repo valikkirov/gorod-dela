@@ -107,13 +107,12 @@ export const STRATEGIES: Strategy[] = [
     kioskFits: true,
   },
   {
-    // Бистро в деловом квартале — вторая точка: владелец стоит в первой, здесь бариста на смене
+    // Бистро «как есть» — вторая точка: владелец стоит в первой, здесь бариста на смене; часы и меню по умолчанию
     id: 'bistro',
     name: 'Бистро',
     premises: 'bistro',
     menu: [],
-    week: weekdays({ openAt: hm(8), closeAt: hm(17) }, null),
-    staff: [{ contract: 'shift', from: hm(8), to: hm(17), days: WD }],
+    staff: [{ contract: 'shift', from: hm(7), to: hm(19) }],
   },
   {
     id: 'bistro-lunch',

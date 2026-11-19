@@ -216,14 +216,14 @@ export const DEFAULT_MENU_IDS = ['americano', 'cappuccino', 'latte', 'croissant'
 export const MAX_MENU = 8;
 export const MAX_QUEUE = 6;
 /** На сколько каждая категория меню сверх трёх замедляет обслуживание */
-export const MENU_SLOWDOWN = 0.15;
+export const MENU_SLOWDOWN = 0.25;
 
 /**
  * Специализация: в меню не больше maxKinds категорий — точку знают как «ту самую кофейню».
- * Кто хочет её категорию, заходит охотнее (pull), утром в пик (peakFrom…peakTo) руки набиты — обслуживание быстрее
+ * Кто хочет её категорию, заходит охотнее (pull), днём (peakFrom…peakTo) руки набиты — обслуживание быстрее
  * (speed), а довольный гость чаще советует (word). Широкое меню остаётся сильным, но не во всём.
  */
-export const SPECIALTY = { maxKinds: 3, pull: 0.25, speed: 0.8, peakFrom: 7 * 60, peakTo: 10 * 60, word: 1 } as const;
+export const SPECIALTY = { maxKinds: 3, pull: 0.35, speed: 0.8, peakFrom: 7 * 60, peakTo: 20 * 60, word: 1 } as const;
 
 /** Категория позиции каталога или своего блюда */
 export function kindOf(id: string): ItemKind {
@@ -872,7 +872,7 @@ export class Cafe {
     return kinds.size > 0 && kinds.size <= SPECIALTY.maxKinds ? kinds : null;
   }
 
-  /** Широкое меню медленнее готовить: каждая категория сверх трёх — +15 % ко времени на гостя */
+  /** Широкое меню медленнее готовить: каждая категория сверх трёх — +MENU_SLOWDOWN ко времени на гостя */
   get menuSlowdown(): number {
     const categories = new Set(this.menu.map((m) => m.kind)).size;
     return 1 + MENU_SLOWDOWN * Math.max(0, categories - 3);

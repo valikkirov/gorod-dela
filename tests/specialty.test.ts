@@ -13,12 +13,14 @@ describe('Специализация', () => {
     expect(sim.cafe.specialty).toBeNull();
   });
 
-  it('утром в пик обслуживание быстрее, в обед — как обычно', () => {
+  it('днём (7–20) обслуживание быстрее, поздно вечером — как обычно', () => {
     const sim = new Simulation(2);
     sim.openCafe('cafe');
     sim.advance(hm(2)); // 8:00
     expect(sim.cafe.serviceFactor).toBeCloseTo(SPECIALTY.speed);
     sim.advance(hm(4)); // 12:00
+    expect(sim.cafe.serviceFactor).toBeCloseTo(SPECIALTY.speed);
+    sim.advance(hm(9)); // 21:00
     expect(sim.cafe.serviceFactor).toBe(1);
   });
 
