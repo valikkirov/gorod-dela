@@ -310,7 +310,33 @@ async function testTg() {
   return 0;
 }
 
-const run = { publish: () => publish(false), 'dry-run': () => publish(true), chats, check, 'test-tg': testTg }[mode];
+/** Скрытая проба ВК: отложенная запись с картинкой на месяц вперёд, проверка вложения и удаление */
+async function testVk() {
+  const g = await group();
+  const pic = path.join(ROOT, 'public', 'apple-touch-icon.png');
+  const att = await vkPhoto(pic);
+  log(`ВК: картинка загружена — ${att.replace(/_[0-9a-f]{10,}$/, '_…')}`);
+  const when = Math.floor(Date.now() / 1000) + 30 * 86400;
+  const r = await vk('wall.post', { owner_id: String(-g.id), from_group: '1', message: '🔧 Проверка автопостинга — запись будет удалена', attachments: att, publish_date: String(when) });
+  log(`ВК: отложенная запись создана, id ${r.post_id}`);
+  try {
+    const got = await vk('wall.getById', { posts: `-${g.id}_${r.post_id}` });
+    const post = (got.items ?? got)[0];
+    const photos = (post?.attachments ?? []).filter((a) => a.type === 'photo').length;
+    log(post ? `ВК: в записи картинок: ${photos}` : 'ВК: запись не прочиталась (отложенные видны только админам) — посмотри в «Отложенных записях»');
+  } catch (e) {
+    log(`ВК: прочитать запись не вышло — ${e.message}`);
+  }
+  try {
+    await vk('wall.delete', { owner_id: String(-g.id), post_id: String(r.post_id) });
+    log('ВК: пробная запись удалена');
+  } catch (e) {
+    log(`ВК: удалить не вышло — ${e.message}. Удали вручную: группа → «Отложенные записи»`);
+  }
+  return 0;
+}
+
+const run = { publish: () => publish(false), 'dry-run': () => publish(true), chats, check, 'test-tg': testTg, 'test-vk': testVk }[mode];
 if (!run) {
   console.error(`Неизвестный режим ${mode}`);
   process.exit(2);

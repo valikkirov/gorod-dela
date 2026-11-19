@@ -8,10 +8,10 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'Режим: dry-run, check, chats, test-tg, publish'
+        description: 'Режим: dry-run, check, chats, test-tg, test-vk, publish'
         default: dry-run
         type: choice
-        options: [dry-run, check, chats, test-tg, publish]
+        options: [dry-run, check, chats, test-tg, test-vk, publish]
 
 concurrency:
   group: social
