@@ -24,6 +24,8 @@ function detect(): Lang {
   if (import.meta.env.VITE_PLATFORM === 'vk') return 'ru';
   try {
     const q = new URLSearchParams(location.search).get('lang');
+    // Яндекс Игры передают язык игрока в адресе (?lang=…, тот же, что в SDK): любой — русский или английский
+    if (import.meta.env.VITE_PLATFORM === 'yandex' && q) return RU_LIKE.includes(q.slice(0, 2).toLowerCase()) ? 'ru' : 'en';
     if (q === 'ru' || q === 'en') {
       localStorage.setItem(KEY, q);
       return q;
