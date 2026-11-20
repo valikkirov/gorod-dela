@@ -3929,3 +3929,100 @@ button.small.danger {
   margin: 4px 0 0;
   font-variant-numeric: tabular-nums;
 }
+
+/* ——— Низ карточки: облако, испытание, Boosty, ссылки ——— */
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+.foot-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card, #fffcf5);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+button.foot-tile:hover,
+a.foot-tile:hover {
+  border-color: var(--accent);
+}
+.foot-tile .grow {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.foot-tile b {
+  font-size: 15px;
+}
+.foot-tile small {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.foot-ico {
+  flex: none;
+  font-size: 24px;
+  line-height: 1;
+}
+.foot-go {
+  flex: none;
+  color: var(--muted);
+  font-size: 22px;
+}
+.foot-tile.boosty b {
+  color: #c75a2e;
+}
+.foot-tile.cloud {
+  border: 1.5px solid #8fc3e6;
+  background: #eaf4fb;
+  cursor: default;
+}
+.foot-tile.cloud.on {
+  border-color: var(--line);
+  background: var(--good-subtle, #e2efdf);
+}
+.foot-tile.cloud .foot-ico {
+  align-self: flex-start;
+}
+.foot-tile button.tg {
+  align-self: flex-start;
+  margin-top: 8px;
+  border: 0;
+  background: #2aabee;
+  color: #fff;
+  font-weight: 600;
+}
+.foot-tile button.tg:hover {
+  background: #1f96d3;
+}
+.foot-tile.cloud.on button.link {
+  margin: 0;
+}
+.foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+.foot-links button.link {
+  margin: 4px 0;
+}
+.foot .restart.transfer {
+  margin-top: 0;
+}
+.foot small.saved {
+  display: block;
+}

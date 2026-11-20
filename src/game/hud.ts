@@ -2366,19 +2366,27 @@ export class Hud {
            <button class="link" data-action="restart-ask">Начать заново</button>
          </div>
          <small class="saved">Игра сохраняется автоматически</small>`
-        : tr`<div class="links">
+        : this.challenge
+          ? tr`<div class="links">
            <button class="link" data-action="feedback">Предложить идею</button>
            <button class="link" data-action="tutorial">Как играть</button>
            <button class="link" data-action="restart-ask">Начать заново</button>
          </div>
-         <div class="links"><a class="link boosty" href="${BOOSTY_URL}" target="_blank" rel="noopener">❤️ Поддержать игру на\u00a0Boosty</a></div>
-         ${this.challenge ? '' : this.accountBlock() + this.transferBlock()}
-         ${
-           this.challenge
-             ? tr`<div class="links">${savedResult() ? tr`<button class="link" data-action="challenge-result">Мой итог испытания</button>` : ''}<button class="link" data-action="normal-game">К обычной игре</button></div>`
-             : `<div class="links"><button class="link" data-action="challenge">🏆 ${CHALLENGE.title}</button></div>`
-         }
-         <small class="saved">${accountName() ? tr`Игра сохраняется в этом браузере и в облаке` : tr`Игра сохраняется автоматически в этом браузере`}</small>`;
+         <div class="links">${savedResult() ? tr`<button class="link" data-action="challenge-result">Мой итог испытания</button>` : ''}<button class="link" data-action="normal-game">К обычной игре</button></div>
+         <small class="saved">${accountName() ? tr`Игра сохраняется в этом браузере и в облаке` : tr`Игра сохраняется автоматически в этом браузере`}</small>`
+          : tr`<div class="foot">
+         ${this.accountBlock()}
+         <button class="foot-tile" data-action="challenge"><span class="foot-ico">🏆</span><span class="grow"><b>${CHALLENGE.title}</b><small>У всех один и тот же город — сравни свой итог с\u00a0другими</small></span><span class="foot-go">›</span></button>
+         <a class="foot-tile boosty" href="${BOOSTY_URL}" target="_blank" rel="noopener"><span class="foot-ico">❤️</span><span class="grow"><b>Поддержать игру на Boosty</b><small>Помогает делать новые кварталы и\u00a0заведения</small></span><span class="foot-go">›</span></a>
+         ${this.transfer ? this.transferBlock() : ''}
+         <div class="foot-links">
+           <button class="link" data-action="tutorial">Как играть</button>
+           <button class="link" data-action="feedback">Предложить идею</button>
+           ${this.transfer ? '' : tr`<button class="link" data-action="transfer">Перенести на другое устройство</button>`}
+           <button class="link" data-action="restart-ask">Начать заново</button>
+         </div>
+         <small class="saved">${accountName() ? tr`Игра сохраняется в этом браузере и в облаке` : tr`Игра сохраняется автоматически в этом браузере`}</small>
+         </div>`;
   }
 
   /** Облачное сохранение: вошёл — где хранится и выйти; нет — войти через Telegram (в Mini App вход сам) */
@@ -2386,12 +2394,13 @@ export class Hud {
     if (IS_PORTAL || !accountsOn()) return '';
     const name = accountName();
     if (name) {
-      return tr`<div class="links"><span class="account">☁️ В облаке: ${escapeHtml(name)}</span>${
+      return tr`<div class="foot-tile cloud on"><span class="foot-ico">☁️</span><span class="grow"><b>Игра в облаке</b><small>Telegram: ${escapeHtml(name)}. Прогресс не потеряется</small></span>${
         isTelegram() ? '' : tr`<button class="link" data-action="account-logout">Выйти</button>`
       }</div>`;
     }
     if (!siteLoginOn() || isTelegram()) return '';
-    return tr`<div class="links"><button class="link" data-action="account-login">☁️ Войти через Telegram — игра не потеряется</button></div>`;
+    return tr`<div class="foot-tile cloud"><span class="foot-ico">☁️</span><span class="grow"><b>Сохрани игру в облаке</b><small>Браузер может стереть данные, а с входом через Telegram кафе останется с тобой</small>
+      <button class="small tg" data-action="account-login">Войти через Telegram</button></span></div>`;
   }
 
   /** Перенос игры файлом: на другой телефон или компьютер, на новый адрес игры. В испытании не нужен */
