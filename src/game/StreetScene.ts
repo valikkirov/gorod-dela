@@ -604,10 +604,15 @@ export class StreetScene extends Phaser.Scene {
     });
   }
 
+  /** Какой район сейчас в центре кадра */
+  viewDistrict(): DistrictId {
+    return this.neighbor && this.view.cx > WORLD.width + BORDER.side / 2 ? this.neighbor.district : this.district;
+  }
+
   /** Центр кадра перешёл в другой район — сказать панели */
   private lookAround(): void {
     if (!this.neighbor) return;
-    const d: DistrictId = this.view.cx > WORLD.width + BORDER.side / 2 ? this.neighbor.district : this.district;
+    const d = this.viewDistrict();
     if (d === this.focus) return;
     this.focus = d;
     this.hooks.onLook?.(d);
@@ -723,6 +728,8 @@ export class StreetScene extends Phaser.Scene {
     this.view.cx = wx - (sx - cam.width / 2) / z;
     this.view.cy = wy - (sy - cam.height / 2) / z;
     this.applyView();
+    // Колесо и щипок тоже сдвигают кадр — панель и кнопка района должны знать, где мы
+    this.lookAround();
   }
 
   /** Кнопки +/−: масштаб вокруг центра экрана; «вся улица» — вернуть исходный вид */

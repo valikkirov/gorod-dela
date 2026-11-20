@@ -3,7 +3,7 @@
 // его цвет — ободок, занятие — значок в углу.
 import type { Resident, ResidentKind } from '../sim/residents';
 import { isFemale } from '../sim/residents';
-import type { Place } from '../sim/world';
+import type { DistrictId, Place } from '../sim/world';
 import { RESIDENT_COLOR, toCss } from './palette';
 import { namedIcon } from './icons';
 
@@ -44,21 +44,47 @@ export function portrait(r: Resident, regular = false, size: 'sm' | 'md' | 'lg' 
   }</span>`;
 }
 
-/** Картинка изнутри для карточки здания; пусто — если для места её нет */
-export function placeInterior(p: Place): string {
-  let name: string | undefined;
-  if (p.id === 'metro') name = 'metro-maple';
-  else if (p.id === 'metro-2') name = 'metro-garden';
-  else if (p.id === 'office-bc') name = 'bc';
-  else if (p.kind === 'office') name = 'office';
-  else if (p.kind === 'shop') name = 'shop';
-  else if (p.kind === 'school') name = 'school';
-  else if (p.kind === 'vacant') name = 'vacant';
+/** Картинка изнутри для карточки здания: у каждого офиса, магазина и метро — своя (scripts/pack_interiors.py) */
+const INTERIOR_OF: Record<string, string> = {
+  // Кленовая
+  'klenovaya:metro': 'metro-maple',
+  'klenovaya:metro-2': 'metro-garden',
+  'klenovaya:office-bc': 'bc',
+  'klenovaya:office-north': 'office-north',
+  'klenovaya:shop': 'shop',
+  'klenovaya:school': 'school',
   // В доме 3 на первом этаже аптека — её и показываем
-  else if (p.id === 'home-3') name = 'pharmacy';
-  else if (p.kind === 'home') {
-    const n = Number(p.id.replace(/\D/g, '')) || 0;
-    name = ['entrance-a', 'entrance-b', 'entrance-c'][n % 3];
+  'klenovaya:home-3': 'pharmacy',
+  // Деловой квартал
+  'delovoy:metro': 'metro-delovoy',
+  'delovoy:metro-2': 'metro-delovoy-2',
+  'delovoy:bc-alfa': 'bc-alfa',
+  'delovoy:cowork': 'cowork',
+  'delovoy:bc-meridian': 'bc-meridian',
+  'delovoy:bc-tower': 'bc-tower',
+  'delovoy:bc-east': 'bc-east',
+  'delovoy:bc-bank': 'bc-bank',
+  'delovoy:bc-glass': 'bc-glass',
+  'delovoy:shop': 'snack',
+  'delovoy:school': 'institute',
+  'delovoy:gym': 'gym',
+  'delovoy:apart-1': 'apart-lobby',
+  'delovoy:apart-2': 'entrance-f',
+};
+// Подъезды жилых домов: шесть разных, дом выбирает свой по номеру
+const ENTRANCES = ['entrance-a', 'entrance-b', 'entrance-c', 'entrance-d', 'entrance-e', 'entrance-f'];
+
+export function placeInterior(p: Place, district: DistrictId = 'klenovaya'): string {
+  let name: string | undefined = INTERIOR_OF[`${district}:${p.id}`];
+  if (!name) {
+    if (p.kind === 'office') name = 'office';
+    else if (p.kind === 'shop') name = 'shop';
+    else if (p.kind === 'school') name = 'school';
+    else if (p.kind === 'vacant') name = 'vacant';
+    else if (p.kind === 'home') {
+      const n = Number(p.id.replace(/\D/g, '')) || 0;
+      name = ENTRANCES[n % ENTRANCES.length];
+    }
   }
   const src = name ? interior(name) : undefined;
   return src ? `<div class="place-interior"><img src="${src}" alt=""></div>` : '';

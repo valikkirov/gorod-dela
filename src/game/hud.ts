@@ -343,6 +343,8 @@ export class Hud {
   private sim: Simulation;
   /** Перейти в другой район — подставляет main */
   onSwitch: (district: DistrictId) => void = () => {};
+  /** Какой район сейчас на экране (камера общая: карту можно утащить в соседний район) */
+  viewDistrict: () => DistrictId = () => this.sim.district;
 
   constructor(
     private readonly city: City,
@@ -428,7 +430,8 @@ export class Hud {
       if (ev.key === 'Escape') this.finishRename(false);
     });
     this.district.addEventListener('click', () => {
-      const other: DistrictId = this.sim.district === 'klenovaya' ? 'delovoy' : 'klenovaya';
+      // Куда ехать — от того, что на экране, а не от открытой карточки: иначе кнопка срабатывает «через раз»
+      const other: DistrictId = this.viewDistrict() === 'klenovaya' ? 'delovoy' : 'klenovaya';
       if (this.city.unlocked) this.onSwitch(other);
       else {
         // Ещё закрыт: карточка метро — там условие и сколько осталось
@@ -448,8 +451,11 @@ export class Hud {
     if (!show) return;
     let html: string;
     if (this.city.unlocked) {
-      const there = this.sim.district === 'klenovaya' ? L('Деловой квартал') : L('Кленовая');
-      html = `<small>${this.sim.district === 'klenovaya' ? L('Кленовая') : L('Деловой квартал')}</small><b>🚇 ${there}${NB}→</b>`;
+      // Деловой квартал восточнее Кленовой: туда — стрелка вправо, обратно — влево
+      html =
+        this.viewDistrict() === 'klenovaya'
+          ? `<small>${L('Кленовая')}</small><b>🚇 ${L('Деловой квартал')}${NB}→</b>`
+          : `<small>${L('Деловой квартал')}</small><b>←${NB}🚇 ${L('Кленовая')}</b>`;
     } else {
       const p = this.city.unlockProgress();
       html = tr`<small>Деловой квартал</small><b>🔒 ${p.weeks} из ${UNLOCK.weeks} нед.</b>`;
@@ -1241,7 +1247,7 @@ export class Hud {
         <i class="place-dot place-${p.kind}"></i>
         <div><b>${title}</b><small>${sub}</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button>
-      </div>${placeInterior(p)}`;
+      </div>${placeInterior(p, this.sim.district)}`;
     // Тёзки в одном списке — с первой буквой фамилии: «Вера И.» и «Вера П.»
     const short = (list: Resident[]) => {
       const n = new Map<string, number>();

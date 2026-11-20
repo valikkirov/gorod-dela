@@ -183,6 +183,7 @@ function switchTo(district: DistrictId): void {
   scene.flyTo(district);
 }
 hud.onSwitch = switchTo;
+hud.viewDistrict = () => scene.viewDistrict();
 
 // ——— Площадка: «игра загружена», геймплей идёт или стоит, пауза по просьбе площадки ———
 let platformPaused = false;
