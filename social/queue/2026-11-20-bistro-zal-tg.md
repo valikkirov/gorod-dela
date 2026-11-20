@@ -1,5 +1,5 @@
 ---
-date: 2026-11-21
+date: 2026-11-20
 channels: tg
 images: post8-1-oblozhka.jpg, post8-2-stolovaya.jpg, post8-3-industrial.jpg, post8-4-office.jpg, post8-5-retro.jpg
 thread: news
