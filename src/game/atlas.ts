@@ -29,6 +29,8 @@ import treeRoundWinterUrl from './art/prop-tree-round-winter.webp';
 import treeTallWinterUrl from './art/prop-tree-tall-winter.webp';
 import pondWinterUrl from './art/prop-pond-winter.webp';
 import buildingsWinterUrl from './art/buildings-winter.webp';
+import buildingsEnUrl from './art/buildings-en.webp';
+import buildingsWinterEnUrl from './art/buildings-winter-en.webp';
 import { BUILDING_WINTER_FRAMES } from './atlasWinterFrames';
 import type { ResidentKind } from '../sim/residents';
 
@@ -174,7 +176,7 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
 /** Новогодний сезон: трава, плитка, лес и крыши — в снегу. Вызывать до загрузки сцены */
 export function useWinter(): void {
   // Те же имена кадров, кадры выше на сугробы: здания стоят низом, встают на то же место
-  ATLASES.buildings = { url: buildingsWinterUrl, frames: BUILDING_WINTER_FRAMES };
+  ATLASES.buildings = { url: englishSigns ? buildingsWinterEnUrl : buildingsWinterUrl, frames: BUILDING_WINTER_FRAMES };
   ATLASES['tex-grass'].url = texGrassWinterUrl;
   ATLASES['tex-sidewalk'].url = texSidewalkWinterUrl;
   ATLASES['tex-forest'].url = texForestWinterUrl;
@@ -183,6 +185,13 @@ export function useWinter(): void {
 }
 
 let winter = false;
+let englishSigns = false;
+
+/** Игра на английском: вывески на зданиях по-английски (scripts/en_signs.py). Вызывать до загрузки сцены */
+export function useEnglishSigns(): void {
+  englishSigns = true;
+  ATLASES.buildings.url = winter ? buildingsWinterEnUrl : buildingsEnUrl;
+}
 /** Зимний кадр вместо летнего, если он есть и сейчас сезон */
 export function seasonal(frame: string): string {
   return winter && FRAME_TEXTURE.has(`${frame}-winter`) ? `${frame}-winter` : frame;
