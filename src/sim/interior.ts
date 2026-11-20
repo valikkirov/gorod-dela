@@ -202,6 +202,9 @@ export const BISTRO_SLOTS: { id: string; accepts: FurnitureId[] }[] = [
   { id: 'b-door', accepts: ['coatstand', 'plant'] },
   { id: 'b-front-1', accepts: ['table2'] },
   { id: 'b-front-2', accepts: ['table2'] },
+  // Новогодний декор: ёлка у двери за диванчиком, гирлянда на окне
+  { id: 'b-tree', accepts: ['tree'] },
+  { id: 'b-garland', accepts: ['garland'] },
   { id: 'walls', accepts: ['bwalls-home', 'bwalls-loft', 'bwalls-scandi', 'bwalls-classic'] },
   { id: 'floor', accepts: ['bfloor-home', 'bfloor-loft', 'bfloor-scandi', 'bfloor-classic'] },
 ];
@@ -209,14 +212,14 @@ export const BISTRO_SLOTS: { id: string; accepts: FurnitureId[] }[] = [
 export const hallSlots = (kind: HallKind) => (kind === 'bistro' ? BISTRO_SLOTS : HALL_SLOTS);
 
 /** Места сезонного декора: их показываем и продаём только в сезон */
-export const SEASON_SLOTS = ['tree', 'garland'];
+export const SEASON_SLOTS = ['tree', 'garland', 'b-tree', 'b-garland'];
 
 /** Стены и пол: есть всегда, продать нельзя — только заменить */
 export const FINISH_SLOTS = ['walls', 'floor'];
 /** Места стиля: отделка и фирменные вещи — их не трогают готовые комплектации */
 export const STYLE_SLOTS = ['walls', 'floor', 'feature', 'touch'];
 /** Места, которые не трогают готовые комплектации */
-const KEEP_SLOTS = [...STYLE_SLOTS, 'tree', 'garland'];
+const KEEP_SLOTS = [...STYLE_SLOTS, ...SEASON_SLOTS];
 /** Места стиля зала: у бистро стиль — это стены и пол */
 export const styleSlots = (kind: HallKind): string[] => (kind === 'bistro' ? ['walls', 'floor'] : STYLE_SLOTS);
 /** Полный набор стиля: стены, пол и две фирменные вещи */

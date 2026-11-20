@@ -79,6 +79,8 @@ const SLOT_AT: Record<string, { x: number; y: number }> = {
   'b-door': { x: 905, y: 420 },
   'b-front-1': { x: 290, y: 470 },
   'b-front-2': { x: 540, y: 470 },
+  'b-tree': { x: 805, y: 300 },
+  'b-garland': { x: 107, y: 205 },
 };
 const SEATED: FurnitureId[] = ['table2', 'table4', 'sofa', 'bar', 'stools', 'commune', 'pair4', 'booth'];
 
@@ -172,6 +174,8 @@ const SLOT_TITLE: Record<string, string> = {
   touch: L('Деталь'),
   tree: L('Угол у\u00a0двери'),
   garland: L('Окно'),
+  'b-tree': L('Угол у\u00a0двери'),
+  'b-garland': L('Окно'),
   'b-wall-l': L('Стена слева'),
   'b-wall-c': L('Над раздачей'),
   'b-wall-r': L('Стена справа'),

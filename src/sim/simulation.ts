@@ -1140,7 +1140,7 @@ export class Simulation {
     const style = hall.styleFit(r.kind) * (sit ? INTERIOR.styleSit : INTERIOR.styleGo);
     // Ёлка и гирлянда в сезон: посидеть в праздничном зале хочется больше
     const festive =
-      sit && this.holiday ? (hall.layout.tree ? HOLIDAY.treeSit : 0) + (hall.layout.garland ? HOLIDAY.garlandSit : 0) : 0;
+      sit && this.holiday ? (hall.layout.tree || hall.layout['b-tree'] ? HOLIDAY.treeSit : 0) + (hall.layout.garland || hall.layout['b-garland'] ? HOLIDAY.garlandSit : 0) : 0;
     return 1 + hall.cozyLevel * (sit ? INTERIOR.attractSit : INTERIOR.attractGo) + (sit && hall.likes(r.kind) ? 0.05 : 0) + style + festive;
   }
 

@@ -466,6 +466,8 @@ export class StreetScene extends Phaser.Scene {
     this.noCoffee = this.prop('prop-sign-no-coffee', c.rect.x + 204 - 30, cBase + 6).setDepth(cBase + 0.4);
     // Новогодняя ёлка — в сквере, у фонтана со стороны Садовой
     if (this.hooks.sim.holiday && this.district === 'klenovaya') this.prop('prop-city-tree', 700, 960);
+    // В деловом квартале — посреди большой площади, где на Кленовой пруд
+    if (this.hooks.sim.holiday && this.district === 'delovoy') this.prop('prop-city-tree', 1033, 560);
     // Палатка фестиваля — в сквере у входа с улицы
     this.tent = this.prop('prop-festival-tent', SQUARE.x + 300, SQUARE.y + 150);
     for (const [frame, x, y] of props) {

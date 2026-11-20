@@ -77,4 +77,19 @@ describe('Бистро: выходные', () => {
     expect(b.cafe.week[5]).toBeNull();
     expect(b.cafe.week[6]).toBeNull();
   });
+
+  it('в бистро новогодний декор ставится только в сезон и не слетает при смене комплектации', () => {
+    const { city, br } = bistro();
+    br.cash = 1_000_000;
+    expect(br.placeFurniture('b-tree', 'tree')).toBe(false);
+    city.main.setHoliday(true);
+    expect(br.placeFurniture('b-tree', 'tree')).toBe(true);
+    expect(br.placeFurniture('b-garland', 'garland')).toBe(true);
+    // Готовая комплектация сезонный декор не трогает
+    expect(br.applyPreset('premium')).toBe(true);
+    expect(br.cafe.interior.layout['b-tree']).toBe('tree');
+    expect(br.cafe.interior.layout['b-garland']).toBe('garland');
+    const back = Simulation.restore(JSON.parse(JSON.stringify(br.serialize())))!;
+    expect(back.cafe.interior.layout['b-tree']).toBe('tree');
+  });
 });

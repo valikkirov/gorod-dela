@@ -55,6 +55,9 @@ PIECES: dict[str, tuple[str, str, tuple[int, int, int, int]]] = {
     'b-side-table4-full': ('l2-full', 'L2f', (790, 370, 1030, 680)),
     'b-wall-l-poster': ('postertv', 'L2', (310, 140, 440, 300)),
     'b-wall-r-tv': ('postertv', 'L2', (650, 140, 860, 290)),
+    # Новогодний декор (сезон 15.12–12.01): зал NY.png — L1 с ёлкой у двери и гирляндой на окне
+    'b-tree-tree': ('nytree', 'NY', (880, 280, 1040, 530)),
+    'b-garland-garland': ('nygarland', 'NY', (55, 180, 232, 540)),
 }
 # Вещи, нарисованные вместе с соседом: его пиксели (там, где виден именно он) вычитаем
 MINUS = {'b-window-ficus': 'palm'}
