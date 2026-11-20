@@ -52,12 +52,14 @@ export function initMetrika(): void {
 interface Visitor {
   first: number;
   source: Record<string, string>;
+  /** Свой код игрока для ссылок «позвать друга» (ref): случайный, ничего о человеке не говорит */
+  id?: string;
 }
 const VISITOR_KEY = 'gorod-dela:visitor';
 const SOURCE_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'ref'];
 
 /** Сохранить источник при первом заходе; дальше — тот же, сколько бы раз игрок ни возвращался */
-export function visitor(): { days: number; source: Record<string, string> } {
+export function visitor(): { days: number; source: Record<string, string>; id: string } {
   const now = Date.now();
   let v: Visitor | null = null;
   try {
@@ -73,13 +75,16 @@ export function visitor(): { days: number; source: Record<string, string> } {
       if (val) source[k] = val.slice(0, 64);
     }
     v = { first: now, source };
+  }
+  if (!v.id) {
+    v.id = Math.random().toString(36).slice(2, 10);
     try {
       localStorage.setItem(VISITOR_KEY, JSON.stringify(v));
     } catch {
       /* без хранилища каждый визит — первый */
     }
   }
-  return { days: Math.max(0, Math.floor((now - v.first) / 86_400_000)), source: v.source ?? {} };
+  return { days: Math.max(0, Math.floor((now - v.first) / 86_400_000)), source: v.source ?? {}, id: v.id };
 }
 
 /** Цель, которая достигается один раз за игрока (на этом устройстве) */

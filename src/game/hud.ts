@@ -65,8 +65,9 @@ import { switchLang } from './lang';
 import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
 import { hallPicker, hallTab } from './hall';
-import { styleName, type FurnitureId, type PresetId, type StyleId } from '../sim/interior';
+import { INTERIOR, styleName, type FurnitureId, type PresetId, type StyleId } from '../sim/interior';
 import { goal, goalOnce } from './metrika';
+import { shareHall } from './shareHall';
 import { sound } from './sound';
 import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
 import { card, EVENTS } from '../sim/events';
@@ -888,6 +889,20 @@ export class Hud {
           goalOnce('first_furniture', { how: 'sell' });
         }
         break;
+      case 'share-hall': {
+        const hall = this.panel.querySelector<HTMLElement>('.hall:not(.mini)');
+        if (!hall || btn.classList.contains('busy')) return;
+        btn.classList.add('busy');
+        const h = sim.cafe.interior;
+        const line = tr`${h.seats} мест · уют ${Math.min(h.cozy, INTERIOR.cozyFull)} из ${INTERIOR.cozyFull} · день ${sim.today + 1}`;
+        void shareHall(hall, sim.cafe.title, line)
+          .then((r) => {
+            btn.textContent = r === 'downloaded' ? L('Картинка сохранена — ссылка скопирована') : r === 'cancelled' ? L('📸 Показать свой зал') : L('Готово!');
+          })
+          .catch(() => (btn.textContent = L('Не получилось — попробуй ещё раз')))
+          .finally(() => btn.classList.remove('busy'));
+        return;
+      }
       case 'hall-style':
         if (sim.applyStyle(item as StyleId)) {
           sound.play('ui-upgrade');

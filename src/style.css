@@ -4026,3 +4026,25 @@ a.foot-tile:hover {
 .foot small.saved {
   display: block;
 }
+
+/* «Показать свой зал» — под картинкой зала */
+.share-hall {
+  display: block;
+  width: 100%;
+  margin: 10px 0 4px;
+  padding: 11px 14px;
+  border: 0;
+  border-radius: 12px;
+  background: #4a2e1e;
+  color: #ffeed3;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.share-hall:hover {
+  background: #5e3b27;
+}
+.share-hall.busy {
+  opacity: 0.6;
+  cursor: progress;
+}

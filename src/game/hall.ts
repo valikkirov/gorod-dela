@@ -330,6 +330,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
       finishHtml(layout) +
       (kind === 'cafe' ? `${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}` : layout['b-wall-r'] === 'menuboard' ? bistroBoard(sim) : '')
     }${things}</div>
+    <button class="share-hall" data-action="share-hall">📸 Показать свой зал</button>
     ${stats}
     ${styleBlock}
     <h4>Готовые комплектации</h4>
