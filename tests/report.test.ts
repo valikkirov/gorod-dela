@@ -107,6 +107,30 @@ describe('Отчёт дня', () => {
   });
 });
 
+describe('Давка у стойки', () => {
+  it('показывает, сколько стоил бы помощник и сколько унесли ушедшие', () => {
+    const sim = new Simulation(3);
+    openKnown(sim);
+    sim.advance(DAY);
+    const base = sim.reports[0];
+    const h24 = (f: (h: number) => number) => Array.from({ length: 24 }, (_, h) => f(h));
+    // Обед: стойка забита с 12 до 15, ушли 30 человек; средний чек 300 ₽
+    const r = {
+      ...base,
+      guests: 50,
+      revenue: 15_000,
+      capHour: h24(() => 60),
+      usedHour: h24((h) => (h >= 12 && h < 15 ? 58 : 10)),
+      staffHour: h24(() => 60),
+      lostHour: { queue: h24((h) => (h >= 12 && h < 15 ? 10 : 0)) },
+    };
+    const text = analyzeDay([r], r).observations.join(' ');
+    expect(text).toMatch(/С\s12:00\sдо\s15:00/);
+    expect(text).toMatch(/Почасовой\sбариста\sна\sэти\sчасы\sстоил\sбы\sоколо\s900/);
+    expect(text).toMatch(/около\s9\s000/);
+  });
+});
+
 describe('Касса', () => {
   it('предупреждает, на сколько дней хватит денег', () => {
     const sim = new Simulation(3);

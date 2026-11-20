@@ -2,7 +2,7 @@
 // Отчёт даёт доказательства, а не готовые инструкции — решение за игроком.
 import { foodLine, type DayReport, type RejectReason } from './cafe';
 import { isWeekend, WEEKDAY_FULL } from './clock';
-import { formatMoney } from './economy';
+import { ECONOMY, formatMoney } from './economy';
 import type { ResidentKind } from './residents';
 import { WEATHER_LABEL } from './weather';
 
@@ -310,7 +310,16 @@ function observations(r: DayReport): string[] {
   if (crowd) {
     let n = 0;
     for (let h = crowd[0]; h < crowd[1]; h++) n += waited(h);
-    out.push([n * 2, tr`${cap0(span(crowd[0], crowd[1]))} стойка была занята почти всё время, ${left(n)} ${people(n)}.`]);
+    // Цифры для решения, а не совет: сколько стоил бы второй человек за стойкой на эти часы и сколько унесли ушедшие
+    const hours = crowd[1] - crowd[0];
+    const helper = hours * ECONOMY.baristaWagePerHour;
+    const check = r.guests > 0 ? r.revenue / r.guests : 0;
+    const gone = Math.round((n * check) / 100) * 100;
+    const math =
+      n >= 5 && gone > helper
+        ? tr` Почасовой бариста на эти часы стоил бы около ${money(helper)}, а ушедшие принесли бы около ${money(gone)}.`
+        : '';
+    out.push([n * 2, tr`${cap0(span(crowd[0], crowd[1]))} стойка была занята почти всё время, ${left(n)} ${people(n)}.${math}`]);
   }
   // Пусто: бариста на смене, а стойка простаивает два часа и дольше
   const idle = longestRun((h) => staff[h] > 30 && load(h) < 0.25);

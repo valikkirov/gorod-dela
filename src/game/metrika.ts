@@ -17,8 +17,10 @@ declare global {
 
 /** Боевые адреса: основной у Яндекса, свой домен и зеркало в Selectel */
 const LIVE_HOSTS = ['yandexcloud.net', 'gorod-dela.ru', 'selstorage.ru'];
+// Превью веток (/preview/…) — наши проверки, в статистику не идут
 const enabled = (): boolean =>
-  (IS_PORTAL && PLATFORM !== 'crazygames' && !import.meta.env.DEV) || LIVE_HOSTS.some((h) => location.hostname === h || location.hostname.endsWith(`.${h}`));
+  (IS_PORTAL && PLATFORM !== 'crazygames' && !import.meta.env.DEV) ||
+  (!location.pathname.includes('/preview/') && LIVE_HOSTS.some((h) => location.hostname === h || location.hostname.endsWith(`.${h}`)));
 
 export function initMetrika(): void {
   if (!enabled() || window.ym) return;
