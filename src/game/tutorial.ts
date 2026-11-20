@@ -1,4 +1,4 @@
-import { goal } from './metrika';
+import { goal, goalOnce } from './metrika';
 
 import { getLang, L, tr } from '../sim/i18n';
 import { switchLang } from './lang';
@@ -92,11 +92,13 @@ export function showTutorial(hud: SpeedControl): void {
     if (t === 'lang') return switchLang();
     if (t === 'skip') {
       goal('tutorial_skip', { step: step + 1 });
+      goalOnce('game_start', { tutorial: 'skip' });
       close();
     }
     if (t === 'next') {
       if (step === STEPS.length - 1) {
         goal('tutorial_done');
+        goalOnce('game_start', { tutorial: 'done' });
         close();
       }
       else {

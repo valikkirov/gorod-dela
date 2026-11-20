@@ -37,13 +37,61 @@ export function initMetrika(): void {
   // Откуда играют: сайт или Telegram — параметр визита, отчёты можно делить
   // На площадках игра в чужом iframe: без вебвизора и карты кликов — только визиты и цели
   const platform = IS_PORTAL ? PLATFORM : isTelegram() ? 'telegram' : 'web';
+  // Источник первого захода и сколько дней прошло с него — у каждого визита, чтобы видеть, кто возвращается и откуда пришёл
+  const v = visitor();
   ym(COUNTER, 'init', {
     clickmap: !IS_PORTAL,
     trackLinks: true,
     accurateTrackBounce: true,
     webvisor: !IS_PORTAL,
-    params: { platform },
+    params: { platform, days_since_first: v.days, ...v.source },
   });
+}
+
+/** Первый заход игрока на этом устройстве: когда и откуда (utm_*, ref). Хранится в браузере, без него — пусто */
+interface Visitor {
+  first: number;
+  source: Record<string, string>;
+}
+const VISITOR_KEY = 'gorod-dela:visitor';
+const SOURCE_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'ref'];
+
+/** Сохранить источник при первом заходе; дальше — тот же, сколько бы раз игрок ни возвращался */
+export function visitor(): { days: number; source: Record<string, string> } {
+  const now = Date.now();
+  let v: Visitor | null = null;
+  try {
+    v = JSON.parse(localStorage.getItem(VISITOR_KEY) ?? 'null') as Visitor | null;
+  } catch {
+    v = null;
+  }
+  if (!v || typeof v.first !== 'number') {
+    const q = new URLSearchParams(location.search);
+    const source: Record<string, string> = {};
+    for (const k of SOURCE_KEYS) {
+      const val = q.get(k);
+      if (val) source[k] = val.slice(0, 64);
+    }
+    v = { first: now, source };
+    try {
+      localStorage.setItem(VISITOR_KEY, JSON.stringify(v));
+    } catch {
+      /* без хранилища каждый визит — первый */
+    }
+  }
+  return { days: Math.max(0, Math.floor((now - v.first) / 86_400_000)), source: v.source ?? {} };
+}
+
+/** Цель, которая достигается один раз за игрока (на этом устройстве) */
+export function goalOnce(name: string, params?: Record<string, unknown>): void {
+  const key = `gorod-dela:goal:${name}`;
+  try {
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, '1');
+  } catch {
+    /* хранилища нет — шлём каждый раз, Метрика посчитает конверсию по визитам */
+  }
+  goal(name, params);
 }
 
 /** Цель в Метрике. Ошибки счётчика никогда не ломают игру */

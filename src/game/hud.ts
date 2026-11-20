@@ -66,7 +66,7 @@ import { showTutorial } from './tutorial';
 import { showEventCard } from './eventCard';
 import { hallPicker, hallTab } from './hall';
 import { styleName, type FurnitureId, type PresetId, type StyleId } from '../sim/interior';
-import { goal } from './metrika';
+import { goal, goalOnce } from './metrika';
 import { sound } from './sound';
 import { CHALLENGE, challengeUrl, resultIfFinished, savedResult, saveKeyFor, showChallengeResult } from './challenge';
 import { card, EVENTS } from '../sim/events';
@@ -644,6 +644,7 @@ export class Hud {
     // Сколько дней прожило заведение — главный показатель удержания
     const opened = this.sim.reports.filter((r) => r.opened).length;
     if ([1, 3, 7, 14, 28].includes(opened)) goal(`day_${opened}`, { premises: this.sim.cafe.premisesId });
+    if (opened >= 3 && this.sim === this.city.main) goalOnce('day3_reached', { premises: this.sim.cafe.premisesId });
     for (const id of this.sim.reports.at(-1)?.milestones ?? []) goal('milestone', { id });
     sound.play('ui-day-end', 0.8);
     if (this.sim.reports.at(-1)?.milestones?.length) setTimeout(() => sound.play('ui-milestone'), 900);
@@ -778,7 +779,11 @@ export class Hud {
         break;
       }
       case 'open-cafe':
-        if (sim.openCafe((item as PremisesId) ?? 'cafe')) goal('open', { premises: item });
+        if (sim.openCafe((item as PremisesId) ?? 'cafe')) {
+          goal('open', { premises: item });
+          // Первое заведение игрока — главный шаг воронки (вторая точка и пекарня сюда не считаются)
+          if (sim === this.city.main) goalOnce('cafe_opened', { premises: item });
+        }
         this.tab = 'overview';
         this.panel.scrollTop = 0;
         break;
@@ -871,17 +876,29 @@ export class Hud {
         break;
       case 'hall-place': {
         const [slot, id] = item!.split(':');
-        if (sim.placeFurniture(slot, id as FurnitureId)) sound.play('ui-upgrade');
+        if (sim.placeFurniture(slot, id as FurnitureId)) {
+          sound.play('ui-upgrade');
+          goalOnce('first_furniture', { how: 'place' });
+        }
         break;
       }
       case 'hall-sell':
-        if (sim.sellFurniture(item!)) sound.play('ui-upgrade');
+        if (sim.sellFurniture(item!)) {
+          sound.play('ui-upgrade');
+          goalOnce('first_furniture', { how: 'sell' });
+        }
         break;
       case 'hall-style':
-        if (sim.applyStyle(item as StyleId)) sound.play('ui-upgrade');
+        if (sim.applyStyle(item as StyleId)) {
+          sound.play('ui-upgrade');
+          goalOnce('first_furniture', { how: 'style' });
+        }
         break;
       case 'hall-preset':
-        if (sim.applyPreset(item as PresetId)) sound.play('ui-upgrade');
+        if (sim.applyPreset(item as PresetId)) {
+          sound.play('ui-upgrade');
+          goalOnce('first_furniture', { how: 'preset' });
+        }
         this.hallSlot = null;
         break;
       case 'tab':
