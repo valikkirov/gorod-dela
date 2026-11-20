@@ -28,11 +28,11 @@ import { getLang } from './sim/i18n';
 import { switchLang } from './game/lang';
 import { gameReady, initPlatform, IS_PORTAL, onPlatformPause, PLATFORM, setPlaying } from './game/platform';
 
-// В Яндекс Играх своя статистика и нет Telegram: внешние скрипты не грузим
-if (!IS_PORTAL) {
-  initMetrika();
-  void initTelegram();
-}
+// Метрика — на сайте и на российских площадках (Яндекс Игры сами советуют её ставить в код игры).
+// На CrazyGames без неё: там игроки из ЕС, а окна согласия на сбор данных у нас нет
+if (PLATFORM !== 'crazygames') initMetrika();
+// Telegram только на сайте
+if (!IS_PORTAL) void initTelegram();
 // Логотип в шапке (на компьютере): знак и надпись на языке игры
 {
   const brand = document.querySelector('#brand');
@@ -183,6 +183,12 @@ function switchTo(district: DistrictId): void {
   scene.flyTo(district);
 }
 hud.onSwitch = switchTo;
+hud.onShowPlace = (district, id) => {
+  switchTo(district);
+  const s = district === city.main.district ? scene : neighbor;
+  const sim = city.point(district);
+  if (s && sim) s.selectPlace(sim.at(id));
+};
 hud.viewDistrict = () => scene.viewDistrict();
 
 // ——— Площадка: «игра загружена», геймплей идёт или стоит, пауза по просьбе площадки ———

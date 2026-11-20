@@ -345,6 +345,8 @@ export class Hud {
   onSwitch: (district: DistrictId) => void = () => {};
   /** Какой район сейчас на экране (камера общая: карту можно утащить в соседний район) */
   viewDistrict: () => DistrictId = () => this.sim.district;
+  /** Показать место на карте: переехать в район и открыть его карточку */
+  onShowPlace: (district: DistrictId, placeId: string) => void = () => {};
 
   constructor(
     private readonly city: City,
@@ -478,6 +480,7 @@ export class Hud {
         <div class="event-icon">🏙️</div>
         <b>Деловой квартал открыт</b>
         <p>Две недели подряд прибыль от ${money(UNLOCK.weeklyProfit)} в неделю — первая точка встала на ноги. За железной дорогой деловой квартал: бизнес-центры, коворкинг и институт, около 160 офисных. Там сдаётся помещение под бистро с обедами.</p>
+        <p>А на Кленовой, на Садовой, теперь можно открыть пекарню: свой хлеб и выпечка, а хлеб можно возить в «Продукты».</p>
         <p class="event-stake">Ты стоишь за стойкой в первой точке, во второй нужен бариста. Касса общая.</p>
         <div class="event-options">
           <button class="event-option" data-choice="go"><span>Поехать на метро</span><small>Посмотреть квартал и бистро</small></button>
@@ -491,6 +494,44 @@ export class Hud {
       root.remove();
       this.setSpeed(resume);
       if (id === 'go') this.onSwitch('delovoy');
+    });
+  }
+
+  /** Пекарню легко не заметить: как только на неё хватает денег — один раз предложить посмотреть помещение */
+  private bakeryCard(): void {
+    const c = this.city;
+    if (!c.canOpenBakery() || c.justUnlocked || document.querySelector('.overlay')) return;
+    const KEY = 'gorod-dela:hint-bakery';
+    try {
+      if (localStorage.getItem(KEY)) return;
+      localStorage.setItem(KEY, '1');
+    } catch {
+      return; // без хранилища показывали бы при каждом запуске
+    }
+    const resume = this.speed || 1;
+    this.setSpeed(0);
+    sound.play('ui-milestone');
+    goal('bakery_hint');
+    const root = document.createElement('div');
+    root.className = 'overlay';
+    root.innerHTML = tr`
+      <div class="sheet event-card" role="dialog" aria-label="Можно открыть пекарню">
+        <div class="event-icon">🥐</div>
+        <b>Можно открыть пекарню</b>
+        <p>На Садовой, у второго выхода метро, сдаётся помещение. В пекарне своя печь: хлеб, булочки с корицей и пирожки, вечером выпечку можно уценять. Хлеб можно возить в «Продукты», а выпечку — в свои точки.</p>
+        <p class="event-stake">Открытие — ${money(PREMISES.bakery.openingCost)}. Жители общие: кто-то будет заходить и туда, и сюда.</p>
+        <div class="event-options">
+          <button class="event-option" data-choice="go"><span>Посмотреть помещение</span><small>Карточка на Садовой</small></button>
+        </div>
+        <div class="actions"><button class="link" data-choice="later">Позже</button></div>
+      </div>`;
+    document.body.append(root);
+    root.addEventListener('click', (ev) => {
+      const id = (ev.target as HTMLElement).closest<HTMLElement>('[data-choice]')?.dataset.choice;
+      if (!id) return;
+      root.remove();
+      this.setSpeed(resume);
+      if (id === 'go') this.onShowPlace(PREMISES.bakery.district, PREMISES.bakery.placeId);
     });
   }
 
@@ -663,6 +704,7 @@ export class Hud {
     this.wasNegative = negative;
     this.districtPill();
     this.unlockCard();
+    this.bakeryCard();
     this.render();
   }
 

@@ -1050,12 +1050,13 @@ export class StreetScene extends Phaser.Scene {
       // Сдаётся только то, что можно снять в этом районе (киоск в квартале займёт сеть)
       const bakeryFree = shop.place.id === PREMISES.bakery.placeId && this.hooks.city.unlocked && !owner && this.district === PREMISES.bakery.district;
       const rentable = (!cafe.opened && PREMISES[shop.place.id as PremisesId]?.district === this.district) || bakeryFree;
-      const name = mine ? ownCafe.title : theirs ? rival!.t.name : rentable ? L('Сдаётся') : '';
+      // Свободная пекарня — с приглашением и ценой, чтобы её было видно с карты
+      const name = mine ? ownCafe.title : theirs ? rival!.t.name : bakeryFree ? L('🥐 Сдаётся под пекарню') : rentable ? L('Сдаётся') : '';
       const opening = owner ? owner.grandOpening : sim.grandOpening;
-      const status = mine ? (ownOpen ? (opening ? L('🎀 открытие!') : L('открыто')) : L('закрыто')) : theirs ? tr`конкурент · ${theirsOpen ? L('открыто') : L('закрыто')}` : rentable ? shop.place.name : '';
+      const status = mine ? (ownOpen ? (opening ? L('🎀 открытие!') : L('открыто')) : L('закрыто')) : theirs ? tr`конкурент · ${theirsOpen ? L('открыто') : L('закрыто')}` : bakeryFree ? tr`открыть · ${formatMoney(PREMISES.bakery.openingCost)}` : rentable ? shop.place.name : '';
       shop.name.setText(name).setVisible(name !== '');
       shop.status.setText(status).setVisible(status !== '');
-      shop.status.setColor(mine && ownOpen ? '#2e8b57' : theirs ? '#c0392b' : '#6b7080');
+      shop.status.setColor(mine && ownOpen ? '#2e8b57' : theirs ? '#c0392b' : bakeryFree ? '#c75a2e' : '#6b7080');
       // Подпись не уезжает за левый край карты, даже когда длинная
       const x0 = shop.sprite.x;
       const half = Math.max(shop.name.displayWidth, shop.status.displayWidth) / 2 + 6;
