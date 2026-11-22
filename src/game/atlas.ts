@@ -7,6 +7,7 @@ import extraUrl from './art/extra.webp';
 import groundUrl from './art/ground.webp';
 import lightsUrl from './art/lights.webp';
 import peopleUrl from './art/people.webp';
+import heroesUrl from './art/heroes.webp';
 import animalsUrl from './art/animals.webp';
 import { ANIMAL_FRAMES } from './animalFrames';
 import vehiclesUrl from './art/vehicles.webp';
@@ -53,6 +54,11 @@ export const PEOPLE_ORDER: ResidentKind[] = [
 ];
 export type Facing = 'down' | 'up' | 'right';
 const FACINGS: Facing[] = ['down', 'up', 'right'];
+
+/** Герои — своя полоса в той же раскладке, что жители (scripts/pack_heroes.py) */
+export const HERO_ORDER = ['marina', 'lesha', 'zinaida', 'architect'] as const;
+export type HeroId = (typeof HERO_ORDER)[number];
+
 
 type Frames = Record<string, [x: number, y: number, w: number, h: number]>;
 
@@ -167,6 +173,7 @@ export const ATLASES: Record<string, { url: string; frames: Frames }> = {
   'winter-tree-tall': { url: treeTallWinterUrl, frames: { 'prop-tree-tall-winter': [0, 0, 57, 100] } },
   'winter-pond': { url: pondWinterUrl, frames: { 'prop-pond-winter': [0, 0, 290, 125] } },
   people: { url: peopleUrl, frames: peopleFrames() },
+  heroes: { url: heroesUrl, frames: heroFrames() },
   // Животные «Графики 2.0»: листы поз из Magnific, сборка scripts/pack_animals.py
   animals: { url: animalsUrl, frames: ANIMAL_FRAMES },
   // Транспорт «Графики 2.0» в 3/4 (scripts/pack_vehicles.py). Стоит после extra: одноимённые кадры берутся отсюда
@@ -223,6 +230,22 @@ function peopleFrames(): Frames {
     });
   });
   return frames;
+}
+
+
+function heroFrames(): Frames {
+  const frames: Frames = {};
+  HERO_ORDER.forEach((hero, row) => {
+    FACINGS.forEach((facing, f) => {
+      for (let phase = 0; phase < 5; phase++) frames[`hero-${hero}-${facing}-${phase}`] = [4 + (f * 5 + phase) * 32, 4 + row * 48, 28, 44];
+    });
+  });
+  return frames;
+}
+
+/** Атлас и кадр человечка: у героя — свой, у остальных — по типу жителя */
+export function walkerFrame(kind: ResidentKind, hero: HeroId | null, facing: Facing, phase: number): [string, string] {
+  return hero ? ['heroes', `hero-${hero}-${facing}-${phase}`] : ['people', personFrame(kind, facing, phase)];
 }
 
 /** В каком атласе лежит кадр — спрайты из разных наборов можно смешивать */

@@ -14,7 +14,8 @@ import { COLORS } from './palette';
 import type { FxKind } from './weatherFx';
 import { Animals } from './animals';
 import type { WindLevel } from '../sim/weather';
-import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, seasonal, textureOf, type Accessory, type Facing } from './atlas';
+import { ART_SCALE, ATLASES, personFrame, RESIDENT_SIZE, seasonal, textureOf, type Accessory, type Facing, walkerFrame, type HeroId } from './atlas';
+import { heroOf } from '../sim/regulars';
 import { Traffic } from './traffic';
 import { sound } from './sound';
 import type { RejectReason } from '../sim/cafe';
@@ -339,6 +340,8 @@ const BISTRO_WINDOWS = [
 const BISTRO_DOOR_GLASS = { x: 192, y: 146, w: 22, h: 28 };
 
 interface Walker {
+  /** Герой со своим человечком (у него и свои вещи в руках — портфель и трость типа не нужны) */
+  hero: HeroId | null;
   sprite: Phaser.GameObjects.Image;
   /** Аксессуар поверх жителя: портфель, рюкзак, трость, стаканчик, пакет */
   acc: Phaser.GameObjects.Image;
@@ -499,8 +502,9 @@ export class StreetScene extends Phaser.Scene {
     }
 
     this.walkers = this.hooks.sim.residents.map((r) => ({
+      hero: heroOf(r.name),
       sprite: this.add
-        .image(r.pos.x, r.pos.y, 'people', personFrame(r.kind, 'down', 0))
+        .image(r.pos.x, r.pos.y, ...walkerFrame(r.kind, heroOf(r.name), 'down', 0))
         .setOrigin(0.5, RESIDENT_SIZE.feet / RESIDENT_SIZE.h)
         .setScale(1 / ART_SCALE),
       acc: this.add
@@ -1108,7 +1112,7 @@ export class StreetScene extends Phaser.Scene {
       // По пояс: нижняя часть спрайта срезана и прячется за подоконником
       const scale = GUEST_SCALE / ART_SCALE;
       sprite
-        .setFrame(personFrame(res.kind, 'right', 0))
+        .setTexture(...walkerFrame(res.kind, heroOf(res.name), 'right', 0))
         .setScale(scale)
         .setFlipX(flip)
         // За стеклом: чуть теплее и темнее, чем на улице
@@ -1243,7 +1247,8 @@ export class StreetScene extends Phaser.Scene {
       w.lastY = r.pos.y;
       // Шаг — 8 кадров в секунду реального времени, у каждого жителя свой сдвиг
       const phase = r.walking && this.hooks.getSpeed() > 0 ? 1 + (Math.floor(time / 125 + i * 0.37) % 4) : 0;
-      s.setFrame(personFrame(r.kind, w.facing, phase))
+      const [tex, frame] = walkerFrame(r.kind, w.hero, w.facing, phase);
+      (w.hero ? s.setTexture(tex, frame) : s.setFrame(frame))
         .setFlipX(w.flip)
         .setPosition(r.pos.x, r.pos.y)
         .setDepth(r.pos.y);
@@ -1254,7 +1259,7 @@ export class StreetScene extends Phaser.Scene {
         w.bagUntil = sim.time + BAG_MINUTES;
       }
       const acc: Accessory | undefined =
-        sim.time < w.coffeeUntil ? 'coffee' : sim.time < w.bagUntil ? 'shopping-bag' : KIND_ACCESSORY[r.kind];
+        sim.time < w.coffeeUntil ? 'coffee' : sim.time < w.bagUntil ? 'shopping-bag' : w.hero ? undefined : KIND_ACCESSORY[r.kind];
       if (acc) {
         // Покачивается в такт шагу: на шагах 1 и 3 чуть выше
         const bob = phase % 2 === 1 ? -0.7 : 0;

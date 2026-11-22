@@ -49,10 +49,15 @@ interface Pick {
   work?: string;
 }
 
+/** Герои игры — те же люди, что ведут её соцсети; у каждого своё лицо и свой человечек на карте */
+export const MARINA = L('Марина Орлова');
+export const ZINAIDA = L('Зинаида Петровна');
+export const LESHA = L('Лёша Ковалёв');
+
 const PICKS: Pick[] = [
-  { kind: 'office', trait: L('Кофе по\u00a0дороге в\u00a0офис'), usual: 'coffee', local: true, name: L('Марина Орлова'), work: 'office-north' },
-  { kind: 'pensioner', trait: L('Любит тихие часы и\u00a0чай'), usual: 'tea', local: true, name: L('Зинаида Петровна'), home: 'home-1' },
-  { kind: 'student', trait: L('Считает каждый рубль'), usual: 'snack', local: true, name: L('Лёша Ковалёв') },
+  { kind: 'office', trait: L('Кофе по\u00a0дороге в\u00a0офис'), usual: 'coffee', local: true, name: MARINA, work: 'office-north' },
+  { kind: 'pensioner', trait: L('Любит тихие часы и\u00a0чай'), usual: 'tea', local: true, name: ZINAIDA, home: 'home-1' },
+  { kind: 'student', trait: L('Считает каждый рубль'), usual: 'snack', local: true, name: LESHA },
   { kind: 'remote', trait: L('Сидит с\u00a0ноутбуком подолгу'), usual: 'coffee', local: true },
   { kind: 'youth', trait: L('Вечером\u00a0— с\u00a0друзьями'), usual: 'bar', local: true },
   { kind: 'passenger', trait: L('Пересадка, берёт с\u00a0собой'), usual: 'coffee', local: false },
@@ -60,6 +65,15 @@ const PICKS: Pick[] = [
 
 /** Архитектор: автор игры живёт в ней сам — бюро в БЦ «Стекло», дом в деловом квартале */
 export const ARCHITECT = L('Валентин Киров');
+/** Какой герой этот житель (по имени — они одни такие в городе); null — обычный житель */
+export function heroOf(name: string): 'marina' | 'lesha' | 'zinaida' | 'architect' | null {
+  if (name === MARINA) return 'marina';
+  if (name === LESHA) return 'lesha';
+  if (name === ZINAIDA) return 'zinaida';
+  if (name === ARCHITECT) return 'architect';
+  return null;
+}
+
 const DISTRICT_PICKS: Partial<Record<DistrictId, Partial<Record<ResidentKind, Pick>>>> = {
   delovoy: {
     office: { kind: 'office', trait: L('Архитектор: город построен по\u00a0его чертежам'), usual: 'lunch', local: true, name: ARCHITECT, work: 'bc-glass' },
