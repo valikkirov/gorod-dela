@@ -4048,3 +4048,34 @@ a.foot-tile:hover {
   opacity: 0.6;
   cursor: progress;
 }
+
+/* Герои: кто это и что говорит о кафе */
+.hero-bio {
+  margin: 8px 0 6px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+.hero-says {
+  position: relative;
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #fff3df;
+  border: 1px solid #f0d9b5;
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+.hero-says::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  left: 22px;
+  width: 12px;
+  height: 12px;
+  background: #fff3df;
+  border-left: 1px solid #f0d9b5;
+  border-top: 1px solid #f0d9b5;
+  transform: rotate(45deg);
+}

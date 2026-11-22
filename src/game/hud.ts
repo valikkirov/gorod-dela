@@ -48,7 +48,8 @@ import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/
 import { FOCUS, WANT_LABEL, type WantKind } from '../sim/demand';
 import { ECONOMY, EQUIPMENT, equipmentFor, formatMoney, PREMISES, type EquipmentId, type PremisesId } from '../sim/economy';
 import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
-import { statusText, type Regular, ARCHITECT } from '../sim/regulars';
+import { statusText, type Regular, ARCHITECT, heroOf } from '../sim/regulars';
+import { bindShort, HERO_BIO, heroLine } from '../sim/heroes';
 import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
 import { BAKERY, type Simulation } from '../sim/simulation';
 import { DISTRICTS, type DistrictId, type Place } from '../sim/world';
@@ -2344,7 +2345,12 @@ export class Hud {
       })
       .join('');
     const fav = itemName(r.favorites[g.usual]);
-    return tr`<div class="face-card">
+    // Герой: кто он и что думает о кафе прямо сейчас — голосом из соцсетей игры
+    const hero = heroOf(r.name);
+    const about = hero
+      ? `<p class="hero-bio">${bindShort(HERO_BIO[hero])}</p><blockquote class="hero-says">${bindShort(heroLine(hero, g.status, g.lostReason))}</blockquote>`
+      : '';
+    return tr`${about}<div class="face-card">
         <div class="row"><b class="grow">★ ${g.trait}</b><span class="badge ${g.status === 'regular' ? 'on' : g.status === 'lost' ? 'neg' : ''}">${statusText(g.status, r.name)}</span></div>
         <small>Обычно берёт ${USUAL[g.usual]}, любимое — ${fav.toLowerCase()}.${
           g.status === 'lost' && g.lostReason ? tr` Перестал${f ? L('а') : ''} заходить: ${REJECT_LABEL[g.lostReason].toLowerCase()}.` : ''
