@@ -53,6 +53,8 @@ export interface ScheduleEntry {
 export interface Resident {
   id: number;
   name: string;
+  /** Почётный житель (поддерживает игру): id из CITIZENS — у него своё имя и портрет */
+  honorary?: string;
   kind: ResidentKind;
   homeId: string;
   /** Где работает или учится; 'metro' — за пределами улицы */

@@ -3225,10 +3225,15 @@ export class Hud {
     return tr`
       <div class="card-head">
         ${portrait(r, !!reg, 'lg')}
-        <div><b>${r.name}</b><small>${r.name === ARCHITECT ? L('Архитектор') : KIND_LABEL[r.kind]}</small></div>
+        <div><b>${r.name}</b><small>${r.name === ARCHITECT ? L('Архитектор') : r.honorary ? L('Почётный житель') : KIND_LABEL[r.kind]}</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button>
       </div>
       <div class="status">${status}</div>
+      ${
+        r.honorary
+          ? `<p class="hero-says honorary">${bindShort(IS_PORTAL ? L('Почётный житель «Города дела»: помогает игре расти. Спасибо!') : L('Почётный житель «Города дела»: поддерживает игру на Boosty. Спасибо!'))}</p>`
+          : ''
+      }
       ${reg ? this.faceCard(reg, r) : ''}
       ${decision}
       <div class="facts"><div>${home}</div>${work}<div>${r.aware ? tr`Знает о твоём кафе` : tr`<b class="oos">Не знает о твоём кафе</b>`}</div>${this.hallTaste(r)}${this.groupLine(r)}<div>${f ? L('Готова') : L('Готов')} платить: ${budget}</div></div>

@@ -4,6 +4,7 @@ import { SAVE_VERSION, Simulation, STEP, type SaveData } from './simulation';
 import { hm, MINUTES_PER_DAY } from './clock';
 import { linkCommuters, syncCommuters } from './commute';
 import { uniqueNames } from './residents';
+import { placeCitizens } from './citizens';
 import { PREMISES } from './economy';
 import type { Resident } from './residents';
 import type { DistrictId } from './world';
@@ -53,6 +54,7 @@ export class City {
   ) {
     // Один город — без тёзок: на одной карте две «Веры Ивановой» выглядят как ошибка
     uniqueNames(main.residents, new Set());
+    placeCitizens(main.residents, main.district);
     if (branch) this.linkBranch(branch);
   }
 
@@ -88,6 +90,7 @@ export class City {
       branch.residents.filter((r) => !r.commute),
       used,
     );
+    placeCitizens(branch.residents, branch.district);
   }
 
   get points(): Simulation[] {
