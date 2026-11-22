@@ -3,6 +3,7 @@
 // его цвет — ободок, занятие — значок в углу.
 import type { Resident, ResidentKind } from '../sim/residents';
 import { isFemale } from '../sim/residents';
+import { ARCHITECT } from '../sim/regulars';
 import type { DistrictId, Place } from '../sim/world';
 import { RESIDENT_COLOR, toCss } from './palette';
 import { namedIcon } from './icons';
@@ -31,6 +32,8 @@ function genericFace(r: Resident): string {
 }
 
 export function faceOf(r: Resident, regular: boolean): string {
+  // Герои со своим лицом — по имени (они одни такие во всём городе)
+  if (r.name === ARCHITECT) return 'reg-architect';
   const reg = regular ? REGULAR_FACE[r.kind] : undefined;
   if (reg) return BOTH_GENDERS.has(reg) ? `${reg}-${isFemale(r.name) ? 'f' : 'm'}` : reg;
   return genericFace(r);

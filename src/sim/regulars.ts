@@ -4,6 +4,7 @@
 import { REJECT_LABEL, type RejectReason } from './cafe';
 import type { WantKind } from './demand';
 import { isFemale, type Resident, type ResidentKind } from './residents';
+import type { DistrictId } from './world';
 
 import { L, tr } from './i18n';
 export interface RegularNote {
@@ -57,6 +58,14 @@ const PICKS: Pick[] = [
   { kind: 'passenger', trait: L('Пересадка, берёт с\u00a0собой'), usual: 'coffee', local: false },
 ];
 
+/** Архитектор: автор игры живёт в ней сам — бюро в БЦ «Стекло», дом в деловом квартале */
+export const ARCHITECT = L('Валентин Киров');
+const DISTRICT_PICKS: Partial<Record<DistrictId, Partial<Record<ResidentKind, Pick>>>> = {
+  delovoy: {
+    office: { kind: 'office', trait: L('Архитектор: город построен по\u00a0его чертежам'), usual: 'lunch', local: true, name: ARCHITECT, work: 'bc-glass' },
+  },
+};
+
 /** История не растёт бесконечно: для статуса нужна неделя, для карточки — последние визиты */
 export const HISTORY_LIMIT = 20;
 /** За сколько дней смотрим, чтобы решить статус */
@@ -65,9 +74,10 @@ export const STATUS_WINDOW = 7;
 export const LOYAL = 0.3;
 
 /** Выбор детерминирован: первый подходящий житель каждого типа. Rng не трогаем — мир не сдвигается. */
-export function pickRegulars(residents: Resident[]): Regular[] {
+export function pickRegulars(residents: Resident[], district: DistrictId = 'klenovaya'): Regular[] {
   const out: Regular[] = [];
-  for (const p of PICKS) {
+  for (const base of PICKS) {
+    const p = DISTRICT_PICKS[district]?.[base.kind] ?? base;
     const fits = (x: Resident) => x.kind === p.kind && (p.local ? x.homeId !== 'metro' : true);
     const r =
       residents.find((x) => fits(x) && (!p.home || x.homeId === p.home) && (!p.work || x.workId === p.work)) ??

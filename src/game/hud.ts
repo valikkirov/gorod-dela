@@ -48,7 +48,7 @@ import { WEATHER_HINT, WEATHER_ICON, WEATHER_LABEL, type Weather } from '../sim/
 import { FOCUS, WANT_LABEL, type WantKind } from '../sim/demand';
 import { ECONOMY, EQUIPMENT, equipmentFor, formatMoney, PREMISES, type EquipmentId, type PremisesId } from '../sim/economy';
 import { ACTIVITY_LABEL, currentEntry, isFemale as femaleName, KIND_LABEL, type Resident, type ResidentKind } from '../sim/residents';
-import { statusText, type Regular } from '../sim/regulars';
+import { statusText, type Regular, ARCHITECT } from '../sim/regulars';
 import { milestone, MILESTONES, UPGRADES, type UpgradeId } from '../sim/milestones';
 import { BAKERY, type Simulation } from '../sim/simulation';
 import { DISTRICTS, type DistrictId, type Place } from '../sim/world';
@@ -1321,7 +1321,12 @@ export class Hud {
         <i class="place-dot place-${p.kind}"></i>
         <div><b>${title}</b><small>${sub}</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button>
-      </div>${placeInterior(p, this.sim.district)}`;
+      </div>${placeInterior(p, this.sim.district)}${
+        // В «Стекле» — бюро архитектора, который построил этот город
+        this.sim.district === 'delovoy' && p.id === 'bc-glass'
+          ? tr`<p class="hint">📐 Здесь архитектурное бюро Валентина Кирова: по его чертежам построен этот город.</p>`
+          : ''
+      }`;
     // Тёзки в одном списке — с первой буквой фамилии: «Вера И.» и «Вера П.»
     const short = (list: Resident[]) => {
       const n = new Map<string, number>();
@@ -3214,7 +3219,7 @@ export class Hud {
     return tr`
       <div class="card-head">
         ${portrait(r, !!reg, 'lg')}
-        <div><b>${r.name}</b><small>${KIND_LABEL[r.kind]}</small></div>
+        <div><b>${r.name}</b><small>${r.name === ARCHITECT ? L('Архитектор') : KIND_LABEL[r.kind]}</small></div>
         <button data-action="back" aria-label="Закрыть">✕</button>
       </div>
       <div class="status">${status}</div>

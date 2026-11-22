@@ -376,7 +376,7 @@ export class Simulation {
     this.ownWeather = { kind: 'sunny', temp: 21, wind: 0 };
     this.ownForecast = this.rollForecast(this.day + 1);
     this.residents = generateResidents(this.rng, seed, district);
-    this.regulars = pickRegulars(this.residents);
+    this.regulars = pickRegulars(this.residents, district);
     const colleagues = formGroups(this.residents);
     this.groups = [...colleagues, ...formFriends(this.residents, colleagues.length)];
     for (const g of this.groups) for (const id of g.members) this.groupOf.set(id, g);
