@@ -283,6 +283,15 @@ const daysText = (d: number): string => {
 };
 const DAY_OFF = 'day-off';
 
+/** Последняя записанная разметка элемента. С innerHTML сравнивать нельзя: браузер отдаёт неразрывный пробел
+ * как &nbsp;, сравнение всегда «не равно» — элемент перерисовывался каждый кадр, и нажатие по нему терялось */
+const lastHtml = new WeakMap<Element, string>();
+function setHtml(el: Element, html: string): void {
+  if (lastHtml.get(el) === html) return;
+  lastHtml.set(el, html);
+  el.innerHTML = html;
+}
+
 export class Hud {
   speed = 1;
   private view: View = 'cafe';
@@ -464,7 +473,7 @@ export class Hud {
       const p = this.city.unlockProgress();
       html = tr`<small>Деловой квартал</small><b>🔒 ${p.weeks} из ${UNLOCK.weeks} нед.</b>`;
     }
-    if (el.innerHTML !== html) el.innerHTML = html;
+    setHtml(el, html);
   }
 
   /** Квартал только что открылся: карточка с предложением поехать */
@@ -682,12 +691,12 @@ export class Hud {
     const day = dayNumber(this.sim.time);
     const dayText = !this.challenge ? tr`День ${day}` : day <= CHALLENGE.days ? tr`День ${day} из ${CHALLENGE.days}` : tr`День ${day} · итог записан`;
     const clock = `<b>${WEEKDAY_SHORT[weekday(day)]} · ${formatClock(this.sim.time)}</b><small>${dayText} · ${weatherShort(this.sim.weather)}</small>`;
-    if (this.clock.innerHTML !== clock) this.clock.innerHTML = clock;
+    setHtml(this.clock, clock);
     // Касса нейтральная: цветом только минус (UI 2.1, «касса не равна прибыли»)
     const cash = tr`<small>В кассе</small><b>${money(this.sim.cash)}</b>`;
-    if (this.cash.innerHTML !== cash) this.cash.innerHTML = cash;
+    setHtml(this.cash, cash);
     const note = streetNote(this.sim.minute, isWeekend(day));
-    if (this.note.innerHTML !== note) this.note.innerHTML = note;
+    setHtml(this.note, note);
     const night = this.isQuietNight();
     if (this.nightSkip.hidden === night) this.nightSkip.hidden = !night;
     this.cash.classList.toggle('neg', this.sim.cash < 0);

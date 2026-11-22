@@ -4079,3 +4079,8 @@ a.foot-tile:hover {
   border-top: 1px solid #f0d9b5;
   transform: rotate(45deg);
 }
+
+/* Нажатие по надписи — всегда нажатие по кнопке района */
+#district > * {
+  pointer-events: none;
+}
