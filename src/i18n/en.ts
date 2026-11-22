@@ -1514,5 +1514,8 @@ export const EN: Record<string, string> = {
  "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    <button class=\"share-hall\" data-action=\"share-hall\">📸 Показать свой зал</button>\n    {3}\n    {4}\n    <h4>Готовые комплектации</h4>\n    <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Свой дизайн</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}": "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    <button class=\"share-hall\" data-action=\"share-hall\">📸 Show your hall</button>\n    {3}\n    {4}\n    <h4>Ready-made sets</h4>\n    <small>Pick one and it's placed. Extras sell for half price, matching items stay.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Your own design</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}",
  "<p class=\"hint\">📐 Здесь архитектурное бюро Валентина Кирова: по его чертежам построен этот город.</p>": "<p class=\"hint\">📐 Valentin Kirov's architecture studio is here: this whole city was built from his drawings.</p>",
  "Архитектор": "Architect",
- "Валентин Киров": "Valentin Kirov"
+ "Валентин Киров": "Valentin Kirov",
+ "\n      <div class=\"card-head\">\n        <i class=\"place-dot place-{0}\"></i>\n        <div><b>{1}</b><small>{2}</small></div>\n        <button data-action=\"back\" aria-label=\"Закрыть\">✕</button>\n      </div>{3}{4}": "\n      <div class=\"card-head\">\n        <i class=\"place-dot place-{0}\"></i>\n        <div><b>{1}</b><small>{2}</small></div>\n        <button data-action=\"back\" aria-label=\"Close\">✕</button>\n      </div>{3}{4}",
+ "{0} стойка была занята почти всё время, {1} {2}.{3}": "{0} the counter was busy almost all the time, {1} {2}.{3}",
+ "Архитектор: город построен по его чертежам": "Architect: the city is built from his drawings"
 };
