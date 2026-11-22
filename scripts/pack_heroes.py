@@ -2,7 +2,7 @@
 
 Исходник — лист 3×3 из Magnific (art-src/v2/heroes/sheet-<id>.png): ряды — спереди, сзади, сбоку вправо;
 в ряду — стоит, шаг, другой шаг. Скрипт снимает белый фон, режет девять фигур, масштабирует под жителей
-(рост 82 px в 2×, стопы на 84) и собирает src/game/art/heroes.webp в раскладке людей:
+(рост 80 px в 2×, стопы на 84; своя тень под ногами) и собирает src/game/art/heroes.webp в раскладке людей:
 ряд — герой, 15 кадров (вниз, вверх, вправо × стоит + 4 фазы шага), ячейка 32×48 (1×).
 Фазы шага: 1 — шаг, 2 — стоит, 3 — другой шаг, 4 — стоит.
 
@@ -12,23 +12,40 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / 'art-src' / 'v2' / 'heroes'
 OUT = ROOT / 'src' / 'game' / 'art' / 'heroes.webp'
 HEROES = ['marina', 'lesha', 'zinaida', 'architect']  # порядок рядов = HERO_ORDER в atlas.ts
-CELL_W, CELL_H, HEIGHT, FEET = 56, 88, 82, 84
+CELL_W, CELL_H, HEIGHT, FEET = 56, 88, 80, 84
 
 
 def cutout(rgb: np.ndarray) -> np.ndarray:
-    """Белый фон, связанный с краями, — в прозрачность, с мягким краем"""
-    light = (rgb.min(axis=2) > 232).astype(np.uint8)
+    """Фон и нарисованная моделью светлая тень под ногами — в прозрачность (тень рисуем свою, как у жителей).
+    Светлое и почти серое, связанное с краями, — фон; край смягчаем."""
+    f = rgb.astype(np.int16)
+    sat = f.max(axis=2) - f.min(axis=2)
+    light = ((f.min(axis=2) > 196) & (sat < 26)).astype(np.uint8)
     _, lab = cv2.connectedComponents(light)
     edge = set(np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))) - {0}
     bg = np.isin(lab, list(edge))
+    # Белая кайма по контуру: ещё на пиксель внутрь, если он светлый
+    ring = cv2.dilate(bg.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool) & ~bg
+    bg |= ring & (f.min(axis=2) > 180)
     a = cv2.GaussianBlur((~bg).astype(np.float32), (3, 3), 0)
-    return np.dstack([rgb, (np.clip(a * 1.3, 0, 1) * 255).astype(np.uint8)])
+    a[bg] = 0
+    return np.dstack([rgb, (np.clip(a * 1.6, 0, 1) * 255).astype(np.uint8)])
+
+
+def shadow(atlas: Image.Image, cx: int, feet: int, w: int) -> None:
+    """Мягкая тень под ногами — как у остальных жителей"""
+    sh = Image.new('L', (w, 10), 0)
+    ImageDraw.Draw(sh).ellipse((0, 0, w - 1, 9), fill=46)
+    sh = sh.filter(ImageFilter.GaussianBlur(1.6))
+    layer = Image.new('RGBA', sh.size, (40, 30, 20, 0))
+    layer.putalpha(sh)
+    atlas.alpha_composite(layer, (cx - w // 2, feet - 6))
 
 
 def figures(sheet: np.ndarray) -> list[list[np.ndarray]]:
@@ -58,9 +75,10 @@ def main() -> None:
                 im = im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
                 if im.width > CELL_W:
                     im = im.resize((CELL_W, round(im.height * CELL_W / im.width)), Image.LANCZOS)
-                x = (4 + (f * 5 + phase) * 32) * 2 + (CELL_W - im.width) // 2
+                x0 = (4 + (f * 5 + phase) * 32) * 2
                 y = (4 + row * 48) * 2 + FEET - im.height
-                atlas.alpha_composite(im, (x, max(0, y)))
+                shadow(atlas, x0 + CELL_W // 2, (4 + row * 48) * 2 + FEET, 34)
+                atlas.alpha_composite(im, (x0 + (CELL_W - im.width) // 2, max(0, y)))
     atlas.save(OUT, 'WEBP', quality=90, alpha_quality=100, method=6)
     print('ok', atlas.size)
 
