@@ -12,7 +12,7 @@ import { Hud } from './game/hud';
 import { StreetScene, type SceneHooks } from './game/StreetScene';
 import { SkyScene } from './game/sky';
 import { autosave, loadGame } from './game/save';
-import { showTutorial, tutorialDone } from './game/tutorial';
+import { coachDone, coachSignal, startCoach } from './game/coach';
 import { Simulation } from './sim/simulation';
 import { City } from './sim/city';
 import type { DistrictId } from './sim/world';
@@ -136,6 +136,7 @@ const hooksFor = (sim: Simulation, host?: StreetScene): SceneHooks => ({
     // Снятие выбора (крестик, «К управлению кафе») приходит от обеих сцен — панель не переключаем
     if (r) focus(sim);
     hud.select(r);
+    if (r) coachSignal('resident');
     if (r) drawer.open();
   },
   onPlace: (p) => {
@@ -223,8 +224,10 @@ if (IS_PORTAL) {
   document.documentElement.classList.add('in-yandex');
 }
 
-// Первый запуск — короткое обучение (с ?seed — для отладки — не показываем)
-if (!params.has('seed') && !tutorialDone()) showTutorial(hud);
+// Первый запуск — обучение прямо в игре: подсказка ведёт по шагам (с ?seed — для отладки — не показываем)
+if (!params.has('seed') && !coachDone()) {
+  startCoach({ city, speed: () => hud.speed, openDrawer: () => drawer.open(), collapseDrawer: () => drawer.collapse() });
+}
 
 // Канвас подстраивается под место между верхней панелью и карточкой
 new ResizeObserver(() => game.scale.resize(Math.max(1, gameEl.clientWidth * DPR), Math.max(1, gameEl.clientHeight * DPR))).observe(gameEl);
