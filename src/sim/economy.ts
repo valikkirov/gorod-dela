@@ -26,12 +26,25 @@ export const ECONOMY = {
   priceStep: 10,
 } as const;
 
+/** В английской версии деньги показываем в долларах: суммы ÷50 (капучино 150 ₽ → $3.00). Баланс не меняется — это только вывод */
+export const USD_PER_RUB = 1 / 50;
+
 export function formatMoney(amount: number, currency: Currency = CURRENCY): string {
   const sign = amount < 0 ? '−' : '';
+  if (getLang() === 'en' && currency === 'RUB') {
+    const usd = Math.abs(amount) * USD_PER_RUB;
+    const cents = Math.round(usd * 100);
+    // Мелкие суммы — с центами ($3.00), крупные и круглые — без ($7,000)
+    const whole = usd >= 1000 || (cents % 100 === 0 && usd >= 100);
+    const text = whole
+      ? Math.round(usd).toLocaleString('en-US')
+      : (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `${sign}$${text}`;
+  }
   const abs = Math.abs(Math.round(amount))
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, getLang() === 'ru' ? ' ' : ',');
-  return `${sign}${abs} ${currency === 'RUB' ? '₽' : currency}`;
+  return `${sign}${abs} ${currency === 'RUB' ? '₽' : currency}`;
 }
 
 export type PremisesId = 'cafe' | 'kiosk' | 'bistro' | 'bakery';

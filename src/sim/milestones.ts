@@ -2,9 +2,9 @@
 // Веха — понятная цель с прогрессом («неделя в плюсе: 4 из 7»). Часть вех открывает улучшение:
 // его можно купить, и оно меняет возможности заведения, а не просто цифру.
 import type { DayReport } from './cafe';
-import type { PremisesId } from './economy';
+import { formatMoney, type PremisesId } from './economy';
 
-import { getLang, L, tr } from './i18n';
+import { L, tr } from './i18n';
 export type MilestoneId = 'hundred' | 'week-plus' | 'no-queue' | 'no-waste' | 'regulars' | 'cushion' | 'known';
 
 export interface MilestoneCtx {
@@ -40,7 +40,7 @@ const wasteShare = (w: DayReport[]): number => {
 };
 /** Доля списаний для вехи «Бережливость» */
 export const WASTE_SHARE = 0.1;
-const rub = (n: number): string => `${n < 0 ? '−' : '+'}${Math.abs(Math.round(n)).toLocaleString(getLang() === 'ru' ? 'ru-RU' : 'en-US').replace(/\s/g, '\u00a0')}\u00a0₽`;
+const rub = (n: number): string => `${n < 0 ? '' : '+'}${formatMoney(n)}`.replace(/\s/g, '\u00a0');
 
 /** Будний день с нормальным потоком, когда никто не ушёл из‑за очереди */
 export const calmDay = (r: DayReport): boolean =>

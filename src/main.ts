@@ -37,7 +37,7 @@ if (!IS_PORTAL) void initTelegram();
 {
   const brand = document.querySelector('#brand');
   const en = getLang() === 'en';
-  if (brand) brand.innerHTML = `<img src="${en ? logoEn : logoRu}" alt="${en ? 'Business Town' : 'Город дела'}" height="56" />`;
+  if (brand) brand.innerHTML = `<img src="${en ? logoEn : logoRu}" alt="${en ? 'Cornerstone Cafe' : 'Город дела'}" height="56" />`;
 }
 // Переключатель языка: в шапке на компьютере, над кнопками карты на телефоне. Подпись — язык, на который
 // переключаем (во ВКонтакте игра только на русском)

@@ -34,22 +34,22 @@ SIGNS: dict[str, list[tuple[tuple[int, int, int, int], str]]] = {
     'bistro-rent': [((232, 257, 342, 281), 'FOR RENT')],
     'cafe-open': [((160, 118, 320, 150), 'COFFEE')],
     'cafe-rent': [((107, 240, 166, 259), 'FOR RENT')],
-    'cafe-rival': [((150, 116, 335, 152), 'SPOON')],
+    'cafe-rival': [((150, 116, 335, 152), 'SILVER SPOON')],
     'dl-alfa': [((360, 190, 435, 206), 'ALFA')],
     'dl-apart-1': [((40, 302, 95, 318), 'City')],
     'dl-bank': [((185, 339, 295, 366), 'BANK'), ((362, 372, 399, 381), 'ATM')],
     'dl-cowork': [((397, 293, 423, 305), 'HIVE')],
-    'dl-east': [((180, 274, 290, 290), 'VOSTOK')],
-    'dl-glass': [((422, 307, 468, 321), 'STEKLO')],
+    'dl-east': [((180, 274, 290, 290), 'EASTGATE')],
+    'dl-glass': [((422, 307, 468, 321), 'GLASS')],
     'dl-gym': [((150, 150, 305, 177), 'FITNESS')],
     'dl-institute': [((150, 75, 330, 91), 'INSTITUTE OF ECONOMICS')],
     'dl-meridian': [((150, 255, 325, 275), 'MERIDIAN')],
     'dl-shop': [((120, 74, 360, 101), 'SNACK')],
-    'dl-tower': [((158, 487, 294, 509), 'DELOVAYA')],
+    'dl-tower': [((158, 487, 294, 509), 'DOWNTOWN')],
     'home-d-right': [((140, 220, 345, 247), 'PHARMACY')],
     'kiosk-open': [((25, 41, 183, 57), 'COFFEE TO GO')],
     'kiosk-rent': [((55, 100, 91, 111), 'FOR RENT')],
-    'kiosk-rival': [((24, 41, 184, 58), 'COFFEE ON THE RUN')],
+    'kiosk-rival': [((24, 41, 184, 58), 'RUSH BREW')],
     'premises2-open': [((60, 126, 300, 152), 'COFFEE')],
     'school': [((203, 156, 276, 173), 'SCHOOL')],
     'shop-right': [((70, 106, 410, 140), 'GROCERY')],
@@ -58,7 +58,7 @@ SIGNS: dict[str, list[tuple[tuple[int, int, int, int], str]]] = {
 
 # Зимой у некоторых вывесок край закрыт снегом — надпись ставим правее
 WINTER: dict[str, list[tuple[tuple[int, int, int, int], str]]] = {
-    'kiosk-rival': [((46, 41, 184, 58), 'COFFEE ON THE RUN')],
+    'kiosk-rival': [((46, 41, 184, 58), 'RUSH BREW')],
 }
 
 

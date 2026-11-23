@@ -4122,59 +4122,59 @@
   },
   {
    "key": "Кафе",
-   "at": "src/sim/economy.ts:74"
+   "at": "src/sim/economy.ts:87"
   },
   {
    "key": "Твоё кафе",
-   "at": "src/sim/economy.ts:75"
+   "at": "src/sim/economy.ts:88"
   },
   {
    "key": "30 м² с залом на первой линии. Любое меню, гости сидят и дозаказывают",
-   "at": "src/sim/economy.ts:76"
-  },
-  {
-   "key": "Киоск у метро",
    "at": "src/sim/economy.ts:89"
   },
   {
+   "key": "Киоск у метро",
+   "at": "src/sim/economy.ts:102"
+  },
+  {
    "key": "Твой киоск",
-   "at": "src/sim/economy.ts:90"
+   "at": "src/sim/economy.ts:103"
   },
   {
    "key": "8 м² прямо у выхода из метро. Только навынос: кофе, выпечка, чай, без кухни и бара",
-   "at": "src/sim/economy.ts:91"
-  },
-  {
-   "key": "Бистро",
    "at": "src/sim/economy.ts:104"
   },
   {
+   "key": "Бистро",
+   "at": "src/sim/economy.ts:117"
+  },
+  {
    "key": "Твоё бистро",
-   "at": "src/sim/economy.ts:105"
+   "at": "src/sim/economy.ts:118"
   },
   {
    "key": "45 м² в деловом квартале: кухня уже стоит, обеды идут с раздачи вдвое быстрее. Без бара — после 19:00 квартал пустеет",
-   "at": "src/sim/economy.ts:107"
+   "at": "src/sim/economy.ts:120"
   },
   {
    "key": "Пекарня на Садовой",
-   "at": "src/sim/economy.ts:125"
+   "at": "src/sim/economy.ts:138"
   },
   {
    "key": "Твоя пекарня",
-   "at": "src/sim/economy.ts:126"
+   "at": "src/sim/economy.ts:139"
   },
   {
    "key": "20 м² с печью на Садовой. Каждое утро печёшь партию: хлеб, булочки, пирожки — втрое дешевле поставщика, но к ночи непроданное списывается. Кофе и чай навынос",
-   "at": "src/sim/economy.ts:127"
+   "at": "src/sim/economy.ts:140"
   },
   {
    "key": "Плита и вытяжка",
-   "at": "src/sim/economy.ts:155"
+   "at": "src/sim/economy.ts:168"
   },
   {
    "key": "Пивной кран и холодильник",
-   "at": "src/sim/economy.ts:156"
+   "at": "src/sim/economy.ts:169"
   },
   {
    "key": "вчера заказ пришлось ждать слишком долго",
@@ -5433,48 +5433,116 @@
    "at": "src/sim/residents.ts:43"
   },
   {
+   "key": "Зинаида",
+   "at": "src/sim/residents.ts:158"
+  },
+  {
+   "key": "Марина",
+   "at": "src/sim/residents.ts:158"
+  },
+  {
+   "key": "Анна",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Вера",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Дарья",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Жанна",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Ксения",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Мария",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Ольга",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Светлана",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Ульяна",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Юлия",
+   "at": "src/sim/residents.ts:159"
+  },
+  {
+   "key": "Яна",
+   "at": "src/sim/residents.ts:160"
+  },
+  {
+   "key": "Полина",
+   "at": "src/sim/residents.ts:160"
+  },
+  {
+   "key": "Алиса",
+   "at": "src/sim/residents.ts:160"
+  },
+  {
+   "key": "Нина",
+   "at": "src/sim/residents.ts:160"
+  },
+  {
+   "key": "Софья",
+   "at": "src/sim/residents.ts:160"
+  },
+  {
    "key": "Агата",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Варвара",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Злата",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Есения",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Ирина",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Маргарита",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Таисия",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Вероника",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Милана",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
    "key": "Эмилия",
-   "at": "src/sim/residents.ts:149"
+   "at": "src/sim/residents.ts:161"
   },
   {
-   "key": "{0}а",
-   "at": "src/sim/residents.ts:165"
+   "key": "{0} {1}а",
+   "at": "src/sim/residents.ts:181"
   },
   {
    "key": "«Кофе на бегу»",
@@ -6545,248 +6613,163 @@
    "why": "data"
   },
   {
-   "key": "Зинаида",
-   "at": "src/sim/residents.ts:133",
-   "why": "data"
-  },
-  {
-   "key": "Марина",
-   "at": "src/sim/residents.ts:133",
-   "why": "data"
-  },
-  {
-   "key": "Анна",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Вера",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Дарья",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Жанна",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Ксения",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Мария",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Ольга",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Светлана",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Ульяна",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Юлия",
-   "at": "src/sim/residents.ts:134",
-   "why": "data"
-  },
-  {
-   "key": "Яна",
-   "at": "src/sim/residents.ts:135",
-   "why": "data"
-  },
-  {
-   "key": "Полина",
-   "at": "src/sim/residents.ts:135",
-   "why": "data"
-  },
-  {
-   "key": "Алиса",
-   "at": "src/sim/residents.ts:135",
-   "why": "data"
-  },
-  {
-   "key": "Нина",
-   "at": "src/sim/residents.ts:135",
-   "why": "data"
-  },
-  {
-   "key": "Софья",
-   "at": "src/sim/residents.ts:135",
-   "why": "data"
-  },
-  {
    "key": "Агата",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Бажен",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Варвара",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Гордей",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Злата",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Елисей",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Есения",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Захар",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Ирина",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Лука",
-   "at": "src/sim/residents.ts:145",
+   "at": "src/sim/residents.ts:134",
    "why": "data"
   },
   {
    "key": "Маргарита",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Мирон",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Таисия",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Платон",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Вероника",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Савелий",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Милана",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Тихон",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Эмилия",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Ярослав",
-   "at": "src/sim/residents.ts:146",
+   "at": "src/sim/residents.ts:135",
    "why": "data"
   },
   {
    "key": "Орлов",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Медведев",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Тихонов",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Комаров",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Фролов",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Журавлёв",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Ершов",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Сорокин",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Галкин",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Крылов",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Макаров",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {
    "key": "Егоров",
-   "at": "src/sim/residents.ts:148",
+   "at": "src/sim/residents.ts:137",
    "why": "data"
   },
   {

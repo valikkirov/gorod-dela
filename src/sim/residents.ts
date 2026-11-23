@@ -4,7 +4,7 @@ import { makeCharacter, type Character, type Memory } from './character';
 import { Rng } from './rng';
 import type { DistrictId, Point } from './world';
 
-import { L } from './i18n';
+import { getLang, L } from './i18n';
 export type ResidentKind =
   | 'office'
   | 'student'
@@ -129,40 +129,71 @@ const LAST_NAMES = [
   'Иванов', 'Смирнов', 'Кузнецов', 'Попов', 'Соколов', 'Лебедев', 'Козлов', 'Новиков',
   'Морозов', 'Волков', 'Зайцев', 'Павлов', 'Семёнов', 'Голубев', 'Виноградов', 'Белов',
 ];
-const FEMALE = new Set([
-  'Зинаида', 'Марина',
-  'Анна', 'Вера', 'Дарья', 'Жанна', 'Ксения', 'Мария', 'Ольга', 'Светлана', 'Ульяна', 'Юлия',
-  'Яна', 'Полина', 'Алиса', 'Нина', 'Софья',
-]);
-
-/** Для согласования глаголов: «зашла» или «зашёл» */
-export function isFemale(name: string): boolean {
-  return FEMALE.has(name.split(' ')[0]);
-}
-
 /** Запасные имена: ими переименовываем тёзок, чтобы в городе не было двух одинаковых людей */
 const SPARE_FIRST = [
   'Агата', 'Бажен', 'Варвара', 'Гордей', 'Злата', 'Елисей', 'Есения', 'Захар', 'Ирина', 'Лука',
   'Маргарита', 'Мирон', 'Таисия', 'Платон', 'Вероника', 'Савелий', 'Милана', 'Тихон', 'Эмилия', 'Ярослав',
 ];
 const SPARE_LAST = ['Орлов', 'Медведев', 'Тихонов', 'Комаров', 'Фролов', 'Журавлёв', 'Ершов', 'Сорокин', 'Галкин', 'Крылов', 'Макаров', 'Егоров'];
-for (const n of ['Агата', 'Варвара', 'Злата', 'Есения', 'Ирина', 'Маргарита', 'Таисия', 'Вероника', 'Милана', 'Эмилия']) FEMALE.add(n);
+
+// Английская версия — город с западными именами. Списки той же длины и тот же пол на тех же местах:
+// rng выбирает по номеру, так что город (кто где живёт, кто куда ходит) одинаков на обоих языках
+export const NAMES_EN = {
+  first: [
+    'Anna', 'Ben', 'Grace', 'George', 'Daisy', 'Ethan', 'Jane', 'Isaac', 'Chloe', 'Liam',
+    'Mary', 'Nick', 'Olivia', 'Paul', 'Ryan', 'Sophie', 'Tom', 'Lucy', 'Fred',
+    'Julia', 'Emma', 'Adam', 'Paula', 'Dennis', 'Alice', 'Kevin', 'Nina', 'Oliver', 'Sofia', 'Victor',
+  ],
+  last: ['Smith', 'Johnson', 'Walker', 'Hughes', 'Cooper', 'Turner', 'Parker', 'Newman', 'Frost', 'Wolfe', 'Hale', 'Powell', 'Simmons', 'Gray', 'Vine', 'White'],
+  spareFirst: [
+    'Agatha', 'Blake', 'Barbara', 'Gordon', 'Stella', 'Elliot', 'Jessica', 'Zachary', 'Irene', 'Luke',
+    'Margaret', 'Miles', 'Tessa', 'Peter', 'Veronica', 'Sam', 'Mila', 'Theo', 'Emily', 'Jack',
+  ],
+  spareLast: ['Brooks', 'Mason', 'Fisher', 'Collins', 'Ford', 'Crane', 'Ellis', 'Sutton', 'Gale', 'Carter', 'Mackay', 'Edwards'],
+};
+export const NAMES_RU = { first: FIRST_NAMES, last: LAST_NAMES, spareFirst: SPARE_FIRST, spareLast: SPARE_LAST };
+const names = () => (getLang() === 'en' ? NAMES_EN : NAMES_RU);
+
+const FEMALE = new Set([
+  'Зинаида', 'Марина',
+  'Анна', 'Вера', 'Дарья', 'Жанна', 'Ксения', 'Мария', 'Ольга', 'Светлана', 'Ульяна', 'Юлия',
+  'Яна', 'Полина', 'Алиса', 'Нина', 'Софья',
+  'Агата', 'Варвара', 'Злата', 'Есения', 'Ирина', 'Маргарита', 'Таисия', 'Вероника', 'Милана', 'Эмилия',
+  // Английские имена — по тем же местам в списках; героини английской версии — Mrs. Evelyn Finch и Claire Vance
+  'Mrs.', 'Claire',
+]);
+for (const [ru, en] of [
+  [FIRST_NAMES, NAMES_EN.first],
+  [SPARE_FIRST, NAMES_EN.spareFirst],
+] as const) {
+  ru.forEach((n, i) => {
+    if (FEMALE.has(n)) FEMALE.add(en[i]);
+  });
+}
+
+/** Для согласования глаголов: «зашла» или «зашёл» */
+export function isFemale(name: string): boolean {
+  return FEMALE.has(name.split(' ')[0]);
+}
+
+/** Фамилия по полу: по-русски «Иванова», по-английски без изменений */
+const fullName = (first: string, last: string): string =>
+  FEMALE.has(first) && getLang() !== 'en' ? `${first} ${last}а` : `${first} ${last}`;
 
 /**
  * Переименовать тёзок: у каждого жителя из списка — имя, которого ещё нет в used (used пополняется).
  * Детерминированно: новое имя зависит только от номера жителя и того, какие имена уже заняты
  */
 export function uniqueNames(residents: Resident[], used: Set<string>): void {
-  const firsts = [...FIRST_NAMES, ...SPARE_FIRST];
-  const lasts = [...LAST_NAMES, ...SPARE_LAST];
+  const n = names();
+  const firsts = [...n.first, ...n.spareFirst];
+  const lasts = [...n.last, ...n.spareLast];
   for (const r of residents) {
     if (used.has(r.name)) {
       const total = firsts.length * lasts.length;
       for (let k = 0; k < total; k++) {
         const i = (r.id * 7919 + k * 104729) % total;
-        const first = firsts[i % firsts.length];
-        const last = lasts[Math.floor(i / firsts.length)];
-        const name = `${first} ${FEMALE.has(first) ? `${last}а` : last}`;
+        const name = fullName(firsts[i % firsts.length], lasts[Math.floor(i / firsts.length)]);
         if (!used.has(name)) {
           r.name = name;
           break;
@@ -174,9 +205,8 @@ export function uniqueNames(residents: Resident[], used: Set<string>): void {
 }
 
 function makeName(rng: Rng): string {
-  const first = rng.pick(FIRST_NAMES);
-  const last = rng.pick(LAST_NAMES);
-  return `${first} ${FEMALE.has(first) ? `${last}а` : last}`;
+  const n = names();
+  return fullName(rng.pick(n.first), rng.pick(n.last));
 }
 
 const HOMES = ['home-1', 'home-2', 'home-3', 'home-4'];

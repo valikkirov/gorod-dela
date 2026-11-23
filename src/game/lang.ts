@@ -9,7 +9,7 @@ const RU_LIKE = ['ru', 'uk', 'be', 'kk', 'uz', 'ky', 'tg', 'hy', 'az', 'ka', 'tk
 
 /** Строки из index.html (их нет в коде) */
 const PAGE: Record<string, string> = {
-  'Город дела': 'Business Town',
+  'Город дела': 'Cornerstone Cafe',
   'День 1 · 06:00': 'Day 1 · 06:00',
   'Маленькое дело. Живая улица.': 'A small business. A living street.',
   'Включить звук': 'Turn sound on',
