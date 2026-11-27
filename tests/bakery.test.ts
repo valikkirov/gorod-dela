@@ -81,3 +81,32 @@ describe('Пекарня на Садовой', () => {
     expect(back.bakery!.reports.at(-1)!.guests).toBeGreaterThan(0);
   }, 120_000);
 });
+
+describe('Одна печь на всё', () => {
+  it('своя полка, свои точки и магазин делят одну печь: лишнее точки докупают у поставщика, в магазин везём меньше', () => {
+    const c = cityWithCafe();
+    const b = c.openBakery()!;
+    b.hireBarista('shift');
+    b.setKeep('oven', 60);
+    b.setKeep('oven', 60, true);
+    b.setWholesale(40);
+    // Кафе просит много выпечки каждое утро
+    c.main.setKeep('bakery', 40);
+    c.main.setKeep('bakery', 40, true);
+    c.advance(3 * DAY);
+    for (const r of b.reports.slice(-2)) {
+      const used = 60 + (r.supplied ?? 0) + (r.wholesale?.qty ?? 0);
+      expect(used).toBeLessThanOrEqual(80);
+    }
+    const last = b.reports.at(-1)!;
+    // Печи на точки и магазин осталось 20: кто-то недополучил
+    expect((last.ovenShort ?? 0) + (last.wholesaleShort ?? 0)).toBeGreaterThan(0);
+  }, 120_000);
+
+  it('печь больше своей мощности не ставится', () => {
+    const c = cityWithCafe();
+    const b = c.openBakery()!;
+    b.setKeep('oven', 500);
+    expect(b.cafe.stock.keep.oven).toBe(80);
+  }, 60_000);
+});

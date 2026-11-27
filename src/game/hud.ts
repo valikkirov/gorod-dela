@@ -2122,10 +2122,20 @@ export class Hud {
     const w = y?.wholesale;
     const wLine = w ? tr`<small>Вчера взяли ${w.qty}, продали ${w.sold} — платят за проданное по ${money(BAKERY.wholesalePrice)}, остальное вернули.</small>` : tr`<small>Магазин платит по ${money(BAKERY.wholesalePrice)} за проданный хлеб, непроданное возвращает. Печь обходится в ${money(BAKERY.supplyCost)}.</small>`;
     const supplied = y?.supplied ? tr` Вчера отвезли ${y.supplied} шт.` : '';
+    // Одна печь на всё: сколько уходит на полку и сколько остаётся точкам и магазину
+    const cap = BAKERY.ovenCapacity;
+    const shortLines = [
+      y?.ovenShort ? tr`точки докупили у поставщика ${y.ovenShort} шт. по ${money(60)}` : '',
+      y?.wholesaleShort ? tr`в «Продукты» отвезли на ${y.wholesaleShort} шт. меньше` : '',
+    ].filter(Boolean);
+    const ovenShort = shortLines.length ? warnLine(tr`Вчера печи не хватило: ${shortLines.join('; ')}.`) : '';
     return tr`<div class="bakery-block">
       <h4>Печь</h4>
-      <div class="row"><span class="grow">Печь каждое утро</span><button class="icon" data-action="bake" data-item="-5" aria-label="Меньше">−</button><b class="qty">${keep}</b><button class="icon" data-action="bake" data-item="5" aria-label="Больше">+</button></div>
+      <div class="oven-bar"><i style="width:${(keep / cap) * 100}%"></i></div>
+      <small>Печь печёт до ${cap} шт. за утро: сначала твою полку, потом свои точки, потом «Продукты». На полку — ${keep}, на остальное — ${cap - keep}.</small>
+      <div class="row"><span class="grow">Печь на свою полку</span><button class="icon" data-action="bake" data-item="-5" aria-label="Меньше">−</button><b class="qty">${keep}</b><button class="icon" data-action="bake" data-item="5" aria-label="Больше" ${keep >= cap ? 'disabled' : ''}>+</button></div>
       ${yBake}
+      ${ovenShort}
       <h5>Уценка своей выпечки вечером</h5>
       <div class="chips">${mdOpts}</div>
       <small>Лучше продать дешевле, чем списать: к ночи непроданное идёт в мусор.</small>

@@ -50,6 +50,14 @@ const TASTE_FAN = 0.3;
 /** Версия карты: сохранения со старой картой загружаются, но жители встают на новые места */
 export const MAP_VERSION = 2;
 
+/** Печь пекарни на сегодня: сколько ещё можно испечь для точек и магазина и сколько не хватило */
+export interface OvenDay {
+  day: number;
+  left: number;
+  /** Точкам не хватило печи — докупили у поставщика */
+  short: number;
+}
+
 export interface SaveData {
   version: number;
   /** Район точки; нет — Кленовая */
@@ -80,6 +88,8 @@ export interface SaveData {
   contract?: OfficeContract | null;
   /** Договор с фермой (нет — не подписывали) */
   farm?: FarmDeal | null;
+  /** Пекарня: сколько печи осталось на сегодня (нет — старое сохранение, посчитается заново) */
+  oven?: OvenDay | null;
   /** Компании коллег: итог сегодняшнего дня и ходили ли к вам в прошлый раз (для новостей) */
   groupDay?: Record<number, GroupDay>;
   groupWas?: Record<number, boolean>;
@@ -116,6 +126,8 @@ export interface SaveData {
 
 /** Когда поставщик привозит заказ */
 const DELIVERY_AT = hm(6);
+/** Пекарня везёт хлеб в «Продукты» к открытию магазина — после того, как свои точки забрали выпечку */
+const WHOLESALE_AT = hm(7);
 /** Шанс дозаказа у тех, кто сидит в кафе */
 export const EXTRA = { bar: 0.7, coffee: 0.4, tea: 0.35, lunch: 0.35 } as const;
 
@@ -132,6 +144,12 @@ export const BAKERY = {
   /** Своя выпечка в свои точки: почём пекарня отдаёт порцию (поставщик берёт 60) и во что ей обходится */
   supplyPrice: 40,
   supplyCost: 25,
+  /**
+   * Одна печь на всё: сколько штук она печёт за утро. Порядок: своя полка (столько, сколько игрок
+   * поставил печь), потом свои точки, потом хлеб в «Продукты». Не хватило точкам — остаток они берут
+   * у поставщика по его цене; магазину — везём меньше
+   */
+  ovenCapacity: 80,
   /** Хлеб в «Продукты»: оптовая цена, сколько можно возить; магазин платит за проданное, остаток возвращает */
   wholesalePrice: 60,
   wholesaleMax: 40,
@@ -257,6 +275,7 @@ export class Simulation {
   contract: OfficeContract | null = null;
   /** Договор с фермой: продукт дешевле, но иногда партия испорчена */
   farm: FarmDeal | null = null;
+  oven: OvenDay | null = null;
   /** Сколько разовых заказов офиса выполнено — после первого офис предлагает договор */
   private officeOrders = 0;
   /** До какого дня офис не предлагает договор после расторжения */
@@ -424,6 +443,7 @@ export class Simulation {
       lastEvent: { ...this.lastEvent },
       contract: this.contract,
       farm: this.farm,
+      oven: this.oven,
       groupDay: this.groupDay,
       groupWas: this.groupWas,
       officeOrders: this.officeOrders,
@@ -491,6 +511,7 @@ export class Simulation {
     sim.lastEvent = { ...(d.lastEvent ?? {}) };
     sim.contract = d.contract ?? null;
     sim.farm = d.farm ?? null;
+    sim.oven = d.oven ?? null;
     sim.groupDay = { ...(d.groupDay ?? {}) };
     sim.groupWas = { ...(d.groupWas ?? {}) };
     sim.officeOrders = d.officeOrders ?? 0;
@@ -876,6 +897,7 @@ export class Simulation {
 
     // Поставщик привозит заказы в 6:00
     if (before < DELIVERY_AT && minute >= DELIVERY_AT) this.receiveDelivery();
+    if (before < WHOLESALE_AT && minute >= WHOLESALE_AT && this.cafe.opened && this.cafe.premisesId === 'bakery') this.sellWholesale();
 
     if (wasOpen && !this.cafe.isOpenAt(minute)) {
       // Закрылись — недообслуженные уходят
@@ -1385,17 +1407,20 @@ export class Simulation {
 
   private receiveDelivery(): void {
     if (!this.cafe.opened) return;
-    // Выпечку везёт своя пекарня, если она есть и возит: дешевле поставщика, деньги остаются в сети
+    // Печь пекарни на сегодня — до того, как испечётся своя полка (её заказ ещё в pending)
+    if (this.cafe.premisesId === 'bakery') this.ovenToday(this.day);
+    // Выпечку везёт своя пекарня, если она есть и возит: дешевле поставщика, деньги остаются в сети.
+    // Сколько успеет печь — по своей цене, остальное — у поставщика по его цене
     const baker = this.ownBakery();
-    if (baker) this.cafe.stock.unitPrice.bakery = BAKERY.supplyPrice;
+    const want = this.cafe.stock.pending.bakery ?? 0;
+    const got = baker && want > 0 ? baker.ovenTake(this.day, want) : 0;
+    if (baker && want > 0) this.cafe.stock.unitPrice.bakery = (got * BAKERY.supplyPrice + (want > got ? orderPrice('bakery', want - got) : 0)) / want;
     else delete this.cafe.stock.unitPrice.bakery;
     const farm = this.farm && this.day <= this.farm.until ? this.farm : null;
     if (farm) this.cafe.stock.unitPrice[farm.ingredientId] = farm.price;
     const d = this.cafe.stock.deliver(this.day);
     if (farm) this.farmDelivery(farm, d.items[farm.ingredientId] ?? 0);
-    const shipped = d.items.bakery ?? 0;
-    if (baker && shipped > 0) baker.supplyOut(shipped);
-    if (this.cafe.premisesId === 'bakery') this.sellWholesale();
+    if (baker && got > 0) baker.supplyOut(got);
     // Соцсети работают каждый день кампании
     if (this.marketing.socialDaysLeft > 0) {
       this.marketing.socialDaysLeft -= 1;
@@ -1424,9 +1449,32 @@ export class Simulation {
     return hub.guests.find((g) => g.cafe.opened && g.cafe.premisesId === 'bakery' && g.cafe.supply) ?? null;
   }
 
-  /** Пекарня утром везёт хлеб в «Продукты»: магазин платит за проданное, непроданное возвращает (печь уже потрачена) */
+  /** Печь пекарни на сегодня: своя полка уже заложена, остаток — точкам и магазину */
+  private ovenToday(day: number): OvenDay {
+    if (!this.oven || this.oven.day !== day) {
+      const own = Math.min(BAKERY.ovenCapacity, this.cafe.stock.pending.oven ?? 0);
+      this.oven = { day, left: BAKERY.ovenCapacity - own, short: 0 };
+    }
+    return this.oven;
+  }
+
+  /** Своя точка просит выпечку: сколько печь успеет испечь (остальное точка докупит у поставщика) */
+  ovenTake(day: number, want: number): number {
+    const o = this.ovenToday(day);
+    const got = Math.min(want, o.left);
+    o.left -= got;
+    o.short += want - got;
+    if (want > got) this.cafe.today.ovenShort = (this.cafe.today.ovenShort ?? 0) + (want - got);
+    return got;
+  }
+
+  /** Пекарня в 7:00 везёт хлеб в «Продукты» — сколько осталось печи после своих точек. Магазин платит за проданное, непроданное возвращает */
   private sellWholesale(): void {
-    const qty = Math.min(BAKERY.wholesaleMax, Math.max(0, Math.round(this.cafe.wholesale)));
+    const oven = this.ovenToday(this.day);
+    const asked = Math.min(BAKERY.wholesaleMax, Math.max(0, Math.round(this.cafe.wholesale)));
+    const qty = Math.min(asked, oven.left);
+    oven.left -= qty;
+    if (asked > qty) this.cafe.today.wholesaleShort = asked - qty;
     if (!qty) return;
     const share = (BAKERY.wholesaleMin + BAKERY.wholesaleSpread * this.eventRng.next()) * (isWeekend(this.day) ? BAKERY.wholesaleWeekend : 1);
     const sold = Math.min(qty, Math.round(qty * share));
@@ -1543,6 +1591,8 @@ export class Simulation {
   // ——— Склад: команды игрока ———
 
   orderIngredient(id: IngredientId, qty: number): void {
+    if (id === 'oven') qty = Math.min(qty, BAKERY.ovenCapacity - (this.cafe.stock.pending.oven ?? 0));
+    if (qty <= 0) return;
     this.cafe.stock.order(id, qty);
     this.markStep('stock');
     const total = this.cafe.stock.pending[id] ?? qty;
@@ -1559,7 +1609,8 @@ export class Simulation {
   setKeep(id: IngredientId, qty: number, weekend = false): void {
     const levels = weekend ? this.cafe.stock.keepWeekend : this.cafe.stock.keep;
     const from = levels[id];
-    levels[id] = Math.max(0, Math.round(qty));
+    // Своя выпечка — не больше, чем печь печёт за утро
+    levels[id] = Math.max(0, Math.round(id === 'oven' ? Math.min(qty, BAKERY.ovenCapacity) : qty));
     if (levels[id] !== from) this.markStep('stock');
     this.note(
       `keep:${id}:${weekend ? 'we' : 'wd'}`,

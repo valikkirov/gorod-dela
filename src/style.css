@@ -4194,3 +4194,18 @@ a.foot-tile:hover {
   color: #c75a2e;
   font-weight: 700;
 }
+
+.oven-bar {
+  height: 8px;
+  margin: 6px 0 4px;
+  border-radius: 4px;
+  background: #ead9bf;
+  overflow: hidden;
+}
+
+.oven-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #c75a2e;
+}
