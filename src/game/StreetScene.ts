@@ -386,7 +386,7 @@ export class StreetScene extends Phaser.Scene {
   /** Гости в витрине: те же спрайты жителей, по пояс, за подоконником */
   private guestSprites: Phaser.GameObjects.Image[] = [];
   private selected: Resident | null = null;
-  private selectedPlace: Place | null = null;
+  selectedPlace: Place | null = null;
   private highlight!: Phaser.GameObjects.Graphics;
   /** Подписи на карте: держим их читаемыми при любом масштабе */
   private labels: Phaser.GameObjects.Text[] = [];

@@ -191,6 +191,19 @@ hud.onShowPlace = (district, id) => {
   if (s && sim) s.selectPlace(sim.at(id));
 };
 hud.viewDistrict = () => scene.viewDistrict();
+// «📍 Показать на карте»: панель уезжает вниз, камера — к зданию точки, рамка горит пару секунд
+hud.onLookAt = (district, id) => {
+  switchTo(district);
+  const s = district === city.main.district ? scene : neighbor;
+  const sim = city.point(district);
+  const place = sim?.at(id);
+  if (!s || !place) return;
+  drawer.collapse();
+  s.selectPlace(place, false);
+  setTimeout(() => {
+    if (s.selectedPlace === place) s.selectPlace(null, false);
+  }, 2500);
+};
 
 // ——— Площадка: «игра загружена», геймплей идёт или стоит, пауза по просьбе площадки ———
 let platformPaused = false;

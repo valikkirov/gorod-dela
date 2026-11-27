@@ -358,6 +358,8 @@ export class Hud {
   viewDistrict: () => DistrictId = () => this.sim.district;
   /** Показать место на карте: переехать в район и открыть его карточку */
   onShowPlace: (district: DistrictId, placeId: string) => void = () => {};
+  /** Показать точку на карте: камера к зданию, оно подсвечивается — карточка не открывается */
+  onLookAt: (district: DistrictId, placeId: string) => void = () => {};
 
   constructor(
     private readonly city: City,
@@ -766,8 +768,12 @@ export class Hud {
         // В другой район — камера едет туда же
         if (target.district !== sim.district) this.onSwitch(target.district);
         this.show(target);
+        this.onLookAt(target.district, PREMISES[target.cafe.premisesId].placeId);
         return;
       }
+      case 'look-at':
+        this.onLookAt(sim.district, PREMISES[sim.cafe.premisesId].placeId);
+        return;
       case 'bake': {
         const now = sim.cafe.stock.keep.oven;
         const next = Math.max(0, now + Number(item));
@@ -1737,7 +1743,7 @@ export class Hud {
           <button class="small" data-action="rename-save">Готово</button>
           <button class="icon" data-action="rename-cancel" aria-label="Отмена">✕</button>
         </div>`
-      : tr`<div class="biz-name"><b>${escapeHtml(cafe.title)}</b><button class="icon" data-action="rename" aria-label="Переименовать" title="Переименовать">✎</button></div>`;
+      : tr`<div class="biz-name"><b>${escapeHtml(cafe.title)}</b><button class="icon" data-action="rename" aria-label="Переименовать" title="Переименовать">✎</button><button class="icon" data-action="look-at" aria-label="Показать на карте" title="Показать на карте">📍</button></div>`;
     return tr`<header class="biz">
       <small class="eyebrow">Твоё заведение</small>
       ${name}
