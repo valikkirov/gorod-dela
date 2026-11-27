@@ -899,15 +899,26 @@ export class Hud {
           goalOnce('first_furniture', { how: 'sell' });
         }
         break;
-      case 'share-hall': {
+      case 'share-hall':
+      case 'contest-hall': {
+        const contest = action === 'contest-hall';
         const hall = this.panel.querySelector<HTMLElement>('.hall:not(.mini)');
         if (!hall || btn.classList.contains('busy')) return;
         btn.classList.add('busy');
         const h = sim.cafe.interior;
         const line = tr`${h.seats} мест · уют ${Math.min(h.cozy, INTERIOR.cozyFull)} из ${INTERIOR.cozyFull} · день ${sim.today + 1}`;
-        void shareHall(hall, sim.cafe.title, line)
+        void shareHall(hall, sim.cafe.title, line, contest)
           .then((r) => {
-            btn.textContent = r === 'downloaded' ? L('Картинка сохранена — ссылка скопирована') : r === 'cancelled' ? L('📸 Показать свой зал') : L('Готово!');
+            btn.textContent =
+              r === 'downloaded'
+                ? contest
+                  ? L('Картинка сохранена — выложи её под постом конкурса')
+                  : L('Картинка сохранена — ссылка скопирована')
+                : r === 'cancelled'
+                  ? contest
+                    ? L('🎄 На конкурс «Новогодний зал»')
+                    : L('📸 Показать свой зал')
+                  : L('Готово!');
           })
           .catch(() => (btn.textContent = L('Не получилось — попробуй ещё раз')))
           .finally(() => btn.classList.remove('busy'));
@@ -1551,7 +1562,7 @@ export class Hud {
               eq && fitsKind
                 ? cafe.equipment.includes(eq.id)
                   ? tr`<p class="equip on"><b>${eq.name}</b> <span class="badge on">установлено</span></p>`
-                  : tr`<p class="equip"><span class="grow">Нужна покупка: <b>${eq.name}</b>. Свет и вода +${eq.utilitiesPerHour} ₽ за час работы</span>
+                  : tr`<p class="equip"><span class="grow">Нужна покупка: <b>${eq.name}</b>. Свет и вода +${money(eq.utilitiesPerHour)} за час работы</span>
                       <button class="small" data-action="buy-equipment" data-item="${eq.id}" ${this.sim.cash < eq.cost ? 'disabled' : ''}>${money(eq.cost)}</button></p>`
                 : '';
             return `<h5>${KIND_TITLE[kind]}</h5>${equip}<ul class="menu catalog">${rows}</ul>${legal}`;

@@ -6,9 +6,9 @@ import { Simulation } from '../src/sim/simulation';
 const WINTER = ['sunny', 'cloudy', 'snow', 'frost'];
 
 describe('Новогодний сезон', () => {
-  it('сезон — с 15 декабря по 12 января', () => {
-    expect(isHolidayDate(12, 14)).toBe(false);
-    expect(isHolidayDate(12, 15)).toBe(true);
+  it('сезон — с 1 декабря по 12 января', () => {
+    expect(isHolidayDate(11, 30)).toBe(false);
+    expect(isHolidayDate(12, 1)).toBe(true);
     expect(isHolidayDate(12, 31)).toBe(true);
     expect(isHolidayDate(1, 12)).toBe(true);
     expect(isHolidayDate(1, 13)).toBe(false);

@@ -1511,7 +1511,7 @@ export const EN: Record<string, string> = {
  "Готово!": "Done!",
  "Не получилось — попробуй ещё раз": "Didn't work, try again",
  "Мой зал в «Городе дела». Заходи — открой своё кафе: {0}": "My café hall in Cornerstone Cafe. Come open your own café: {0}",
- "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    <button class=\"share-hall\" data-action=\"share-hall\">📸 Показать свой зал</button>\n    {3}\n    {4}\n    <h4>Готовые комплектации</h4>\n    <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Свой дизайн</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}": "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    <button class=\"share-hall\" data-action=\"share-hall\">📸 Show your hall</button>\n    {3}\n    {4}\n    <h4>Ready-made sets</h4>\n    <small>Pick one and it's placed. Extras sell for half price, matching items stay.</small>\n    <ul class=\"menu presets\">{5}</ul>\n    {6}\n    <h4>Your own design</h4>\n    <div class=\"row wrap\">{7}</div>\n    {8}",
+ "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    <button class=\"share-hall\" data-action=\"share-hall\">📸 Показать свой зал</button>\n    {3}\n    {4}\n    {5}\n    <h4>Готовые комплектации</h4>\n    <small>Выбрал — поставил. Лишнее продаётся за полцены, совпадающее остаётся.</small>\n    <ul class=\"menu presets\">{6}</ul>\n    {7}\n    <h4>Свой дизайн</h4>\n    <div class=\"row wrap\">{8}</div>\n    {9}": "\n    <div class=\"hall\" style=\"background-image:url({0})\">{1}{2}</div>\n    <button class=\"share-hall\" data-action=\"share-hall\">📸 Show your hall</button>\n    {3}\n    {4}\n    {5}\n    <h4>Ready-made sets</h4>\n    <small>Pick one and it's placed. Extras sell for half price, matching items stay.</small>\n    <ul class=\"menu presets\">{6}</ul>\n    {7}\n    <h4>Your own design</h4>\n    <div class=\"row wrap\">{8}</div>\n    {9}",
  "<p class=\"hint\">📐 Здесь архитектурное бюро Валентина Кирова: по его чертежам построен этот город.</p>": "<p class=\"hint\">📐 Valentin Kirov's architecture studio is here: this whole city was built from his drawings.</p>",
  "Архитектор": "Architect",
  "Валентин Киров": "Valentin Kirov",
@@ -1585,5 +1585,17 @@ export const EN: Record<string, string> = {
  "<b>Первый гость!</b> Чтобы о тебе узнало больше людей, загляни потом во вкладку «Гости → Реклама».": "<b>First guest!</b> To get known by more people, check the “Guests → Ads” tab later.",
  "<b>Конец дня — отчёт.</b> Сколько заработал и кто почему не зашёл. Первая неделя почти всегда в минусе — ты вкладываешься в известность. Дальше — сам!": "<b>End of day — the report.</b> What you earned and who didn't come in and why. The first week is almost always in the red — you're investing in being known. Now it's up to you!",
  "Шаг {0} из {1}": "Step {0} of {1}",
- "Пропустить обучение": "Skip tutorial"
+ "Пропустить обучение": "Skip tutorial",
+ "28 декабря": "December 28",
+ "#новогоднийзал": "#newyearhall",
+ "<a href=\"{0}\" target=\"_blank\" rel=\"noopener\">в нашей группе ВК</a>": "<a href=\"{0}\" target=\"_blank\" rel=\"noopener\">in our VK group</a>",
+ "<a href=\"{0}\" target=\"_blank\" rel=\"noopener\">в ВК</a> или <a href=\"{1}\" target=\"_blank\" rel=\"noopener\">в Telegram</a>": "<a href=\"{0}\" target=\"_blank\" rel=\"noopener\">on VK</a> or <a href=\"{1}\" target=\"_blank\" rel=\"noopener\">on Telegram</a>",
+ "<button class=\"share-hall contest\" data-action=\"contest-hall\">🎄 На конкурс «Новогодний зал»</button>\n    <p class=\"hint-line contest-note\">{0}</p>": "<button class=\"share-hall contest\" data-action=\"contest-hall\">🎄 Enter the “New Year Hall” contest</button>\n    <p class=\"hint-line contest-note\">{0}</p>",
+ "Наряди зал к празднику и нажми кнопку — получится картинка с хэштегом {0}. Выложи её в комментарии к посту конкурса {1} до 21 декабря. Итоги — {2}: у победителя в зале появится редкий декор, а о его кафе мы напишем пост.": "Decorate your hall for the holidays and tap the button — you'll get a picture with the hashtag {0}. Post it in the comments under the contest post {1} by December 21. Results on {2}: the winner gets rare decor in their hall and a post about their café.",
+ "Картинка сохранена — выложи её под постом конкурса": "Picture saved — post it under the contest post",
+ "🎄 На конкурс «Новогодний зал»": "🎄 Enter the “New Year Hall” contest",
+ "🎄 КОНКУРС «НОВОГОДНИЙ ЗАЛ»": "🎄 “NEW YEAR HALL” CONTEST",
+ "Мой новогодний зал в «Городе дела» — на конкурс {0}. Играть: {1}": "My New Year hall in Cornerstone Cafe — for the {0} contest. Play: {1}",
+ "Город дела": "Cornerstone Cafe",
+ "Русский": "Русский"
 };

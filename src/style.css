@@ -4180,3 +4180,17 @@ a.foot-tile:hover {
   border-top: 2px solid #4a2e1e;
   border-left: 2px solid #4a2e1e;
 }
+
+.share-hall.contest {
+  background: #c75a2e;
+  color: #fff6e6;
+}
+
+.share-hall.contest:hover {
+  background: #b04e27;
+}
+
+.contest-note a {
+  color: #c75a2e;
+  font-weight: 700;
+}

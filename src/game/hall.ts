@@ -27,6 +27,19 @@ import { BISTRO_FRAMES, BISTRO_ROOM } from './bistroFrames';
 import { HALL_ITEMS } from './hallItems';
 
 import { L, tr } from '../sim/i18n';
+import { bindShort } from '../sim/heroes';
+import { CONTEST, contestOn } from './contest';
+import { PLATFORM } from './platform';
+
+/** Конкурс «Новогодний зал»: кнопка и правила одним абзацем */
+function contestBlock(): string {
+  const where =
+    PLATFORM === 'vk'
+      ? `<a href="${CONTEST.vk}" target="_blank" rel="noopener">в нашей группе ВК</a>`
+      : `<a href="${CONTEST.vk}" target="_blank" rel="noopener">в ВК</a> или <a href="${CONTEST.tg}" target="_blank" rel="noopener">в Telegram</a>`;
+  return `<button class="share-hall contest" data-action="contest-hall">🎄 На конкурс «Новогодний зал»</button>
+    <p class="hint-line contest-note">${bindShort(`Наряди зал к празднику и нажми кнопку — получится картинка с хэштегом ${CONTEST.tag}. Выложи её в комментарии к посту конкурса ${where} до 21 декабря. Итоги — ${CONTEST.results}: у победителя в зале появится редкий декор, а о его кафе мы напишем пост.`)}</p>`;
+}
 const money = formatMoney;
 
 // Зал нарисован целиком в одном ракурсе, мебель вырезана из него же (scripts/cut_hall.py):
@@ -331,6 +344,7 @@ export function hallTab(sim: Simulation, selected: string | null): string {
       (kind === 'cafe' ? `${menuBoard(sim)}${sim.cafe.baristas > 0 ? baristaLayer : ''}` : layout['b-wall-r'] === 'menuboard' ? bistroBoard(sim) : '')
     }${things}</div>
     <button class="share-hall" data-action="share-hall">📸 Показать свой зал</button>
+    ${contestOn() ? contestBlock() : ''}
     ${stats}
     ${styleBlock}
     <h4>Готовые комплектации</h4>

@@ -4,6 +4,7 @@
 import { getLang, L, tr } from '../sim/i18n';
 import logoRu from './art/logo-ru.webp';
 import logoEn from './art/logo-en.webp';
+import { CONTEST } from './contest';
 import { goal, visitor } from './metrika';
 import { PLATFORM } from './platform';
 import { isTelegram } from './telegram';
@@ -95,7 +96,7 @@ async function drawHall(hall: HTMLElement, ctx: CanvasRenderingContext2D, x: num
 }
 
 /** Картинка зала: рамка, логотип, зал, название, адрес */
-export async function hallCard(hall: HTMLElement, title: string, line: string): Promise<Blob> {
+export async function hallCard(hall: HTMLElement, title: string, line: string, contest = false): Promise<Blob> {
   const cv = document.createElement('canvas');
   cv.width = W;
   cv.height = H;
@@ -111,9 +112,22 @@ export async function hallCard(hall: HTMLElement, title: string, line: string): 
   const lh = 190;
   const lw = (logo.width / logo.height) * lh;
   ctx.drawImage(logo, (W - lw) / 2, 70, lw, lh);
+  const font0 = getComputedStyle(document.body).fontFamily;
+  if (contest) {
+    // Конкурсная лента между логотипом и залом
+    ctx.fillStyle = '#C75A2E';
+    ctx.beginPath();
+    ctx.roundRect(W / 2 - 330, 256, 660, 44, 22);
+    ctx.fill();
+    ctx.fillStyle = CREAM;
+    ctx.font = `800 26px ${font0}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🎄 КОНКУРС «НОВОГОДНИЙ ЗАЛ»', W / 2, 279);
+  }
   // Зал
   const pad = 70;
-  const hh = await drawHall(hall, ctx, pad, 300, W - pad * 2);
+  const hh = await drawHall(hall, ctx, pad, contest ? 316 : 300, W - pad * 2);
   // Название и строка про зал
   const font = getComputedStyle(document.body).fontFamily;
   ctx.fillStyle = CHOCO;
@@ -122,7 +136,7 @@ export async function hallCard(hall: HTMLElement, title: string, line: string): 
   let size = 76;
   ctx.font = `800 ${size}px ${font}`;
   while (ctx.measureText(title).width > W - 160 && size > 40) ctx.font = `800 ${(size -= 4)}px ${font}`;
-  const ty = 300 + hh + 120;
+  const ty = (contest ? 316 : 300) + hh + 120;
   ctx.fillText(title, W / 2, ty);
   ctx.font = `500 36px ${font}`;
   ctx.fillStyle = '#7a5a44';
@@ -130,7 +144,7 @@ export async function hallCard(hall: HTMLElement, title: string, line: string): 
   // Адрес внизу
   ctx.font = `700 40px ${font}`;
   ctx.fillStyle = CHOCO;
-  ctx.fillText(SITE, W / 2, H - 70);
+  ctx.fillText(contest ? `${CONTEST.tag} · ${SITE}` : SITE, W / 2, H - 70);
   return new Promise((resolve, reject) => cv.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas'))), 'image/png'));
 }
 
@@ -157,8 +171,8 @@ export type ShareResult = 'shared' | 'story' | 'downloaded' | 'cancelled';
  * Поделиться картинкой. ВК — история с картинкой и ссылкой на игру; телефон с «Поделиться» (сайт, Telegram) —
  * системное меню с файлом; иначе картинка скачивается, а ссылка копируется.
  */
-export async function shareHall(hall: HTMLElement, title: string, line: string): Promise<ShareResult> {
-  const blob = await hallCard(hall, title, line);
+export async function shareHall(hall: HTMLElement, title: string, line: string, contest = false): Promise<ShareResult> {
+  const blob = await hallCard(hall, title, line, contest);
   const file = `gorod-dela-${Date.now()}.png`;
   let result: ShareResult = 'downloaded';
   if (PLATFORM === 'vk') {
@@ -174,8 +188,10 @@ export async function shareHall(hall: HTMLElement, title: string, line: string):
       result = 'cancelled';
     }
   } else if (PLATFORM === 'web') {
-    const url = shareLink(isTelegram() ? 'hall_tg' : 'hall');
-    const text = tr`Мой зал в «Городе дела». Заходи — открой своё кафе: ${url}`;
+    const url = shareLink(contest ? 'contest' : isTelegram() ? 'hall_tg' : 'hall');
+    const text = contest
+      ? tr`Мой новогодний зал в «Городе дела» — на конкурс ${CONTEST.tag}. Играть: ${url}`
+      : tr`Мой зал в «Городе дела». Заходи — открой своё кафе: ${url}`;
     const f = new File([blob], file, { type: 'image/png' });
     if (navigator.canShare?.({ files: [f] })) {
       try {
@@ -196,6 +212,6 @@ export async function shareHall(hall: HTMLElement, title: string, line: string):
     // Площадки без внешних ссылок: только картинка
     download(blob, file);
   }
-  if (result !== 'cancelled') goal('share_hall', { how: result, platform: PLATFORM });
+  if (result !== 'cancelled') goal(contest ? 'contest_entry' : 'share_hall', { how: result, platform: PLATFORM });
   return result;
 }
