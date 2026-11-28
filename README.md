@@ -7,6 +7,7 @@
 Геймдизайн-документ: https://claude.ai/code/artifact/e5251e4e-7faa-4f67-a81f-42d2c562ce59
 ТЗ на графику: https://claude.ai/code/artifact/a775eeb6-3a28-43cc-8281-6d17f3eae58e
 Графика (Figma): https://www.figma.com/design/iR0qD6EPxPVMz7Z8ZFWi0j — как обновить в игре: `scripts/README.md`
+Техническая документация: [`docs/`](docs/README.md), журнал изменений — [`CHANGELOG.md`](CHANGELOG.md)
 
 ## Запуск
 

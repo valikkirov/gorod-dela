@@ -162,6 +162,8 @@ export function startCoach(c: Ctx): void {
     bubble.remove();
     markDone();
     goal(how === 'done' ? 'tutorial_done' : 'tutorial_skip', { step: STEPS[i]?.id ?? '' });
+    // Пропустил обучение до шага с помещением — игра всё равно началась
+    goalOnce('game_start', { tutorial: how === 'done' ? 'coach' : 'skip' });
   };
 
   const next = () => {
